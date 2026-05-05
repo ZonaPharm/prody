@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,10 +25,11 @@ export function CategoriesManager() {
   const [name, setName] = useState('')
   const [parentId, setParentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+  const [error, setError] = useState('')
+  const supabase = useRef(createClient())
 
   const fetchCategories = async () => {
-    const { data } = await supabase
+    const { data } = await supabase.current
       .from('categories')
       .select('*')
       .order('sort_order')
@@ -42,28 +43,46 @@ export function CategoriesManager() {
 
   const handleAdd = async () => {
     if (!name.trim()) return
+    setError('')
     setLoading(true)
-    await supabase.from('categories').insert({
-      name: name.trim(),
-      parent_id: parentId,
-    } as any)
-    setName('')
-    setParentId(null)
-    await fetchCategories()
-    setLoading(false)
+    try {
+      await supabase.current.from('categories').insert({
+        name: name.trim(),
+        parent_id: parentId,
+      } as any)
+      setName('')
+      setParentId(null)
+      await fetchCategories()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Грешка при добавяне на категория.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
+    setError('')
     setLoading(true)
-    await supabase.from('categories').delete().eq('id', id)
-    await fetchCategories()
-    setLoading(false)
+    try {
+      await supabase.current.from('categories').delete().eq('id', id)
+      await fetchCategories()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Грешка при изтриване на категория.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const topLevelCategories = categories.filter((c) => !c.parent_id)
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+          {error}
+        </div>
+      )}
+
       <div className="flex gap-2 items-end">
         <div className="flex-1">
           <label className="text-sm font-medium mb-1 block">Име на категория</label>

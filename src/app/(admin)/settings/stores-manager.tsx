@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,10 +18,11 @@ export function StoresManager() {
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+  const [error, setError] = useState('')
+  const supabase = useRef(createClient())
 
   const fetchStores = async () => {
-    const { data } = await supabase.from('stores').select('*').order('name')
+    const { data } = await supabase.current.from('stores').select('*').order('name')
     setStores((data as Store[]) || [])
   }
 
@@ -32,30 +33,51 @@ export function StoresManager() {
 
   const handleAdd = async () => {
     if (!name.trim()) return
+    setError('')
     setLoading(true)
-    await supabase.from('stores').insert({
-      name: name.trim(),
-      address: address.trim() || null,
-    } as any)
-    setName('')
-    setAddress('')
-    await fetchStores()
-    setLoading(false)
+    try {
+      await supabase.current.from('stores').insert({
+        name: name.trim(),
+        address: address.trim() || null,
+      } as any)
+      setName('')
+      setAddress('')
+      await fetchStores()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Грешка при добавяне на магазин.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleToggleActive = async (store: Store) => {
-    setLoading(true)
-    await supabase
-      .from('stores')
-      // @ts-expect-error — supabase-js type inference limitation with @supabase/ssr
-      .update({ is_active: !store.is_active })
-      .eq('id', store.id)
-    await fetchStores()
-    setLoading(false)
+    setError('')
+    const updated = !store.is_active
+    setStores((prev) =>
+      prev.map((s) => (s.id === store.id ? { ...s, is_active: updated } : s))
+    )
+    try {
+      await supabase.current
+        .from('stores')
+        // @ts-expect-error — supabase-js type inference limitation with @supabase/ssr
+        .update({ is_active: updated })
+        .eq('id', store.id)
+    } catch (e) {
+      setStores((prev) =>
+        prev.map((s) => (s.id === store.id ? { ...s, is_active: !updated } : s))
+      )
+      setError(e instanceof Error ? e.message : 'Грешка при промяна на статус.')
+    }
   }
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+          {error}
+        </div>
+      )}
+
       <div className="flex gap-2 items-end">
         <div className="flex-1">
           <label className="text-sm font-medium mb-1 block">Име на магазин</label>
@@ -95,7 +117,6 @@ export function StoresManager() {
               variant="ghost"
               size="sm"
               onClick={() => handleToggleActive(store)}
-              disabled={loading}
             >
               {store.is_active ? 'Деактивирай' : 'Активирай'}
             </Button>
