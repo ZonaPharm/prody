@@ -1,35 +1,27 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PUBLIC_PATHS = ['/login', '/auth', '/api/auth', '/']
+const AUTH_COOKIE_PREFIX = 'sb-'
+
+function hasAuthCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some(c => c.name.startsWith(AUTH_COOKIE_PREFIX))
+}
+
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request })
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options))
-        },
-      },
-    }
-  )
+  const pathname = request.nextUrl.pathname
+  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const authenticated = hasAuthCookie(request)
 
-  if (!user && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/auth') && !request.nextUrl.pathname.startsWith('/api/auth') && request.nextUrl.pathname !== '/') {
+  if (!authenticated && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (user && request.nextUrl.pathname === '/login') {
+  if (authenticated && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return response
+  return NextResponse.next({ request })
 }
 
 export const config = {
