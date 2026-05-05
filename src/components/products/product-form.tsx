@@ -48,7 +48,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [costPrice, setCostPrice] = useState(initialData?.cost_price?.toString() || '')
   const [sku, setSku] = useState(initialData?.sku || '')
   const [barcode, setBarcode] = useState(initialData?.barcode || '')
-  const [categoryId, setCategoryId] = useState(initialData?.category_id || '')
+  const [categoryId, setCategoryId] = useState(initialData?.category_id || '__none__')
   const [source, setSource] = useState(initialData?.source || '')
   const [sourceUrl, setSourceUrl] = useState(initialData?.source_url || '')
   const [sourceOrderDate, setSourceOrderDate] = useState(
@@ -134,7 +134,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         cost_price: costPrice ? parseFloat(costPrice) : null,
         sku: sku.trim() || null,
         barcode: barcode.trim() || null,
-        category_id: categoryId || null,
+        category_id: categoryId === '__none__' ? null : (categoryId || null),
         source: source.trim() || null,
         source_url: sourceUrl.trim() || null,
         source_order_date: sourceOrderDate || null,
@@ -338,7 +338,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             <SelectValue placeholder="Избери категория" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Без категория</SelectItem>
+            <SelectItem value="__none__">Без категория</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
                 {cat.name}
