@@ -51,7 +51,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
           .from('products')
           .select('id, name, price, quantity_on_hand')
           .ilike('name', `%${search}%`)
-          .eq('status', 'received')
+          .eq('status', 'listed')
           .order('name')
           .limit(10)
 
