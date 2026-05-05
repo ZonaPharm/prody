@@ -9,7 +9,9 @@ function hasAuthCookie(request: NextRequest): boolean {
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
-  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))
+  const isPublic = PUBLIC_PATHS.some(p =>
+    p === '/' ? pathname === '/' : pathname === p || pathname.startsWith(p + '/')
+  )
 
   const authenticated = hasAuthCookie(request)
 
