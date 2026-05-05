@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Package2, BarChart3, ShoppingBag, Settings, Printer, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+export const dynamic = 'force-dynamic'
+
 const navItems = [
   { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/catalog', label: 'Каталог', icon: Package2 },
