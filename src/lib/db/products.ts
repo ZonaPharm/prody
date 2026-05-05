@@ -29,6 +29,8 @@ export async function getProducts(filters?: {
   return data || []
 }
 
+export { getCategories } from './categories'
+
 export async function getProduct(id: string) {
   const supabase = await createServerSupabaseClient()
   const { data } = await supabase

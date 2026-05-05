@@ -1,0 +1,498 @@
+'use client'
+
+import { useState, useRef, type FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { STATUS_LABELS } from '@/lib/constants'
+import { Loader2, Upload, Search } from 'lucide-react'
+
+type CategoryOption = { id: string; name: string }
+
+interface ProductFormProps {
+  initialData?: {
+    id?: string
+    name?: string
+    description?: string | null
+    price?: number | null
+    cost_price?: number | null
+    sku?: string | null
+    barcode?: string | null
+    category_id?: string | null
+    source?: string | null
+    source_url?: string | null
+    source_order_date?: string | null
+    status?: string
+    quantity_on_hand?: number
+    images?: { id: string; url: string; is_primary: boolean; sort_order: number }[]
+  }
+  categories: CategoryOption[]
+}
+
+export default function ProductForm({ initialData, categories }: ProductFormProps) {
+  const router = useRouter()
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+  const getSupabase = () => {
+    if (!supabaseRef.current) supabaseRef.current = createClient()
+    return supabaseRef.current
+  }
+
+  const [name, setName] = useState(initialData?.name || '')
+  const [description, setDescription] = useState(initialData?.description || '')
+  const [price, setPrice] = useState(initialData?.price?.toString() || '')
+  const [costPrice, setCostPrice] = useState(initialData?.cost_price?.toString() || '')
+  const [sku, setSku] = useState(initialData?.sku || '')
+  const [barcode, setBarcode] = useState(initialData?.barcode || '')
+  const [categoryId, setCategoryId] = useState(initialData?.category_id || '')
+  const [source, setSource] = useState(initialData?.source || '')
+  const [sourceUrl, setSourceUrl] = useState(initialData?.source_url || '')
+  const [sourceOrderDate, setSourceOrderDate] = useState(
+    initialData?.source_order_date
+      ? initialData.source_order_date.split('T')[0]
+      : ''
+  )
+  const [status, setStatus] = useState(initialData?.status || 'ordered')
+  const [quantityOnHand, setQuantityOnHand] = useState(
+    initialData?.quantity_on_hand?.toString() || '0'
+  )
+
+  const [files, setFiles] = useState<File[]>([])
+  const [existingImages, setExistingImages] = useState<
+    { id: string; url: string; is_primary: boolean; sort_order: number }[]
+  >(initialData?.images || [])
+
+  const [fetchUrl, setFetchUrl] = useState('')
+  const [fetchLoading, setFetchLoading] = useState(false)
+  const [fetchError, setFetchError] = useState('')
+
+  const [submitLoading, setSubmitLoading] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAutoFetch = async () => {
+    if (!fetchUrl.trim()) return
+    setFetchLoading(true)
+    setFetchError('')
+
+    try {
+      const res = await fetch('/api/fetch-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: fetchUrl.trim() }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFetchError(data.error || 'Неуспешно извличане')
+        return
+      }
+
+      if (data.title) setName(data.title)
+      if (data.price) setPrice(data.price.toString())
+    } catch {
+      setFetchError('Грешка при извличане на данни')
+    } finally {
+      setFetchLoading(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files
+    if (!selected) return
+    const newFiles = Array.from(selected)
+    setFiles((prev) => [...prev, ...newFiles])
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const removeExistingImage = (id: string) => {
+    setExistingImages((prev) => prev.filter((img) => img.id !== id))
+  }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setSubmitLoading(true)
+    setSubmitError('')
+
+    const supabase = getSupabase()
+
+    try {
+      const payload = {
+        name: name.trim(),
+        description: description.trim() || null,
+        price: price ? parseFloat(price) : null,
+        cost_price: costPrice ? parseFloat(costPrice) : null,
+        sku: sku.trim() || null,
+        barcode: barcode.trim() || null,
+        category_id: categoryId || null,
+        source: source.trim() || null,
+        source_url: sourceUrl.trim() || null,
+        source_order_date: sourceOrderDate || null,
+        status,
+        quantity_on_hand: quantityOnHand ? parseInt(quantityOnHand, 10) : 0,
+      }
+
+      let productId: string
+
+      if (initialData?.id) {
+        const { error } = await (supabase
+          .from('products') as any)
+          .update(payload)
+          .eq('id', initialData.id)
+
+        if (error) throw error
+        productId = initialData.id
+      } else {
+        const { data, error } = await (supabase
+          .from('products') as any)
+          .insert(payload)
+          .select('id')
+          .single()
+
+        if (error) throw error
+        productId = data.id
+      }
+
+      // Upload new images
+      if (files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i]
+          const ext = file.name.split('.').pop() || 'jpg'
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('products')
+            .upload(path, file)
+
+          if (uploadError) throw uploadError
+
+          const { data: urlData } = supabase.storage.from('products').getPublicUrl(path)
+
+          const { error: insertError } = await (supabase
+            .from('product_images') as any)
+            .insert({
+            product_id: productId,
+            url: urlData.publicUrl,
+            is_primary: existingImages.length === 0 && i === 0,
+            sort_order: existingImages.length + i,
+          })
+
+          if (insertError) throw insertError
+        }
+      }
+
+      router.push('/catalog')
+      router.refresh()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Грешка при запазване')
+    } finally {
+      setSubmitLoading(false)
+    }
+  }
+
+  const isEdit = Boolean(initialData?.id)
+
+  return (
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
+      {/* Auto-fetch section */}
+      <div className="rounded-lg border bg-slate-50 p-4 space-y-3">
+        <p className="text-sm font-medium text-slate-700">
+          Издърпай информация от URL
+        </p>
+        <div className="flex gap-2">
+          <Input
+            type="url"
+            placeholder="https://example.com/product"
+            value={fetchUrl}
+            onChange={(e) => setFetchUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAutoFetch())}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleAutoFetch}
+            disabled={fetchLoading || !fetchUrl.trim()}
+          >
+            {fetchLoading ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="mr-1 h-4 w-4" />
+            )}
+            Издърпай
+          </Button>
+        </div>
+        {fetchError && (
+          <p className="text-sm text-red-600">{fetchError}</p>
+        )}
+      </div>
+
+      {/* Error alert */}
+      {submitError && (
+        <div className="rounded-md bg-red-50 border border-red-200 p-4">
+          <p className="text-sm text-red-700">{submitError}</p>
+        </div>
+      )}
+
+      {/* Basic info */}
+      <div className="space-y-2">
+        <Label htmlFor="name">Име *</Label>
+        <Input
+          id="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Име на продукта"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Описание</Label>
+        <Textarea
+          id="description"
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Описание на продукта"
+        />
+      </div>
+
+      {/* Price grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="price">Цена *</Label>
+          <Input
+            id="price"
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cost_price">Доставна цена</Label>
+          <Input
+            id="cost_price"
+            type="number"
+            step="0.01"
+            min="0"
+            value={costPrice}
+            onChange={(e) => setCostPrice(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+
+      {/* SKU / Barcode grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="sku">SKU</Label>
+          <Input
+            id="sku"
+            value={sku}
+            onChange={(e) => setSku(e.target.value)}
+            placeholder="SKU-001"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="barcode">Баркод</Label>
+          <Input
+            id="barcode"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            placeholder="1234567890123"
+          />
+        </div>
+      </div>
+
+      {/* Category */}
+      <div className="space-y-2">
+        <Label htmlFor="category_id">Категория</Label>
+        <Select value={categoryId} onValueChange={setCategoryId}>
+          <SelectTrigger id="category_id">
+            <SelectValue placeholder="Избери категория" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Без категория</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Source / Date grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="source">Източник</Label>
+          <Input
+            id="source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder="Име на доставчик"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="source_order_date">Дата на поръчка</Label>
+          <Input
+            id="source_order_date"
+            type="date"
+            value={sourceOrderDate}
+            onChange={(e) => setSourceOrderDate(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Status / Quantity grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="status">Статус</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger id="status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                <SelectItem key={key} value={key}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="quantity_on_hand">Наличност</Label>
+          <Input
+            id="quantity_on_hand"
+            type="number"
+            min="0"
+            value={quantityOnHand}
+            onChange={(e) => setQuantityOnHand(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Source URL (hidden, used for auto-fetch) */}
+      <div className="space-y-2">
+        <Label htmlFor="source_url">URL на източник</Label>
+        <Input
+          id="source_url"
+          type="url"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          placeholder="https://..."
+        />
+      </div>
+
+      {/* Existing images (edit mode) */}
+      {existingImages.length > 0 && (
+        <div className="space-y-2">
+          <Label>Текущи снимки</Label>
+          <div className="flex flex-wrap gap-3">
+            {existingImages.map((img) => (
+              <div key={img.id} className="relative group">
+                <img
+                  src={img.url}
+                  alt=""
+                  className="h-24 w-24 object-cover rounded-md border"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeExistingImage(img.id)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  x
+                </button>
+                {img.is_primary && (
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b-md">
+                    Основна
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* New image upload */}
+      <div className="space-y-2">
+        <Label>Снимки</Label>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Избери файлове
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <span className="text-sm text-muted-foreground">
+            {files.length > 0
+              ? `${files.length} избран${files.length === 1 ? '' : 'и'} файл${files.length === 1 ? '' : 'а'}`
+              : 'Няма избрани файлове'}
+          </span>
+        </div>
+        {files.length > 0 && (
+          <div className="flex flex-wrap gap-3 mt-3">
+            {files.map((file, i) => (
+              <div key={`${file.name}-${i}`} className="relative group">
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={file.name}
+                  className="h-24 w-24 object-cover rounded-md border"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Submit */}
+      <div className="flex items-center gap-3 pt-4 border-t">
+        <Button type="submit" disabled={submitLoading}>
+          {submitLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          {submitLoading ? 'Запазва...' : isEdit ? 'Запази промените' : 'Добави продукт'}
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>
+          Отказ
+        </Button>
+      </div>
+    </form>
+  )
+}
