@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,10 +26,10 @@ export function CategoriesManager() {
   const [parentId, setParentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const supabase = useRef(createClient())
 
   const fetchCategories = async () => {
-    const { data } = await supabase.current
+    const supabase = createClient()
+    const { data } = await supabase
       .from('categories')
       .select('*')
       .order('sort_order')
@@ -38,39 +38,40 @@ export function CategoriesManager() {
 
   useEffect(() => {
     fetchCategories()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleAdd = async () => {
     if (!name.trim()) return
     setError('')
     setLoading(true)
-    try {
-      await supabase.current.from('categories').insert({
-        name: name.trim(),
-        parent_id: parentId,
-      } as any)
-      setName('')
-      setParentId(null)
-      await fetchCategories()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Грешка при добавяне на категория.')
-    } finally {
+    const supabase = createClient()
+    const { error: insertError } = await supabase.from('categories').insert({
+      name: name.trim(),
+      parent_id: parentId,
+    } as any)
+    if (insertError) {
+      setError(insertError.message)
       setLoading(false)
+      return
     }
+    setName('')
+    setParentId(null)
+    await fetchCategories()
+    setLoading(false)
   }
 
   const handleDelete = async (id: string) => {
     setError('')
     setLoading(true)
-    try {
-      await supabase.current.from('categories').delete().eq('id', id)
-      await fetchCategories()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Грешка при изтриване на категория.')
-    } finally {
+    const supabase = createClient()
+    const { error: deleteError } = await supabase.from('categories').delete().eq('id', id)
+    if (deleteError) {
+      setError(deleteError.message)
       setLoading(false)
+      return
     }
+    await fetchCategories()
+    setLoading(false)
   }
 
   const topLevelCategories = categories.filter((c) => !c.parent_id)

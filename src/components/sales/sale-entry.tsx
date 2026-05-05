@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,6 @@ interface SaleEntryProps {
 }
 
 export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
-  const supabaseRef = useRef(createClient())
   const { toast } = useToast()
 
   const [search, setSearch] = useState('')
@@ -46,7 +45,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
     const timer = setTimeout(async () => {
       setSearching(true)
       try {
-        const supabase = supabaseRef.current
+        const supabase = createClient()
         const { data, error } = await supabase
           .from('products')
           .select('id, name, price, quantity_on_hand')
@@ -129,7 +128,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
     setSaving(true)
     try {
       // Supabase type inference broken — use any
-      const db = supabaseRef.current as any
+      const db = createClient() as any
 
       const { error: insertError } = await db
         .from('sales')

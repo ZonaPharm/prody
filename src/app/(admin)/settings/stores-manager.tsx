@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,35 +19,35 @@ export function StoresManager() {
   const [address, setAddress] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const supabase = useRef(createClient())
 
   const fetchStores = async () => {
-    const { data } = await supabase.current.from('stores').select('*').order('name')
+    const supabase = createClient()
+    const { data } = await supabase.from('stores').select('*').order('name')
     setStores((data as Store[]) || [])
   }
 
   useEffect(() => {
     fetchStores()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleAdd = async () => {
     if (!name.trim()) return
     setError('')
     setLoading(true)
-    try {
-      await supabase.current.from('stores').insert({
-        name: name.trim(),
-        address: address.trim() || null,
-      } as any)
-      setName('')
-      setAddress('')
-      await fetchStores()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Грешка при добавяне на магазин.')
-    } finally {
+    const supabase = createClient()
+    const { error: insertError } = await supabase.from('stores').insert({
+      name: name.trim(),
+      address: address.trim() || null,
+    } as any)
+    if (insertError) {
+      setError(insertError.message)
       setLoading(false)
+      return
     }
+    setName('')
+    setAddress('')
+    await fetchStores()
+    setLoading(false)
   }
 
   const handleToggleActive = async (store: Store) => {
@@ -56,17 +56,17 @@ export function StoresManager() {
     setStores((prev) =>
       prev.map((s) => (s.id === store.id ? { ...s, is_active: updated } : s))
     )
-    try {
-      await supabase.current
-        .from('stores')
-        // @ts-expect-error — supabase-js type inference limitation with @supabase/ssr
-        .update({ is_active: updated })
-        .eq('id', store.id)
-    } catch (e) {
+    const supabase = createClient()
+    const { error: updateError } = await supabase
+      .from('stores')
+      // @ts-expect-error — supabase-js type inference limitation with @supabase/ssr
+      .update({ is_active: updated })
+      .eq('id', store.id)
+    if (updateError) {
       setStores((prev) =>
         prev.map((s) => (s.id === store.id ? { ...s, is_active: !updated } : s))
       )
-      setError(e instanceof Error ? e.message : 'Грешка при промяна на статус.')
+      setError(updateError.message)
     }
   }
 

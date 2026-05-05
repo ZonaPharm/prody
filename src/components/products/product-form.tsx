@@ -41,11 +41,6 @@ interface ProductFormProps {
 
 export default function ProductForm({ initialData, categories }: ProductFormProps) {
   const router = useRouter()
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
-  const getSupabase = () => {
-    if (!supabaseRef.current) supabaseRef.current = createClient()
-    return supabaseRef.current
-  }
 
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
@@ -129,7 +124,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
     setSubmitLoading(true)
     setSubmitError('')
 
-    const supabase = getSupabase()
+    const supabase = createClient()
 
     try {
       const payload = {
@@ -179,20 +174,33 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             .from('products')
             .upload(path, file)
 
-          if (uploadError) throw uploadError
+          if (uploadError) {
+            // Clean up: delete the product if it was just created and image upload fails
+            if (!initialData?.id) {
+              await supabase.from('products').delete().eq('id', productId)
+            }
+            throw uploadError
+          }
 
           const { data: urlData } = supabase.storage.from('products').getPublicUrl(path)
 
-          const { error: insertError } = await (supabase
-            .from('product_images') as any)
+          const { error: insertError } = await supabase
+            .from('product_images')
             .insert({
-            product_id: productId,
-            url: urlData.publicUrl,
-            is_primary: existingImages.length === 0 && i === 0,
-            sort_order: existingImages.length + i,
-          })
+              product_id: productId,
+              url: urlData.publicUrl,
+              is_primary: existingImages.length === 0 && i === 0,
+              sort_order: existingImages.length + i,
+            } as any)
 
-          if (insertError) throw insertError
+          if (insertError) {
+            // Clean up: remove uploaded file and product if newly created
+            await supabase.storage.from('products').remove([path])
+            if (!initialData?.id) {
+              await supabase.from('products').delete().eq('id', productId)
+            }
+            throw insertError
+          }
         }
       }
 
