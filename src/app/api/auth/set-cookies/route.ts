@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       .from('users')
       .select('role')
       .eq('id', user!.id)
+      .returns<{ role: 'admin' | 'seller' }[]>()
       .single()
     const redirectTo = profile?.role === 'admin' ? '/dashboard' : '/record-sale'
     return NextResponse.json({ success: true, redirectTo })
