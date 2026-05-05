@@ -27,8 +27,28 @@ export default function LoginForm() {
     }
   }, [searchParams])
 
-  // Redirect if already logged in (client-side session may exist from hash-fragment flow)
+  // Check for existing client-side session (from hash fragments or previous login)
   useEffect(() => {
+    // Check hash fragments first
+    const hash = window.location.hash.substring(1)
+    if (hash) {
+      const params = new URLSearchParams(hash)
+      const access_token = params.get('access_token')
+      const refresh_token = params.get('refresh_token')
+      if (access_token && refresh_token) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+        fetch('/api/auth/set-cookies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token, refresh_token }),
+        }).then(() => {
+          window.location.href = '/'
+        })
+        return
+      }
+    }
+
+    // Check Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         window.location.href = '/'

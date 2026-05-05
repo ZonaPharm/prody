@@ -2,54 +2,41 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+
+function parseHashTokens(): { access_token: string; refresh_token: string } | null {
+  const hash = window.location.hash.substring(1)
+  if (!hash) return null
+  const params = new URLSearchParams(hash)
+  const access_token = params.get('access_token')
+  const refresh_token = params.get('refresh_token')
+  if (!access_token || !refresh_token) return null
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  return { access_token, refresh_token }
+}
 
 export default function VerifyHashPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Обработка на вход...')
 
   useEffect(() => {
-    const supabase = createClient()
+    const tokens = parseHashTokens()
+    if (!tokens) {
+      setStatus('Неуспешен вход. Моля опитайте отново от страницата за вход.')
+      return
+    }
 
-    async function handleSession(session: { access_token: string; refresh_token: string }) {
-      setStatus('Синхронизиране на сесия...')
-      // Sync session to server-side cookies so proxy sees it
-      await fetch('/api/auth/set-cookies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        }),
-      })
+    setStatus('Синхронизиране на сесия...')
+    fetch('/api/auth/set-cookies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tokens),
+    }).then(() => {
       setStatus('Влязохте успешно. Пренасочване...')
       router.push('/')
       router.refresh()
-    }
-
-    // Listen for SIGNED_IN event (fires when hash is processed by Supabase SDK)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        handleSession(session)
-      }
+    }).catch(() => {
+      setStatus('Неуспешен вход. Моля опитайте отново.')
     })
-
-    // Also check if already signed in (hash may have been processed before listener attached)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        handleSession(session)
-      }
-    })
-
-    // Timeout fallback — if no session after 10s, something went wrong
-    const timeout = setTimeout(() => {
-      setStatus('Неуспешен вход. Моля опитайте отново от страницата за вход.')
-    }, 10000)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
-    }
   }, [router])
 
   return (

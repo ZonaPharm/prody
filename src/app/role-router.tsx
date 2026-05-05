@@ -4,48 +4,68 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+function parseHashTokens(): { access_token: string; refresh_token: string } | null {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash.substring(1)
+  if (!hash) return null
+  const params = new URLSearchParams(hash)
+  const access_token = params.get('access_token')
+  const refresh_token = params.get('refresh_token')
+  if (!access_token || !refresh_token) return null
+  // Clear hash from URL without reload
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  return { access_token, refresh_token }
+}
+
+async function syncToCookies(access_token: string, refresh_token: string) {
+  await fetch('/api/auth/set-cookies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ access_token, refresh_token }),
+  })
+}
+
 export function RoleRouter() {
   const router = useRouter()
 
   useEffect(() => {
-    const supabase = createClient()
+    // 1. Check for hash tokens first (admin-generated magic links)
+    const tokens = parseHashTokens()
+    if (tokens) {
+      syncToCookies(tokens.access_token, tokens.refresh_token).then(() => {
+        router.push('/')
+        router.refresh()
+      })
+      return
+    }
 
+    // 2. Check existing Supabase session (normal PKCE flow)
+    const supabase = createClient()
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        // Hash fragment session exists → sync to cookies
-        await fetch('/api/auth/set-cookies', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }),
-        })
-        // Re-navigate to root so SSR can see the cookies
+        // Already have client-side session → sync to cookies just in case
+        await syncToCookies(session.access_token, session.refresh_token)
         router.push('/')
         router.refresh()
       } else {
-        router.push('/login')
-      }
-    })
+        // Listen for SIGNED_IN before giving up
+        const timeout = setTimeout(() => router.push('/login'), 5000)
 
-    // Also listen for SIGNED_IN in case hash is still processing
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        await fetch('/api/auth/set-cookies', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }),
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            clearTimeout(timeout)
+            await syncToCookies(session.access_token, session.refresh_token)
+            router.push('/')
+            router.refresh()
+          }
         })
-        router.push('/')
-        router.refresh()
+
+        return () => {
+          clearTimeout(timeout)
+          subscription.unsubscribe()
+        }
       }
     })
-
-    return () => subscription.unsubscribe()
   }, [router])
 
   return (
