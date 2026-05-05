@@ -2,22 +2,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Package } from 'lucide-react'
-
-const STATUS_LABELS: Record<string, string> = {
-  ordered: 'Поръчан',
-  received: 'Получен',
-  listed: 'В каталог',
-  damaged: 'Повреден',
-  returned: 'Върнат',
-}
-
-const STATUS_VARIANTS: Record<string, 'secondary' | 'outline' | 'default' | 'destructive'> = {
-  ordered: 'secondary',
-  received: 'outline',
-  listed: 'default',
-  damaged: 'destructive',
-  returned: 'destructive',
-}
+import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
 
 interface ProductCardProps {
   product: {
@@ -27,7 +12,7 @@ interface ProductCardProps {
     price?: number | null
     status: string
     quantity_on_hand: number
-    category?: { name: string } | { name: string }[] | null
+    category?: { name: string } | null
     images?: { url: string }[] | { url: string } | null
   }
 }
@@ -37,9 +22,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     ? product.images[0]?.url
     : product.images?.url
 
-  const categoryName = Array.isArray(product.category)
-    ? product.category[0]?.name
-    : product.category?.name
+  const categoryName = product.category?.name
 
   const variant = STATUS_VARIANTS[product.status] || 'default'
   const statusLabel = STATUS_LABELS[product.status] || product.status

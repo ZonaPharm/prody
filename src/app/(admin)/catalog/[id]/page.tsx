@@ -2,27 +2,13 @@ import { requireAdmin } from '@/lib/auth'
 import { getProduct } from '@/lib/db/products'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { Printer, Pencil, Trash2, Package, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-const STATUS_LABELS: Record<string, string> = {
-  ordered: 'Поръчан',
-  received: 'Получен',
-  listed: 'В каталог',
-  damaged: 'Повреден',
-  returned: 'Върнат',
-}
-
-const STATUS_VARIANTS: Record<string, 'secondary' | 'outline' | 'default' | 'destructive'> = {
-  ordered: 'secondary',
-  received: 'outline',
-  listed: 'default',
-  damaged: 'destructive',
-  returned: 'destructive',
-}
+import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -45,9 +31,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   async function deleteProduct(formData: FormData) {
     'use server'
+    await requireAdmin()
     const productId = formData.get('id') as string
     const supabase = await createServerSupabaseClient()
-    await supabase.from('products').delete().eq('id', productId)
+    const { error } = await supabase.from('products').delete().eq('id', productId)
+    if (error) {
+      redirect(`/catalog/${productId}?error=delete_failed`)
+    }
+    revalidatePath('/catalog')
     redirect('/catalog')
   }
 
