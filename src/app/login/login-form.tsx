@@ -27,6 +27,15 @@ export default function LoginForm() {
     }
   }, [searchParams])
 
+  // Redirect if already logged in (client-side session may exist from hash-fragment flow)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        window.location.href = '/'
+      }
+    })
+  }, [])
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError('')
