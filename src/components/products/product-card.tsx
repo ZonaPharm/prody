@@ -15,9 +15,10 @@ interface ProductCardProps {
     category?: { name: string } | null
     images?: { url: string }[] | { url: string } | null
   }
+  href?: string
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, href }: ProductCardProps) {
   const firstImage = Array.isArray(product.images)
     ? product.images[0]?.url
     : product.images?.url
@@ -28,7 +29,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const statusLabel = STATUS_LABELS[product.status] || product.status
 
   return (
-    <Link href={`/catalog/${product.id}`}>
+    <Link href={href ?? `/catalog/${product.id}`}>
       <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
         <div className="aspect-square bg-slate-100 rounded-t-lg flex items-center justify-center overflow-hidden">
           {firstImage ? (
