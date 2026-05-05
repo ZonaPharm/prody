@@ -18,6 +18,12 @@ export interface Database {
           store_id?: string | null
           created_at?: string
         }
+        Update: {
+          email?: string
+          role?: 'admin' | 'seller'
+          display_name?: string
+          store_id?: string | null
+        }
       }
       stores: {
         Row: {
@@ -33,6 +39,11 @@ export interface Database {
           address?: string | null
           is_active?: boolean
           created_at?: string
+        }
+        Update: {
+          name?: string
+          address?: string | null
+          is_active?: boolean
         }
       }
       categories: {
@@ -51,6 +62,12 @@ export interface Database {
           parent_id?: string | null
           sort_order?: number
           created_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+          parent_id?: string | null
+          sort_order?: number
         }
       }
       products: {
@@ -121,6 +138,11 @@ export interface Database {
           sort_order?: number
           created_at?: string
         }
+        Update: {
+          url?: string
+          is_primary?: boolean
+          sort_order?: number
+        }
       }
       sales: {
         Row: {
@@ -144,6 +166,11 @@ export interface Database {
           sale_date?: string
           notes?: string | null
           created_at?: string
+        }
+        Update: {
+          quantity?: number
+          sale_price?: number
+          notes?: string | null
         }
       }
     }

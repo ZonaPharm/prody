@@ -100,8 +100,8 @@ alter table public.sales enable row level security;
 -- RLS Policies
 
 -- Users: admins see all, sellers see themselves
-create policy "Admins see all users" on public.users
-  for select using (exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin'));
+create policy "Admins full access users" on public.users
+  for all using (exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin'));
 create policy "Users see own record" on public.users
   for select using (id = auth.uid());
 
