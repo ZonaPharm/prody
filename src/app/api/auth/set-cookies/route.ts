@@ -12,7 +12,14 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
-    return NextResponse.json({ success: true })
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user!.id)
+      .single()
+    const redirectTo = profile?.role === 'admin' ? '/dashboard' : '/record-sale'
+    return NextResponse.json({ success: true, redirectTo })
   } catch {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
   }

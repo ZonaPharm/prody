@@ -30,9 +30,10 @@ export default function VerifyHashPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tokens),
-    }).then(() => {
+    }).then(async (resp) => {
+      const data = await resp.json()
       setStatus('Влязохте успешно. Пренасочване...')
-      router.push('/')
+      router.push(data.redirectTo || '/record-sale')
       router.refresh()
     }).catch(() => {
       setStatus('Неуспешен вход. Моля опитайте отново.')

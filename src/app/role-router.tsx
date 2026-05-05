@@ -12,17 +12,21 @@ function parseHashTokens(): { access_token: string; refresh_token: string } | nu
   const access_token = params.get('access_token')
   const refresh_token = params.get('refresh_token')
   if (!access_token || !refresh_token) return null
-  // Clear hash from URL without reload
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
   return { access_token, refresh_token }
 }
 
-async function syncToCookies(access_token: string, refresh_token: string) {
-  await fetch('/api/auth/set-cookies', {
+async function syncAndRedirect(
+  access_token: string,
+  refresh_token: string,
+): Promise<string> {
+  const resp = await fetch('/api/auth/set-cookies', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ access_token, refresh_token }),
   })
+  const data = await resp.json()
+  return data.redirectTo || '/record-sale'
 }
 
 export function RoleRouter() {
@@ -32,8 +36,8 @@ export function RoleRouter() {
     // 1. Check for hash tokens first (admin-generated magic links)
     const tokens = parseHashTokens()
     if (tokens) {
-      syncToCookies(tokens.access_token, tokens.refresh_token).then(() => {
-        router.push('/')
+      syncAndRedirect(tokens.access_token, tokens.refresh_token).then((redirectTo) => {
+        router.push(redirectTo)
         router.refresh()
       })
       return
@@ -43,9 +47,8 @@ export function RoleRouter() {
     const supabase = createClient()
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        // Already have client-side session → sync to cookies just in case
-        await syncToCookies(session.access_token, session.refresh_token)
-        router.push('/')
+        const redirectTo = await syncAndRedirect(session.access_token, session.refresh_token)
+        router.push(redirectTo)
         router.refresh()
       } else {
         // Listen for SIGNED_IN before giving up
@@ -54,8 +57,8 @@ export function RoleRouter() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === 'SIGNED_IN' && session) {
             clearTimeout(timeout)
-            await syncToCookies(session.access_token, session.refresh_token)
-            router.push('/')
+            const redirectTo = await syncAndRedirect(session.access_token, session.refresh_token)
+            router.push(redirectTo)
             router.refresh()
           }
         })
