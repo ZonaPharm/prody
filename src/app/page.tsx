@@ -13,6 +13,7 @@ export default async function Home() {
     .from('users')
     .select('role')
     .eq('id', user.id)
+    .returns<{ role: 'admin' | 'seller' }[]>()
     .single()
 
   return redirect(profile?.role === 'admin' ? '/dashboard' : '/record-sale')
