@@ -50,7 +50,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
           <p className="text-muted-foreground">Няма намерени продукти</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {products.map((product: any) => (
             <ProductCard key={product.id} product={product} />
           ))}
