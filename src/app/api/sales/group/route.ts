@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -61,16 +62,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Грешка при записване' }, { status: 500 })
   }
 
-  // Decrement stock for each product
+  // Decrement stock using admin client (bypasses RLS)
+  const admin = createAdminClient()
   for (const item of items) {
     try {
-      const { data: prod } = await (supabase.from('products') as any)
+      const { data: prod } = await (admin.from('products') as any)
         .select('quantity_on_hand')
         .eq('id', item.product_id)
         .single()
 
       if (prod) {
-        await (supabase.from('products') as any)
+        await (admin.from('products') as any)
           .update({ quantity_on_hand: Math.max(0, prod.quantity_on_hand - item.quantity) })
           .eq('id', item.product_id)
       }

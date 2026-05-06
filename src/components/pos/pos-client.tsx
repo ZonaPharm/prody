@@ -1,7 +1,6 @@
 'use client'
 
 import { useReducer, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { Product } from './cart-types'
 import { cartReducer, initialCartState } from './cart-reducer'
@@ -53,8 +52,6 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
 
     setSubmitting(true)
     try {
-      const db = createClient() as any
-
       const items = cart.items.map(i => ({
         product_id: i.product.id,
         quantity: i.qty,
@@ -70,16 +67,6 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Грешка при записване')
-      }
-
-      // Decrement stock locally for UI consistency
-      for (const item of cart.items) {
-        const { error: updateError } = await db
-          .from('products')
-          .update({ quantity_on_hand: item.product.quantity_on_hand - item.qty })
-          .eq('id', item.product.id)
-
-        if (updateError) console.error('Stock update error:', updateError)
       }
 
       toast({ title: 'Продажбата е записана' })
