@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   const { data: lowStock } = await supabase
     .from('products')
     .select('id, name, quantity_on_hand')
-    .eq('status', 'listed')
+    .eq('status', 'active')
     .lte('quantity_on_hand', 5)
     .order('quantity_on_hand')
 

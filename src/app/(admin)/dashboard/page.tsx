@@ -20,12 +20,12 @@ export default async function DashboardPage() {
     { data: weekSales },
   ] = await Promise.all([
     supabase.from('products').select('*', { count: 'exact', head: true }),
-    supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'listed'),
+    supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'ordered'),
     supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'listed')
+      .eq('status', 'active')
       .lte('quantity_on_hand', 5),
     supabase.from('sales').select('quantity, sale_price').gte('sale_date', today),
     supabase.from('sales').select('quantity, sale_price').gte('sale_date', weekAgo),

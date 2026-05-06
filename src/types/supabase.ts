@@ -86,7 +86,7 @@ export interface Database {
           source: string | null
           source_url: string | null
           source_order_date: string | null
-          status: 'ordered' | 'received' | 'damaged' | 'returned' | 'listed'
+          status: 'ordered' | 'received' | 'damaged' | 'returned' | 'active'
           quantity_on_hand: number
           created_at: string
           updated_at: string
@@ -103,7 +103,7 @@ export interface Database {
           source?: string | null
           source_url?: string | null
           source_order_date?: string | null
-          status?: 'ordered' | 'received' | 'damaged' | 'returned' | 'listed'
+          status?: 'ordered' | 'received' | 'damaged' | 'returned' | 'active'
           quantity_on_hand?: number
           created_at?: string
           updated_at?: string
@@ -119,7 +119,7 @@ export interface Database {
           source?: string | null
           source_url?: string | null
           source_order_date?: string | null
-          status?: 'ordered' | 'received' | 'damaged' | 'returned' | 'listed'
+          status?: 'ordered' | 'received' | 'damaged' | 'returned' | 'active'
           quantity_on_hand?: number
           updated_at?: string
         }
