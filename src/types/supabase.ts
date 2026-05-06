@@ -8,6 +8,7 @@ export interface Database {
           role: 'admin' | 'seller'
           display_name: string
           store_id: string | null
+          ai_description_instructions: string | null
           created_at: string
         }
         Insert: {
@@ -16,6 +17,7 @@ export interface Database {
           role?: 'admin' | 'seller'
           display_name: string
           store_id?: string | null
+          ai_description_instructions?: string | null
           created_at?: string
         }
         Update: {
@@ -23,6 +25,7 @@ export interface Database {
           role?: 'admin' | 'seller'
           display_name?: string
           store_id?: string | null
+          ai_description_instructions?: string | null
         }
       }
       stores: {
