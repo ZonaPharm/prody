@@ -19,6 +19,8 @@ export default async function EditProductPage({ params }: PageProps) {
 
   if (!product) notFound()
 
+  const label = product.labels?.[0] || null
+
   return (
     <div className="space-y-6">
       <div>
@@ -31,7 +33,7 @@ export default async function EditProductPage({ params }: PageProps) {
       </div>
 
       <ProductForm
-        initialData={product}
+        initialData={{ ...product, label }}
         categories={categories as { id: string; name: string }[]}
       />
     </div>

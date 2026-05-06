@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { STATUS_LABELS } from '@/lib/constants'
-import { Loader2, Upload, Search, Star } from 'lucide-react'
+import { Loader2, Upload, Star } from 'lucide-react'
 
 type CategoryOption = { id: string; name: string }
 
@@ -35,6 +35,7 @@ interface ProductFormProps {
     status?: string
     quantity_on_hand?: number
     images?: { id: string; url: string; is_primary: boolean; sort_order: number }[]
+    label?: { title: string; content: string } | null
   }
   categories: CategoryOption[]
 }
@@ -66,9 +67,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
     { id: string; url: string; is_primary: boolean; sort_order: number }[]
   >(initialData?.images || [])
 
-  const [fetchUrl, setFetchUrl] = useState('')
-  const [fetchLoading, setFetchLoading] = useState(false)
-  const [fetchError, setFetchError] = useState('')
+  const [labelTitle, setLabelTitle] = useState(initialData?.label?.title || '')
+  const [labelContent, setLabelContent] = useState(initialData?.label?.content || '')
 
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -76,53 +76,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [rewriteLoading, setRewriteLoading] = useState(false)
-
-  const handleAutoFetch = async () => {
-    if (!fetchUrl.trim()) return
-    setFetchLoading(true)
-    setFetchError('')
-
-    try {
-      const res = await fetch('/api/fetch-product', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: fetchUrl.trim() }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setFetchError(data.error || 'Неуспешно извличане'); return }
-
-      if (data.title) setName(data.title)
-      if (data.price) setPrice(data.price.toString())
-      if (data.description) setDescription(data.description)
-
-      if (data.images?.length > 0) {
-        const imgRes = await fetch('/api/fetch-images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: data.images }),
-        })
-        const imgData = await imgRes.json()
-        if (imgData.images) {
-          const downloadedUrls: string[] = []
-          for (const img of imgData.images) {
-            if (img.url && !img.error) {
-              downloadedUrls.push(img.url)
-              setExistingImages(prev => [...prev, {
-                id: img.path,
-                url: img.url,
-                is_primary: prev.length === 0 && downloadedUrls.length === 1,
-                sort_order: prev.length + 1,
-              }])
-            }
-          }
-        }
-      }
-    } catch {
-      setFetchError('Грешка при извличане на данни')
-    } finally {
-      setFetchLoading(false)
-    }
-  }
 
   const handleAiRewrite = async () => {
     if (!description.trim()) return
@@ -278,6 +231,28 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         }
       }
 
+      // Upsert label
+      if (labelTitle.trim() || labelContent.trim()) {
+        const { data: existingLabel } = await (supabase
+          .from('labels') as any)
+          .select('id')
+          .eq('product_id', productId)
+          .maybeSingle()
+
+        if (existingLabel) {
+          await (supabase.from('labels') as any).update({
+            title: labelTitle.trim(),
+            content: labelContent.trim(),
+          }).eq('id', existingLabel.id)
+        } else {
+          await (supabase.from('labels') as any).insert({
+            product_id: productId,
+            title: labelTitle.trim(),
+            content: labelContent.trim(),
+          })
+        }
+      }
+
       router.push('/catalog')
       router.refresh()
     } catch (err) {
@@ -359,7 +334,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
       </div>
 
-      {/* Row 4: Source, Source URL + Fetch button — 2 cols */}
+      {/* Row 4: Source, Source URL — 2 cols */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="source">Източник</Label>
@@ -368,19 +343,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
         <div className="space-y-2">
           <Label htmlFor="source_url">URL на източник</Label>
-          <div className="flex gap-2">
-            <Input id="source_url" type="url" className="flex-1"
-              value={fetchUrl}
-              onChange={(e) => { setFetchUrl(e.target.value); setSourceUrl(e.target.value) }}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAutoFetch())}
-              placeholder="https://..." />
-            <Button type="button" variant="secondary"
-              onClick={handleAutoFetch} disabled={fetchLoading || !fetchUrl.trim()}>
-              {fetchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Издърпай
-            </Button>
-          </div>
-          {fetchError && <p className="text-sm text-red-600">{fetchError}</p>}
+          <Input id="source_url" type="url"
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            placeholder="https://..." />
         </div>
       </div>
 
@@ -406,7 +372,23 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           onChange={(e) => setDescription(e.target.value)} placeholder="Описание на продукта" />
       </div>
 
-      {/* Row 6: Images */}
+      {/* Row 6: Label */}
+      <div className="border-t pt-6 space-y-4">
+        <h3 className="text-lg font-semibold">Етикет</h3>
+        <p className="text-sm text-muted-foreground">Не е задължително. Етикетът се показва в детайлите на продукта и може да се принтира.</p>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="label_title">Заглавие</Label>
+            <Input id="label_title" value={labelTitle} onChange={(e) => setLabelTitle(e.target.value)} placeholder="Заглавие на етикета" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="label_content">Текст</Label>
+            <Textarea id="label_content" rows={3} value={labelContent} onChange={(e) => setLabelContent(e.target.value)} placeholder="Текст на етикета" />
+          </div>
+        </div>
+      </div>
+
+      {/* Row 7: Images */}
       {existingImages.length > 0 && (
         <div className="space-y-2">
           <Label>Текущи снимки</Label>

@@ -1,7 +1,8 @@
 import { requireAdmin } from '@/lib/auth'
 import Link from 'next/link'
-import { Package2, BarChart3, ShoppingBag, Settings, Printer, LayoutDashboard } from 'lucide-react'
+import { Package2, BarChart3, ShoppingBag, Settings, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +11,6 @@ const navItems = [
   { href: '/catalog', label: 'Каталог', icon: Package2 },
   { href: '/sales', label: 'Продажби', icon: ShoppingBag },
   { href: '/reports', label: 'Отчети', icon: BarChart3 },
-  { href: '/labels', label: 'Етикети', icon: Printer },
   { href: '/settings', label: 'Настройки', icon: Settings },
 ]
 
@@ -34,7 +34,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 space-y-1">
+          <SwitchRoleButton />
           <form action="/auth/signout" method="post">
             <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white">
               Изход

@@ -1,7 +1,8 @@
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import Link from 'next/link'
 import { ShoppingBag, Package2, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { RoleBanner } from '@/components/seller/role-banner'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ const navItems = [
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAuth()
+  const effectiveRole = await getEffectiveRole(user)
 
   return (
     <div className="flex min-h-screen">
@@ -39,7 +41,10 @@ export default async function SellerLayout({ children }: { children: React.React
           </form>
         </div>
       </aside>
-      <main className="flex-1 bg-slate-50 p-8">{children}</main>
+      <main className="flex-1 bg-slate-50 p-8">
+        {user.role === 'admin' && effectiveRole === 'seller' && <RoleBanner />}
+        {children}
+      </main>
     </div>
   )
 }

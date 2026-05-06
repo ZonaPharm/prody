@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,10 +17,19 @@ const SIZE_PRESETS = {
 type LabelSize = keyof typeof SIZE_PRESETS
 
 export default function LabelsPage() {
+  const searchParams = useSearchParams()
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [size, setSize] = useState<LabelSize>('5x3')
   const [preview, setPreview] = useState(false)
+
+  useEffect(() => {
+    const titleParam = searchParams?.get('title')
+    const textParam = searchParams?.get('text')
+    if (titleParam) setTitle(titleParam)
+    if (textParam) setDescription(textParam)
+  }, [searchParams])
 
   const dims = SIZE_PRESETS[size]
 

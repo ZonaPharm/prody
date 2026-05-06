@@ -35,7 +35,7 @@ export async function getProduct(id: string) {
   const supabase = await createServerSupabaseClient()
   const { data } = await supabase
     .from('products')
-    .select('*, category:categories(*), images:product_images(*)')
+    .select('*, category:categories(*), images:product_images(*), labels:labels(*)')
     .eq('id', id)
     .single()
   return data as any as {
@@ -56,5 +56,6 @@ export async function getProduct(id: string) {
     updated_at: string
     category: { id: string; name: string; description: string | null; parent_id: string | null; sort_order: number; created_at: string } | null
     images: { id: string; product_id: string; url: string; is_primary: boolean; sort_order: number; created_at: string }[]
+    labels: { id: string; product_id: string; title: string; content: string; created_at: string }[]
   } | null
 }

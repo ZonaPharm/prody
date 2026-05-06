@@ -178,6 +178,29 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           )}
+
+          {(() => {
+            const label = Array.isArray(product.labels) ? product.labels[0] : null
+            if (!label) return null
+            return (
+              <Card className="mt-4">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">{label.title || 'Етикет'}</CardTitle>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/labels?title=${encodeURIComponent(label.title)}&text=${encodeURIComponent(label.content)}`}>
+                      <Printer className="mr-1 h-4 w-4" />
+                      Принтирай
+                    </Link>
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {label.content}
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          })()}
         </div>
       </div>
     </div>
