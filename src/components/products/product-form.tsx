@@ -57,7 +57,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
       ? initialData.source_order_date.split('T')[0]
       : ''
   )
-  const [status, setStatus] = useState(initialData?.status || 'ordered')
+  const [status, setStatus] = useState(initialData?.status || 'active')
   const [quantityOnHand, setQuantityOnHand] = useState(
     initialData?.quantity_on_hand?.toString() || '0'
   )
