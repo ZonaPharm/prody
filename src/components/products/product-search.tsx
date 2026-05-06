@@ -8,11 +8,8 @@ import { Search } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Всички' },
-  { value: 'ordered', label: 'Поръчан' },
-  { value: 'received', label: 'Получен' },
-  { value: 'listed', label: 'В каталог' },
-  { value: 'damaged', label: 'Повреден' },
-  { value: 'returned', label: 'Върнат' },
+  { value: 'active', label: 'Активни' },
+  { value: 'inactive', label: 'Неактивни' },
 ]
 
 export default function ProductSearch() {
@@ -57,7 +54,7 @@ export default function ProductSearch() {
         />
       </div>
       <Select value={status} onValueChange={handleStatusChange}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="Статус" />
         </SelectTrigger>
         <SelectContent>
