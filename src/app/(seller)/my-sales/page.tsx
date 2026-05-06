@@ -1,6 +1,8 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Package2, Download } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { MySalesFilters } from './filters'
 
 type SaleRow = {

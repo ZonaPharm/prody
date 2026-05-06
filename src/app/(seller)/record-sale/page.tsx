@@ -1,4 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
+
+export const dynamic = 'force-dynamic'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { POSClient } from '@/components/pos/pos-client'
 import { Product } from '@/components/pos/cart-types'

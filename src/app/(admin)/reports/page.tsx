@@ -144,9 +144,9 @@ export default function ReportsPage() {
                   <YAxis
                     dataKey="name"
                     type="category"
-                    width={160}
+                    width={170}
                     tick={{ fontSize: 11 }}
-                    tickFormatter={(v) => truncateName(v, 22)}
+                    tickFormatter={(v) => truncateName(v, 24)}
                   />
                   <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
                   <Bar dataKey="revenue" fill="#8b5cf6" name="Приходи" radius={[0, 4, 4, 0]} />

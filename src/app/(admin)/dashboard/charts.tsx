@@ -36,16 +36,16 @@ export function TopProductsChart({ data }: { data: { name: string; amount: numbe
   const sorted = [...data].sort((a, b) => a.amount - b.amount)
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(200, sorted.length * 36)}>
+    <ResponsiveContainer width="100%" height={Math.max(240, sorted.length * 42)}>
       <BarChart data={sorted} layout="vertical" margin={{ left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
         <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
         <YAxis
           dataKey="name"
           type="category"
-          width={140}
+          width={170}
           tick={{ fontSize: 11 }}
-          tickFormatter={truncateName}
+          tickFormatter={(v) => truncateName(v, 24)}
         />
         <Tooltip
           formatter={(value: any) => [`${Number(value).toFixed(0)} €`, 'Общо']}
