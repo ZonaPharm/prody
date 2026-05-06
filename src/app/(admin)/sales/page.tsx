@@ -3,8 +3,10 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Download } from 'lucide-react'
 
 interface PageProps {
-  searchParams: Promise<{ store?: string; from?: string; to?: string }>
+  searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string }>
 }
+
+export const dynamic = 'force-dynamic'
 
 export default async function AdminSalesPage({ searchParams }: PageProps) {
   await requireAdmin()
@@ -12,22 +14,32 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const sp = await searchParams
 
   const today = new Date().toISOString().split('T')[0]
-  const { data: stores } = await supabase.from('stores').select('id, name').eq('is_active', true)
   const fromDate = sp.from || today
   const toDate = sp.to || today
 
+  // Fetch filter options
+  const [{ data: stores }, { data: categories }, { data: products }] = await Promise.all([
+    supabase.from('stores').select('id, name').eq('is_active', true),
+    supabase.from('categories').select('id, name').order('name'),
+    supabase.from('products').select('id, name').eq('status', 'active').order('name'),
+  ])
+
   let query = supabase
     .from('sales')
-    .select('*, product:products(name), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
+    .select('*, product:products!inner(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
 
   if (sp.store) query = query.eq('store_id', sp.store)
+  if (sp.product) query = query.eq('product_id', sp.product)
+  if (sp.category) query = query.eq('product.category_id', sp.category)
 
   const { data: sales } = await query
   const total = (sales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
-  const exportUrl = `/api/sales/export?from=${fromDate}&to=${toDate}${sp.store ? `&store=${sp.store}` : ''}`
+  const exportParams = new URLSearchParams({ from: fromDate, to: toDate })
+  if (sp.store) exportParams.set('store', sp.store)
+  const exportUrl = `/api/sales/export?${exportParams.toString()}`
 
   return (
     <div className="space-y-6">
@@ -55,10 +67,32 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         {stores && stores.length > 0 && (
           <div>
             <label className="text-xs text-muted-foreground block mb-1">Обект</label>
-            <select name="store" defaultValue={sp.store || ''} className="border rounded px-3 py-2 text-sm">
+            <select name="store" defaultValue={sp.store || ''} className="border rounded px-3 py-2 text-sm max-w-[180px]">
               <option value="">Всички обекти</option>
               {stores.map((s: any) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {categories && categories.length > 0 && (
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Категория</label>
+            <select name="category" defaultValue={sp.category || ''} className="border rounded px-3 py-2 text-sm max-w-[180px]">
+              <option value="">Всички категории</option>
+              {categories.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {products && products.length > 0 && (
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Продукт</label>
+            <select name="product" defaultValue={sp.product || ''} className="border rounded px-3 py-2 text-sm max-w-[220px]">
+              <option value="">Всички продукти</option>
+              {products.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>

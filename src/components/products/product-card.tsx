@@ -31,7 +31,7 @@ export default function ProductCard({ product, href }: ProductCardProps) {
 
   return (
     <Link href={href ?? `/catalog/${product.id}`}>
-      <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
+      <Card className={`h-full hover:shadow-md transition-shadow cursor-pointer group ${product.quantity_on_hand === 0 ? 'border-red-300 bg-red-50/30' : ''}`}>
         <div className="aspect-square bg-slate-100 rounded-t-lg flex items-center justify-center overflow-hidden relative">
             <ToggleStatusButton productId={product.id} currentStatus={product.status} />
           {primaryImage ? (
@@ -66,8 +66,10 @@ export default function ProductCard({ product, href }: ProductCardProps) {
             <span className="font-semibold text-sm">
               {product.price != null ? `${Number(product.price).toFixed(2)} €` : '—'}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {product.quantity_on_hand} бр.
+            <span className={`text-xs ${
+              product.quantity_on_hand === 0 ? 'text-red-600 font-semibold' : 'text-muted-foreground'
+            }`}>
+              {product.quantity_on_hand === 0 ? 'Изчерпан' : `${product.quantity_on_hand} бр.`}
             </span>
           </div>
         </CardContent>
