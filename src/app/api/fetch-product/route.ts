@@ -91,6 +91,20 @@ export async function POST(request: Request) {
       } catch { /* skip invalid JSON-LD */ }
     }
 
+    // Extract images from HTML <img> tags
+    const imgTagRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi
+    let imgMatch
+    const nonProductPatterns = /icon|logo|avatar|banner|pixel|tracking|favicon|badge|button|placeholder|sprite|transparent|blank|loader|spinner|arrow|close|menu|search|share|social/i
+    while ((imgMatch = imgTagRegex.exec(html)) !== null) {
+      try {
+        const src = imgMatch[1]
+        if (nonProductPatterns.test(src)) continue
+        const resolved = new URL(src, parsed.toString()).toString()
+        if (!images.includes(resolved)) images.push(resolved)
+        if (images.length >= 15) break
+      } catch { /* skip invalid URLs */ }
+    }
+
     // Price
     let price: number | null = null
     const ogPrice = getMeta('product:price:amount')

@@ -48,7 +48,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       </div>
 
       <p className="text-muted-foreground">
-        Общо за периода: <strong className="text-foreground">{total.toFixed(2)} лв</strong>
+        Общо за периода: <strong className="text-foreground">{total.toFixed(2)} €</strong>
       </p>
 
       <div className="space-y-2">
@@ -61,7 +61,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                 &mdash; {s.store?.name} от {s.seller?.display_name}
               </span>
             </div>
-            <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} лв</span>
+            <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
           </div>
         ))}
         {(!sales || sales.length === 0) && (

@@ -13,15 +13,14 @@ interface ProductCardProps {
     status: string
     quantity_on_hand: number
     category?: { name: string } | null
-    images?: { url: string }[] | { url: string } | null
+    images?: { url: string; is_primary?: boolean; sort_order?: number }[] | { url: string } | null
   }
   href?: string
 }
 
 export default function ProductCard({ product, href }: ProductCardProps) {
-  const firstImage = Array.isArray(product.images)
-    ? product.images[0]?.url
-    : product.images?.url
+  const images = Array.isArray(product.images) ? product.images : []
+  const primaryImage = images.find(img => img.is_primary) || images[0]
 
   const categoryName = product.category?.name
 
@@ -32,9 +31,9 @@ export default function ProductCard({ product, href }: ProductCardProps) {
     <Link href={href ?? `/catalog/${product.id}`}>
       <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
         <div className="aspect-square bg-slate-100 rounded-t-lg flex items-center justify-center overflow-hidden">
-          {firstImage ? (
+          {primaryImage ? (
             <img
-              src={firstImage}
+              src={primaryImage.url}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
             />
@@ -55,7 +54,7 @@ export default function ProductCard({ product, href }: ProductCardProps) {
           )}
           <div className="flex items-center justify-between pt-1">
             <span className="font-semibold text-sm">
-              {product.price != null ? `${Number(product.price).toFixed(2)} лв` : '—'}
+              {product.price != null ? `${Number(product.price).toFixed(2)} €` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               {product.quantity_on_hand} бр.

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
         const buffer = await imageResponse.arrayBuffer()
         const ext = contentType.split('/')[1] || 'jpg'
-        const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+        const filename = `fetched/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
         const { error: uploadError } = await supabase.storage
           .from('products')

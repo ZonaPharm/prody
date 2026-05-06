@@ -26,8 +26,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const statusLabel = STATUS_LABELS[product.status] || product.status
 
   const images = Array.isArray(product.images) ? product.images : []
-  const firstImage = images[0]
-  const extraImages = images.slice(1)
+  const primaryImage = images.find((img: any) => img.is_primary) || images[0]
+  const extraImages = images.filter((img: any) => img !== primaryImage)
 
   async function deleteProduct(formData: FormData) {
     'use server'
@@ -87,9 +87,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
         {/* Images */}
         <div className="lg:col-span-1 space-y-4">
           <div className="aspect-square bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
-            {firstImage ? (
+            {primaryImage ? (
               <img
-                src={firstImage.url}
+                src={primaryImage.url}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
@@ -129,13 +129,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 <div>
                   <p className="text-sm text-muted-foreground">Цена</p>
                   <p className="font-medium">
-                    {product.price != null ? `${Number(product.price).toFixed(2)} лв` : '—'}
+                    {product.price != null ? `${Number(product.price).toFixed(2)} €` : '—'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Доставна цена</p>
                   <p className="font-medium">
-                    {product.cost_price != null ? `${Number(product.cost_price).toFixed(2)} лв` : '—'}
+                    {product.cost_price != null ? `${Number(product.cost_price).toFixed(2)} €` : '—'}
                   </p>
                 </div>
                 <div>

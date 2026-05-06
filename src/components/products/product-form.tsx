@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { STATUS_LABELS } from '@/lib/constants'
-import { Loader2, Upload, Search } from 'lucide-react'
+import { Loader2, Upload, Search, Star } from 'lucide-react'
 
 type CategoryOption = { id: string; name: string }
 
@@ -159,6 +159,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
     setExistingImages((prev) => prev.filter((img) => img.id !== id))
   }
 
+  const setPrimaryExistingImage = (id: string) => {
+    setExistingImages((prev) =>
+      prev.map((img) => ({ ...img, is_primary: img.id === id }))
+    )
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSubmitLoading(true)
@@ -208,7 +214,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
           const ext = file.name.split('.').pop() || 'jpg'
-          const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+          const path = `${productId}/${i + 1}.${ext}`
 
           const { error: uploadError } = await supabase.storage
             .from('products')
@@ -241,6 +247,34 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             }
             throw insertError
           }
+        }
+      }
+
+      // Sync primary image changes among existing images
+      const existingPrimaryChanged = existingImages.find(img => img.is_primary)
+      if (existingPrimaryChanged) {
+        const prevPrimary = initialData?.images?.find(img => img.is_primary)
+        if (prevPrimary && prevPrimary.id !== existingPrimaryChanged.id) {
+          await (supabase.from('product_images') as any).update({ is_primary: false }).eq('id', prevPrimary.id)
+        }
+        if (!prevPrimary || prevPrimary.id !== existingPrimaryChanged.id) {
+          await (supabase.from('product_images') as any).update({ is_primary: true }).eq('id', existingPrimaryChanged.id)
+        }
+      }
+
+      // Move fetched images to product folder
+      for (const img of existingImages) {
+        if (img.id.startsWith('fetched/')) {
+          try {
+            const res = await fetch(img.url)
+            const blob = await res.blob()
+            const ext = img.id.split('.').pop() || 'jpg'
+            const newPath = `${productId}/${img.sort_order}.${ext}`
+            await supabase.storage.from('products').upload(newPath, blob)
+            const { data: newUrlData } = supabase.storage.from('products').getPublicUrl(newPath)
+            await (supabase.from('product_images') as any).update({ url: newUrlData.publicUrl }).eq('id', img.id)
+            await supabase.storage.from('products').remove([img.id])
+          } catch { /* skip failed moves */ }
         }
       }
 
@@ -297,8 +331,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
       </div>
 
-      {/* Row 3: SKU, Barcode, Status — 3 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Row 3: SKU, Barcode, Status, Quantity — 4 columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
           <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU-001" />
@@ -317,6 +351,11 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="quantity">Наличност</Label>
+          <Input id="quantity" type="number" min="0" value={quantityOnHand}
+            onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
         </div>
       </div>
 
@@ -345,6 +384,13 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
       </div>
 
+      {/* Row 4b: Date + Source order date */}
+      <div className="space-y-2">
+        <Label htmlFor="source_order_date">Дата на поръчка</Label>
+        <Input id="source_order_date" type="date" value={sourceOrderDate}
+          onChange={(e) => setSourceOrderDate(e.target.value)} />
+      </div>
+
       {/* Row 5: Description + AI button */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -368,6 +414,11 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             {existingImages.map((img) => (
               <div key={img.id} className="relative group">
                 <img src={img.url} alt="" className="h-24 w-24 object-cover rounded-md border" />
+                <button type="button" onClick={() => setPrimaryExistingImage(img.id)}
+                  className={`absolute top-1 left-1 rounded-full w-5 h-5 text-xs flex items-center justify-center transition-opacity ${img.is_primary ? 'bg-yellow-400 text-white opacity-100' : 'bg-white/80 text-slate-500 opacity-0 group-hover:opacity-100'}`}
+                  title="Задай като основна">
+                  <Star className="h-3 w-3" />
+                </button>
                 <button type="button" onClick={() => removeExistingImage(img.id)}
                   className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
                 {img.is_primary && (
@@ -405,11 +456,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           </div>
         )}
       </div>
-
-      {/* Hidden fields kept for data integrity */}
-      <input type="hidden" value={sourceUrl} />
-      <input type="hidden" value={sourceOrderDate} />
-      <input type="hidden" value={quantityOnHand} />
 
       {/* Submit */}
       <div className="flex items-center gap-3 pt-4 border-t">

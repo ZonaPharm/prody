@@ -69,9 +69,9 @@ export default async function MySalesPage() {
                 <tr key={row.id} className="border-b last:border-0">
                   <td className="px-4 py-3">{row.product_name}</td>
                   <td className="px-4 py-3 text-center">{row.quantity}</td>
-                  <td className="px-4 py-3 text-right">{row.sale_price.toFixed(2)} лв</td>
+                  <td className="px-4 py-3 text-right">{row.sale_price.toFixed(2)} €</td>
                   <td className="px-4 py-3 text-right font-medium">
-                    {(row.quantity * row.sale_price).toFixed(2)} лв
+                    {(row.quantity * row.sale_price).toFixed(2)} €
                   </td>
                 </tr>
               ))}
@@ -79,7 +79,7 @@ export default async function MySalesPage() {
             <tfoot>
               <tr className="bg-slate-50 font-semibold">
                 <td colSpan={3} className="px-4 py-3 text-right">Общо за днес:</td>
-                <td className="px-4 py-3 text-right">{dailyTotal.toFixed(2)} лв</td>
+                <td className="px-4 py-3 text-right">{dailyTotal.toFixed(2)} €</td>
               </tr>
             </tfoot>
           </table>

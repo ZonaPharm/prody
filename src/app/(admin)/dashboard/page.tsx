@@ -65,7 +65,7 @@ export default async function DashboardPage() {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todayTotal.toFixed(0)} лв</div>
+            <div className="text-2xl font-bold">{todayTotal.toFixed(0)} €</div>
             <p className="text-xs text-muted-foreground">{todayCount} транзакции</p>
           </CardContent>
         </Card>
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{weekTotal.toFixed(0)} лв</div>
+            <div className="text-2xl font-bold">{weekTotal.toFixed(0)} €</div>
             <p className="text-xs text-muted-foreground">последните 7 дни</p>
           </CardContent>
         </Card>

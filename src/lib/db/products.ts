@@ -9,7 +9,7 @@ export async function getProducts(filters?: {
   const supabase = await createServerSupabaseClient()
   let query = supabase
     .from('products')
-    .select('*, category:categories(name), images:product_images(url)')
+    .select('*, category:categories(name), images:product_images(url, is_primary, sort_order)')
 
   if (filters?.search) {
     query = query.ilike('name', `%${filters.search}%`)

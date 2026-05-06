@@ -224,7 +224,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{product.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {product.price ? `${product.price.toFixed(2)} лв` : 'Без цена'} &middot; Наличност: {product.quantity_on_hand}
+                    {product.price ? `${product.price.toFixed(2)} €` : 'Без цена'} &middot; Наличност: {product.quantity_on_hand}
                   </p>
                 </div>
               </button>
@@ -253,7 +253,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{selected.name}</h3>
               <p className="text-sm text-muted-foreground">
-                Каталожна цена: {selected.price ? `${selected.price.toFixed(2)} лв` : 'Няма'}
+                Каталожна цена: {selected.price ? `${selected.price.toFixed(2)} €` : 'Няма'}
               </p>
               <p className="text-sm text-muted-foreground">
                 Наличност: <span className={selected.quantity_on_hand === 0 ? 'text-red-600 font-medium' : ''}>
@@ -275,7 +275,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Цена на продажба (лв)</label>
+              <label className="text-sm font-medium">Цена на продажба (€)</label>
               <Input
                 type="number"
                 step="0.01"
