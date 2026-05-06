@@ -75,6 +75,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [rewriteLoading, setRewriteLoading] = useState(false)
+
   const handleAutoFetch = async () => {
     if (!fetchUrl.trim()) return
     setFetchLoading(true)
@@ -86,20 +88,58 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: fetchUrl.trim() }),
       })
-
       const data = await res.json()
-
-      if (!res.ok) {
-        setFetchError(data.error || 'Неуспешно извличане')
-        return
-      }
+      if (!res.ok) { setFetchError(data.error || 'Неуспешно извличане'); return }
 
       if (data.title) setName(data.title)
       if (data.price) setPrice(data.price.toString())
+      if (data.description) setDescription(data.description)
+
+      if (data.images?.length > 0) {
+        const imgRes = await fetch('/api/fetch-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: data.images }),
+        })
+        const imgData = await imgRes.json()
+        if (imgData.images) {
+          const downloadedUrls: string[] = []
+          for (const img of imgData.images) {
+            if (img.url && !img.error) {
+              downloadedUrls.push(img.url)
+              setExistingImages(prev => [...prev, {
+                id: img.path,
+                url: img.url,
+                is_primary: prev.length === 0 && downloadedUrls.length === 1,
+                sort_order: prev.length + 1,
+              }])
+            }
+          }
+        }
+      }
     } catch {
       setFetchError('Грешка при извличане на данни')
     } finally {
       setFetchLoading(false)
+    }
+  }
+
+  const handleAiRewrite = async () => {
+    if (!description.trim()) return
+    setRewriteLoading(true)
+    try {
+      const res = await fetch('/api/ai/rewrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: description.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSubmitError(data.error || 'AI грешка'); return }
+      if (data.description) setDescription(data.description)
+    } catch {
+      setSubmitError('Грешка при свързване с AI')
+    } finally {
+      setRewriteLoading(false)
     }
   }
 
@@ -216,224 +256,122 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const isEdit = Boolean(initialData?.id)
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
-      {/* Auto-fetch section */}
-      <div className="rounded-lg border bg-slate-50 p-4 space-y-3">
-        <p className="text-sm font-medium text-slate-700">
-          Издърпай информация от URL
-        </p>
-        <div className="flex gap-2">
-          <Input
-            type="url"
-            placeholder="https://example.com/product"
-            value={fetchUrl}
-            onChange={(e) => setFetchUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAutoFetch())}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleAutoFetch}
-            disabled={fetchLoading || !fetchUrl.trim()}
-          >
-            {fetchLoading ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="mr-1 h-4 w-4" />
-            )}
-            Издърпай
-          </Button>
-        </div>
-        {fetchError && (
-          <p className="text-sm text-red-600">{fetchError}</p>
-        )}
-      </div>
-
-      {/* Error alert */}
+    <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
       {submitError && (
         <div className="rounded-md bg-red-50 border border-red-200 p-4">
           <p className="text-sm text-red-700">{submitError}</p>
         </div>
       )}
 
-      {/* Basic info */}
+      {/* Row 1: Name — full width */}
       <div className="space-y-2">
         <Label htmlFor="name">Име *</Label>
-        <Input
-          id="name"
-          required
-          value={name}
+        <Input id="name" required value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Име на продукта"
-        />
+          placeholder="Име на продукта" />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="description">Описание</Label>
-        <Textarea
-          id="description"
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Описание на продукта"
-        />
-      </div>
-
-      {/* Price grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Row 2: Price, Cost, Category — 3 columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label htmlFor="price">Цена *</Label>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="0.00"
-          />
+          <Input id="price" type="number" step="0.01" min="0" required
+            value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cost_price">Доставна цена</Label>
-          <Input
-            id="cost_price"
-            type="number"
-            step="0.01"
-            min="0"
-            value={costPrice}
-            onChange={(e) => setCostPrice(e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
-      </div>
-
-      {/* SKU / Barcode grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="sku">SKU</Label>
-          <Input
-            id="sku"
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-            placeholder="SKU-001"
-          />
+          <Input id="cost_price" type="number" step="0.01" min="0"
+            value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder="0.00" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="barcode">Баркод</Label>
-          <Input
-            id="barcode"
-            value={barcode}
-            onChange={(e) => setBarcode(e.target.value)}
-            placeholder="1234567890123"
-          />
-        </div>
-      </div>
-
-      {/* Category */}
-      <div className="space-y-2">
-        <Label htmlFor="category_id">Категория</Label>
-        <Select value={categoryId} onValueChange={setCategoryId}>
-          <SelectTrigger id="category_id">
-            <SelectValue placeholder="Избери категория" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">Без категория</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Source / Date grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="source">Източник</Label>
-          <Input
-            id="source"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="Име на доставчик"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="source_order_date">Дата на поръчка</Label>
-          <Input
-            id="source_order_date"
-            type="date"
-            value={sourceOrderDate}
-            onChange={(e) => setSourceOrderDate(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Status / Quantity grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="status">Статус</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger id="status">
-              <SelectValue />
-            </SelectTrigger>
+          <Label htmlFor="category_id">Категория</Label>
+          <Select value={categoryId} onValueChange={setCategoryId}>
+            <SelectTrigger id="category_id"><SelectValue placeholder="Избери категория" /></SelectTrigger>
             <SelectContent>
-              {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
+              <SelectItem value="__none__">Без категория</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Row 3: SKU, Barcode, Status — 3 columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="quantity_on_hand">Наличност</Label>
-          <Input
-            id="quantity_on_hand"
-            type="number"
-            min="0"
-            value={quantityOnHand}
-            onChange={(e) => setQuantityOnHand(e.target.value)}
-          />
+          <Label htmlFor="sku">SKU</Label>
+          <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU-001" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="barcode">Баркод</Label>
+          <Input id="barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="1234567890123" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="status">Статус</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger id="status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Source URL (hidden, used for auto-fetch) */}
-      <div className="space-y-2">
-        <Label htmlFor="source_url">URL на източник</Label>
-        <Input
-          id="source_url"
-          type="url"
-          value={sourceUrl}
-          onChange={(e) => setSourceUrl(e.target.value)}
-          placeholder="https://..."
-        />
+      {/* Row 4: Source, Source URL + Fetch button — 2 cols */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="source">Източник</Label>
+          <Input id="source" value={source}
+            onChange={(e) => setSource(e.target.value)} placeholder="Име на доставчик" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="source_url">URL на източник</Label>
+          <div className="flex gap-2">
+            <Input id="source_url" type="url" className="flex-1"
+              value={fetchUrl}
+              onChange={(e) => { setFetchUrl(e.target.value); setSourceUrl(e.target.value) }}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAutoFetch())}
+              placeholder="https://..." />
+            <Button type="button" variant="secondary"
+              onClick={handleAutoFetch} disabled={fetchLoading || !fetchUrl.trim()}>
+              {fetchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Издърпай
+            </Button>
+          </div>
+          {fetchError && <p className="text-sm text-red-600">{fetchError}</p>}
+        </div>
       </div>
 
-      {/* Existing images (edit mode) */}
+      {/* Row 5: Description + AI button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="description">Описание</Label>
+          <Button type="button" variant="outline" size="sm"
+            onClick={handleAiRewrite}
+            disabled={rewriteLoading || !description.trim()}>
+            {rewriteLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            Пренапиши с AI
+          </Button>
+        </div>
+        <Textarea id="description" rows={4} value={description}
+          onChange={(e) => setDescription(e.target.value)} placeholder="Описание на продукта" />
+      </div>
+
+      {/* Row 6: Images */}
       {existingImages.length > 0 && (
         <div className="space-y-2">
           <Label>Текущи снимки</Label>
           <div className="flex flex-wrap gap-3">
             {existingImages.map((img) => (
               <div key={img.id} className="relative group">
-                <img
-                  src={img.url}
-                  alt=""
-                  className="h-24 w-24 object-cover rounded-md border"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeExistingImage(img.id)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  x
-                </button>
+                <img src={img.url} alt="" className="h-24 w-24 object-cover rounded-md border" />
+                <button type="button" onClick={() => removeExistingImage(img.id)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
                 {img.is_primary && (
-                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b-md">
-                    Основна
-                  </span>
+                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5 rounded-b-md">Основна</span>
                 )}
               </div>
             ))}
@@ -441,26 +379,14 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
       )}
 
-      {/* New image upload */}
       <div className="space-y-2">
         <Label>Снимки</Label>
         <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Избери файлове
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" /> Избери файлове
           </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+            onChange={handleFileChange} />
           <span className="text-sm text-muted-foreground">
             {files.length > 0
               ? `${files.length} избран${files.length === 1 ? '' : 'и'} файл${files.length === 1 ? '' : 'а'}`
@@ -471,35 +397,27 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           <div className="flex flex-wrap gap-3 mt-3">
             {files.map((file, i) => (
               <div key={`${file.name}-${i}`} className="relative group">
-                <img
-                  src={URL.createObjectURL(file)}
-                  alt={file.name}
-                  className="h-24 w-24 object-cover rounded-md border"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeFile(i)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  x
-                </button>
+                <img src={URL.createObjectURL(file)} alt={file.name} className="h-24 w-24 object-cover rounded-md border" />
+                <button type="button" onClick={() => removeFile(i)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">x</button>
               </div>
             ))}
           </div>
         )}
       </div>
 
+      {/* Hidden fields kept for data integrity */}
+      <input type="hidden" value={sourceUrl} />
+      <input type="hidden" value={sourceOrderDate} />
+      <input type="hidden" value={quantityOnHand} />
+
       {/* Submit */}
       <div className="flex items-center gap-3 pt-4 border-t">
         <Button type="submit" disabled={submitLoading}>
-          {submitLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : null}
+          {submitLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {submitLoading ? 'Запазва...' : isEdit ? 'Запази промените' : 'Добави продукт'}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>
-          Отказ
-        </Button>
+        <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>Отказ</Button>
       </div>
     </form>
   )
