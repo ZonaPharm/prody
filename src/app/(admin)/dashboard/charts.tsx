@@ -23,7 +23,7 @@ export function SalesChart({ data }: { data: { date: string; amount: number }[] 
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
         <Tooltip
-          formatter={(value: number) => [`${value.toFixed(0)} €`, 'Продажби']}
+          formatter={(value: any) => [`${Number(value).toFixed(0)} €`, 'Продажби']}
           contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
         />
         <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -45,7 +45,7 @@ export function TopProductsChart({ data }: { data: { name: string; amount: numbe
           paddingAngle={2}
           dataKey="amount"
           nameKey="name"
-          label={({ name }) => name.length > 15 ? name.slice(0, 15) + '...' : name}
+          label={({ name }: any) => (name || '').length > 15 ? (name || '').slice(0, 15) + '...' : (name || '')}
           labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
         >
           {data.map((_, i) => (
@@ -53,7 +53,7 @@ export function TopProductsChart({ data }: { data: { name: string; amount: numbe
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number) => [`${value.toFixed(0)} €`, 'Общо']}
+          formatter={(value: any) => [`${Number(value).toFixed(0)} €`, 'Общо']}
           contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
         />
       </PieChart>
