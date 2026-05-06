@@ -22,7 +22,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   if (!product) notFound()
 
-  const variant = STATUS_VARIANTS[product.status] || 'default'
+  const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
   const statusLabel = STATUS_LABELS[product.status] || product.status
 
   const images = Array.isArray(product.images) ? product.images : []
@@ -144,7 +144,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Статус</p>
-                  <Badge variant={variant} className="mt-0.5">{statusLabel}</Badge>
+                  <Badge variant="secondary" className={`mt-0.5 ${statusColors.bg} ${statusColors.text} ${statusColors.border} border`}>{statusLabel}</Badge>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Наличност</p>
