@@ -34,21 +34,25 @@ export async function POST(request: Request) {
     const html = await response.text()
 
     const getMeta = (property: string): string | null => {
-      const regex = new RegExp(
-        `<meta[^>]+property=["']${escapeRegex(property)}["'][^>]+content=["']([^"']*)["']`,
+      const tagRegex = new RegExp(
+        `<meta[^>]+property=["']${escapeRegex(property)}["'][^>]*>`,
         'i'
       )
-      const match = html.match(regex)
-      return match ? match[1] : null
+      const tagMatch = html.match(tagRegex)
+      if (!tagMatch) return null
+      const contentMatch = tagMatch[0].match(/content=["']([^"']*)["']/i)
+      return contentMatch ? contentMatch[1] : null
     }
 
     const getMetaName = (name: string): string | null => {
-      const regex = new RegExp(
-        `<meta[^>]+name=["']${escapeRegex(name)}["'][^>]+content=["']([^"']*)["']`,
+      const tagRegex = new RegExp(
+        `<meta[^>]+name=["']${escapeRegex(name)}["'][^>]*>`,
         'i'
       )
-      const match = html.match(regex)
-      return match ? match[1] : null
+      const tagMatch = html.match(tagRegex)
+      if (!tagMatch) return null
+      const contentMatch = tagMatch[0].match(/content=["']([^"']*)["']/i)
+      return contentMatch ? contentMatch[1] : null
     }
 
     // Title
@@ -69,23 +73,22 @@ export async function POST(request: Request) {
     if (ogImage) images.push(ogImage)
 
     // Parse JSON-LD for additional images
-    const jsonLdMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
-    if (jsonLdMatches) {
-      for (const match of jsonLdMatches) {
-        try {
-          const inner = match.replace(/<[^>]+>/g, '')
-          const data = JSON.parse(inner)
-          const product = data['@graph']?.find?.((g: any) => g['@type'] === 'Product') ||
-                         (data['@type'] === 'Product' ? data : null)
-          if (product?.image) {
-            const imgs = Array.isArray(product.image) ? product.image : [product.image]
-            for (const img of imgs) {
-              if (typeof img === 'string' && !images.includes(img)) images.push(img)
-              if (typeof img === 'object' && img.url && !images.includes(img.url)) images.push(img.url)
-            }
+    const jsonLdRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+    let jsonLdMatch
+    while ((jsonLdMatch = jsonLdRegex.exec(html)) !== null) {
+      try {
+        const inner = jsonLdMatch[1]
+        const data = JSON.parse(inner)
+        const product = data['@graph']?.find?.((g: any) => g['@type'] === 'Product') ||
+                       (data['@type'] === 'Product' ? data : null)
+        if (product?.image) {
+          const imgs = Array.isArray(product.image) ? product.image : [product.image]
+          for (const img of imgs) {
+            if (typeof img === 'string' && !images.includes(img)) images.push(img)
+            if (typeof img === 'object' && img.url && !images.includes(img.url)) images.push(img.url)
           }
-        } catch { /* skip invalid JSON-LD */ }
-      }
+        }
+      } catch { /* skip invalid JSON-LD */ }
     }
 
     // Price
