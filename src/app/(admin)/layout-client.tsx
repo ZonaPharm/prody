@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
 import { X, LayoutDashboard, Package2, ShoppingBag, BarChart3, Settings } from 'lucide-react'
+import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/dashboard': LayoutDashboard,
@@ -34,7 +35,7 @@ export function AdminLayoutClient({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header title={currentTitle} showRoleSwitch onMenuClick={() => setSidebarOpen(true)} />
+      <Header title={currentTitle} onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1">
         {/* Desktop sidebar */}
@@ -103,7 +104,8 @@ function SidebarContent({
           )
         })}
       </nav>
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-slate-800 space-y-1">
+        <SwitchRoleButton />
         <form action="/auth/signout" method="post">
           <Button
             variant="ghost"

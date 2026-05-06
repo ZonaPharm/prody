@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
 import { RoleBanner } from '@/components/seller/role-banner'
 import { X, ShoppingBag, BarChart3 } from 'lucide-react'
+import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/record-sale': ShoppingBag,
@@ -38,7 +39,6 @@ export function SellerLayoutClient({
     <div className="flex min-h-screen flex-col">
       <Header
         title={currentTitle}
-        showRoleSwitch={isAdminImpersonating}
         onMenuClick={() => setSidebarOpen(true)}
       />
 
@@ -47,7 +47,7 @@ export function SellerLayoutClient({
       <div className="flex flex-1">
         {/* Desktop sidebar */}
         <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0">
-          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} />
+          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} />
         </aside>
 
         {/* Mobile overlay */}
@@ -72,7 +72,7 @@ export function SellerLayoutClient({
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} />
+              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} />
             </aside>
           </div>
         )}
@@ -87,10 +87,12 @@ function SidebarContent({
   navItems,
   pathname,
   displayName,
+  isAdminImpersonating,
 }: {
   navItems: NavItem[]
   pathname: string
   displayName: string
+  isAdminImpersonating: boolean
 }) {
   return (
     <>
@@ -119,7 +121,8 @@ function SidebarContent({
           )
         })}
       </nav>
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-slate-800 space-y-1">
+        {isAdminImpersonating && <SwitchRoleButton targetRole="admin" />}
         <form action="/auth/signout" method="post">
           <Button
             variant="ghost"

@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Eye, Loader2 } from 'lucide-react'
+import { Eye, Shield, Loader2 } from 'lucide-react'
 
-export function SwitchRoleButton() {
+interface SwitchRoleButtonProps {
+  targetRole?: 'seller' | 'admin'
+}
+
+export function SwitchRoleButton({ targetRole = 'seller' }: SwitchRoleButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
@@ -15,10 +19,11 @@ export function SwitchRoleButton() {
       const res = await fetch('/api/auth/switch-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'seller' }),
+        body: JSON.stringify({ role: targetRole }),
       })
       if (res.ok) {
-        router.push('/record-sale')
+        router.push(targetRole === 'seller' ? '/record-sale' : '/dashboard')
+        router.refresh()
       }
     } catch {
       // ignore
@@ -34,8 +39,14 @@ export function SwitchRoleButton() {
       onClick={handleSwitch}
       disabled={loading}
     >
-      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
-      Премини към продавач
+      {loading ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : targetRole === 'seller' ? (
+        <Eye className="mr-2 h-4 w-4" />
+      ) : (
+        <Shield className="mr-2 h-4 w-4" />
+      )}
+      {targetRole === 'seller' ? 'Виж като продавач' : 'Върни се като админ'}
     </Button>
   )
 }
