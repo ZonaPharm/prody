@@ -10,9 +10,7 @@ export async function POST(request: Request) {
     }
 
     let parsed: URL
-    try {
-      parsed = new URL(url)
-    } catch {
+    try { parsed = new URL(url) } catch {
       return NextResponse.json({ error: 'Невалиден URL адрес' }, { status: 422 })
     }
 
@@ -44,13 +42,53 @@ export async function POST(request: Request) {
       return match ? match[1] : null
     }
 
+    const getMetaName = (name: string): string | null => {
+      const regex = new RegExp(
+        `<meta[^>]+name=["']${escapeRegex(name)}["'][^>]+content=["']([^"']*)["']`,
+        'i'
+      )
+      const match = html.match(regex)
+      return match ? match[1] : null
+    }
+
+    // Title
     const title =
       getMeta('og:title') ||
       html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ||
       null
 
-    const image = getMeta('og:image')
+    // Description
+    const description =
+      getMeta('og:description') ||
+      getMetaName('description') ||
+      null
 
+    // Images
+    const images: string[] = []
+    const ogImage = getMeta('og:image')
+    if (ogImage) images.push(ogImage)
+
+    // Parse JSON-LD for additional images
+    const jsonLdMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
+    if (jsonLdMatches) {
+      for (const match of jsonLdMatches) {
+        try {
+          const inner = match.replace(/<[^>]+>/g, '')
+          const data = JSON.parse(inner)
+          const product = data['@graph']?.find?.((g: any) => g['@type'] === 'Product') ||
+                         (data['@type'] === 'Product' ? data : null)
+          if (product?.image) {
+            const imgs = Array.isArray(product.image) ? product.image : [product.image]
+            for (const img of imgs) {
+              if (typeof img === 'string' && !images.includes(img)) images.push(img)
+              if (typeof img === 'object' && img.url && !images.includes(img.url)) images.push(img.url)
+            }
+          }
+        } catch { /* skip invalid JSON-LD */ }
+      }
+    }
+
+    // Price
     let price: number | null = null
     const ogPrice = getMeta('product:price:amount')
     if (ogPrice) {
@@ -65,7 +103,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ title, image, price })
+    return NextResponse.json({ title, description, images, price })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Неуспешно извличане' },
