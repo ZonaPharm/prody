@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Package } from 'lucide-react'
 import { STATUS_LABELS, STATUS_VARIANTS, INACTIVE_REASON_LABELS } from '@/lib/constants'
+import { ToggleStatusButton } from './toggle-status-button'
 
 interface ProductCardProps {
   product: {
@@ -31,7 +32,8 @@ export default function ProductCard({ product, href }: ProductCardProps) {
   return (
     <Link href={href ?? `/catalog/${product.id}`}>
       <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
-        <div className="aspect-square bg-slate-100 rounded-t-lg flex items-center justify-center overflow-hidden">
+        <div className="aspect-square bg-slate-100 rounded-t-lg flex items-center justify-center overflow-hidden relative">
+            <ToggleStatusButton productId={product.id} currentStatus={product.status} />
           {primaryImage ? (
             <img
               src={primaryImage.url}
