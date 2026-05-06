@@ -28,10 +28,11 @@ export default async function RecordSalePage() {
     )
   }
 
-  // Fetch listed products
+  // Fetch listed products (only with stock)
   const { data: products } = await (supabase.from('products') as any)
     .select('id, name, price, quantity_on_hand, category_id')
     .eq('status', 'active')
+    .gt('quantity_on_hand', 0)
     .order('name')
 
   // Fetch categories

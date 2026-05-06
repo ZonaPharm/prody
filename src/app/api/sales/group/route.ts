@@ -43,6 +43,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Нямате достъп до този магазин' }, { status: 403 })
   }
 
+  // Verify all products have stock
+  for (const item of items) {
+    const { data: prod } = await (supabase.from('products') as any)
+      .select('quantity_on_hand, name')
+      .eq('id', item.product_id)
+      .single()
+    if (!prod) {
+      return NextResponse.json({ error: 'Продуктът не съществува' }, { status: 400 })
+    }
+    if (prod.quantity_on_hand < item.quantity) {
+      return NextResponse.json({ error: `Недостатъчна наличност за "${prod.name}": ${prod.quantity_on_hand} бр.` }, { status: 400 })
+    }
+  }
+
   const saleGroupId = crypto.randomUUID()
 
   const rows = items.map(item => ({
