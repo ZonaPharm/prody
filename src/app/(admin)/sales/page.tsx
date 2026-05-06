@@ -36,6 +36,13 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   if (sp.category) query = query.eq('product.category_id', sp.category)
 
   const { data: sales } = await query
+
+  // Compute group counts so we only show "група" for 2+ items
+  const groupCounts: Record<string, number> = {}
+  ;(sales || []).forEach((s: any) => {
+    if (s.sale_group_id) groupCounts[s.sale_group_id] = (groupCounts[s.sale_group_id] || 0) + 1
+  })
+
   const total = (sales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const exportParams = new URLSearchParams({ from: fromDate, to: toDate })
   if (sp.store) exportParams.set('store', sp.store)
@@ -128,8 +135,8 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
               <span className="text-sm text-muted-foreground">
                 &mdash; {s.store?.name} от {s.seller?.display_name}
               </span>
-              {s.sale_group_id && (
-                <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+              {s.sale_group_id && groupCounts[s.sale_group_id] > 1 && (
+                <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
                   група
                 </span>
               )}

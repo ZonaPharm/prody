@@ -71,6 +71,9 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     store_name: Array.isArray(s.store) ? (s.store[0]?.name ?? '—') : (s.store?.name ?? '—'),
   }))
 
+  const groupCounts: Record<string, number> = {}
+  rows.forEach(r => { if (r.sale_group_id) groupCounts[r.sale_group_id] = (groupCounts[r.sale_group_id] || 0) + 1 })
+
   const total = rows.reduce((sum, r) => sum + r.quantity * r.sale_price, 0)
   const uniqueProducts = new Set(rows.map(r => r.product_name)).size
   const groupSales = rows.filter(r => r.sale_group_id).length
@@ -143,8 +146,8 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                   <tr key={row.id} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="px-4 py-3">
                       <span className="font-medium">{row.product_name}</span>
-                      {row.sale_group_id && (
-                        <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                      {row.sale_group_id && groupCounts[row.sale_group_id] > 1 && (
+                        <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
                           група
                         </span>
                       )}
