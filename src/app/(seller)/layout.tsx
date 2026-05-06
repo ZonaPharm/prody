@@ -1,14 +1,13 @@
 // src/app/(seller)/layout.tsx
 
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
-import { ShoppingBag, BarChart3 } from 'lucide-react'
 import { SellerLayoutClient } from './layout-client'
 
 export const dynamic = 'force-dynamic'
 
 const navItems = [
-  { href: '/record-sale', label: 'Запиши продажба', icon: ShoppingBag },
-  { href: '/my-sales', label: 'Моите продажби', icon: BarChart3 },
+  { href: '/record-sale', label: 'Запиши продажба' },
+  { href: '/my-sales', label: 'Моите продажби' },
 ]
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {

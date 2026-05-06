@@ -5,12 +5,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
-import { X } from 'lucide-react'
+import { X, LayoutDashboard, Package2, ShoppingBag, BarChart3, Settings } from 'lucide-react'
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  '/dashboard': LayoutDashboard,
+  '/catalog': Package2,
+  '/sales': ShoppingBag,
+  '/reports': BarChart3,
+  '/settings': Settings,
+}
 
 interface NavItem {
   href: string
   label: string
-  icon: React.ComponentType<{ className?: string }>
 }
 
 export function AdminLayoutClient({
@@ -75,23 +82,26 @@ function SidebarContent({
   return (
     <>
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map(item => (
-          <Button
-            key={item.href}
-            variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
-            asChild
-            className={`w-full justify-start ${
-              pathname.startsWith(item.href)
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <Link href={item.href}>
-              <item.icon className="mr-2 h-4 w-4" />
-              {item.label}
-            </Link>
-          </Button>
-        ))}
+        {navItems.map(item => {
+          const Icon = iconMap[item.href]
+          return (
+            <Button
+              key={item.href}
+              variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
+              asChild
+              className={`w-full justify-start ${
+                pathname.startsWith(item.href)
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Link href={item.href}>
+                {Icon && <Icon className="mr-2 h-4 w-4" />}
+                {item.label}
+              </Link>
+            </Button>
+          )
+        })}
       </nav>
       <div className="p-4 border-t border-slate-800">
         <form action="/auth/signout" method="post">

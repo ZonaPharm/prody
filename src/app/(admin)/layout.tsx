@@ -1,15 +1,14 @@
 import { requireAdmin } from '@/lib/auth'
-import { Package2, BarChart3, ShoppingBag, Settings, LayoutDashboard } from 'lucide-react'
 import { AdminLayoutClient } from './layout-client'
 
 export const dynamic = 'force-dynamic'
 
 const navItems = [
-  { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
-  { href: '/catalog', label: 'Каталог', icon: Package2 },
-  { href: '/sales', label: 'Продажби', icon: ShoppingBag },
-  { href: '/reports', label: 'Отчети', icon: BarChart3 },
-  { href: '/settings', label: 'Настройки', icon: Settings },
+  { href: '/dashboard', label: 'Дашборд' },
+  { href: '/catalog', label: 'Каталог' },
+  { href: '/sales', label: 'Продажби' },
+  { href: '/reports', label: 'Отчети' },
+  { href: '/settings', label: 'Настройки' },
 ]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
