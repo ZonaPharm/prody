@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CartItem } from './cart-types'
 import { Minus, Plus, X, ShoppingCart } from 'lucide-react'
@@ -106,5 +107,76 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
         </Button>
       </div>
     </div>
+  )
+}
+
+// CartBottomBar — mobile sticky bar + expandable drawer
+export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
+  const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <>
+      {/* Collapsed bar */}
+      <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30">
+        <button
+          type="button"
+          className="flex items-center gap-2 flex-1 min-w-0"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <ShoppingCart className="h-5 w-5" />
+          <span className="font-medium text-sm">Количка ({items.length})</span>
+          <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
+        </button>
+        <Button size="sm" onClick={onSubmit} disabled={submitting}>
+          {submitting ? '...' : 'Завърши'}
+        </Button>
+      </div>
+
+      {/* Expanded drawer */}
+      {expanded && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setExpanded(false)} />
+          <div className="fixed inset-x-0 bottom-0 z-50 bg-white border-t rounded-t-xl shadow-2xl max-h-[70vh] flex flex-col">
+            <div className="p-3 border-b flex items-center justify-between">
+              <h3 className="font-semibold">Количка</h3>
+              <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>Готово</Button>
+            </div>
+            <div className="flex-1 overflow-auto p-3 space-y-2">
+              {items.map(item => (
+                <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border bg-slate-50/50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.product.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-7 w-7"
+                      onClick={() => item.qty <= 1 ? onRemove(item.product.id) : onSetQty(item.product.id, item.qty - 1)}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
+                    <Button variant="outline" size="icon" className="h-7 w-7"
+                      onClick={() => onAdd(item.product.id)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                    onClick={() => onRemove(item.product.id)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="p-3 border-t">
+              <Button className="w-full" size="lg" onClick={onSubmit} disabled={submitting}>
+                Завърши продажба · {total.toFixed(2)} €
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }

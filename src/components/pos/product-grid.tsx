@@ -94,7 +94,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart 
       )}
 
       {/* Product grid */}
-      <div className="overflow-auto h-[calc(100vh-20rem)]">
+      <div className="overflow-auto flex-1">
         {filtered.length === 0 ? (
           <div className="py-16 text-center text-muted-foreground">
             {search.length >= 2
@@ -102,7 +102,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart 
               : 'Няма налични продукти'}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map(product => (
               <button
                 key={product.id}

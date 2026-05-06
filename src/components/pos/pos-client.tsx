@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Product } from './cart-types'
 import { cartReducer, initialCartState } from './cart-reducer'
 import { ProductGrid } from './product-grid'
-import { CartSidebar } from './cart-sidebar'
+import { CartSidebar, CartBottomBar } from './cart-sidebar'
 import {
   Select,
   SelectContent,
@@ -79,46 +79,83 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
   }
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-8rem)]">
-      {/* Left: Product grid */}
-      <div className="flex-1 min-w-0">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Запиши продажба</h1>
-            <p className="text-muted-foreground text-sm mt-1">Кликнете върху продукт за добавяне в количката</p>
+    <>
+      {/* Desktop layout: 60/40 split */}
+      <div className="hidden lg:flex gap-6 h-[calc(100vh-8rem)]">
+        <div className="flex-1 min-w-0">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">Запиши продажба</h1>
+              <p className="text-muted-foreground text-sm mt-1">Кликнете върху продукт за добавяне в количката</p>
+            </div>
+            {stores.length > 1 && (
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map(store => (
+                    <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          {stores.length > 1 && (
-            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {stores.map(store => (
-                  <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <ProductGrid
+            products={products}
+            categories={categories}
+            frequentlySold={frequentlySold}
+            onAddToCart={handleAddToCart}
+          />
         </div>
-        <ProductGrid
-          products={products}
-          categories={categories}
-          frequentlySold={frequentlySold}
-          onAddToCart={handleAddToCart}
-        />
+        <div className="w-[380px] shrink-0">
+          <CartSidebar
+            items={cart.items}
+            onAdd={handleAdd}
+            onRemove={handleRemove}
+            onSetQty={handleSetQty}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+          />
+        </div>
       </div>
 
-      {/* Right: Cart */}
-      <div className="w-[380px] shrink-0">
-        <CartSidebar
-          items={cart.items}
-          onAdd={handleAdd}
-          onRemove={handleRemove}
-          onSetQty={handleSetQty}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
+      {/* Mobile/Tablet: stacked layout */}
+      <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
+        <div className="flex-1 overflow-hidden p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h1 className="text-lg font-bold">Запиши продажба</h1>
+            {stores.length > 1 && (
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map(store => (
+                    <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <ProductGrid
+            products={products}
+            categories={categories}
+            frequentlySold={frequentlySold}
+            onAddToCart={handleAddToCart}
+          />
+        </div>
+        {cart.items.length > 0 && (
+          <CartBottomBar
+            items={cart.items}
+            onAdd={handleAdd}
+            onRemove={handleRemove}
+            onSetQty={handleSetQty}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+          />
+        )}
       </div>
-    </div>
+    </>
   )
 }
