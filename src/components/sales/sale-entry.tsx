@@ -4,8 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { Search, CheckCircle, Loader2 } from 'lucide-react'
+import { Search, CheckCircle, Loader2, Store } from 'lucide-react'
 
 type Product = {
   id: string
@@ -16,11 +23,12 @@ type Product = {
 }
 
 interface SaleEntryProps {
-  storeId: string
+  stores: { id: string; name: string }[]
+  defaultStoreId: string
   userId: string
 }
 
-export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
+export default function SaleEntry({ stores, defaultStoreId, userId }: SaleEntryProps) {
   const { toast } = useToast()
 
   const [search, setSearch] = useState('')
@@ -28,6 +36,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
   const [searching, setSearching] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
 
+  const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId)
   const [selected, setSelected] = useState<Product | null>(null)
   const [quantity, setQuantity] = useState('1')
   const [salePrice, setSalePrice] = useState('')
@@ -134,7 +143,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
         .from('sales')
         .insert({
           product_id: selected.id,
-          store_id: storeId,
+          store_id: selectedStoreId,
           sold_by: userId,
           quantity: qty,
           sale_price: price,
@@ -185,6 +194,25 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
         <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 p-4 text-green-800">
           <CheckCircle className="h-5 w-5" />
           <span>Продажбата е записана успешно</span>
+        </div>
+      )}
+
+      {/* Store selector */}
+      {stores.length > 1 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Обект</label>
+          <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {stores.map((store) => (
+                <SelectItem key={store.id} value={store.id}>
+                  {store.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
