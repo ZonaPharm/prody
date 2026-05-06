@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+
+function truncateName(name: string, max: number = 18): string {
+  return name.length > max ? name.slice(0, max) + '...' : name
+}
 
 export default function ReportsPage() {
   const [days, setDays] = useState('30')
@@ -40,18 +46,49 @@ export default function ReportsPage() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader><CardTitle>Продажби по дни</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Общо продажби</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.totalRevenue?.toFixed(0) || 0} €</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Брой продажби</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.totalCount || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Уникални продукти</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.uniqueProducts || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Среден чек</CardTitle></CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {data.totalCount > 0 ? (data.totalRevenue / data.totalCount).toFixed(0) : '0'} €
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue by Day */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Приходи по дни</CardTitle></CardHeader>
           <CardContent>
             {data.byDay?.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.byDay}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sale_date" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="count" stroke="#3b82f6" name="Брой продажби" />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
+                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
+                  <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name="Приходи" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -60,17 +97,27 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
+        {/* Top Products by Quantity */}
         <Card>
-          <CardHeader><CardTitle>Топ продукти</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Топ продукти (брой)</CardTitle></CardHeader>
           <CardContent>
             {data.topProducts?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={data.topProducts} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="quantity" fill="#10b981" name="Продадени" />
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.topProducts} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={150}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => truncateName(v, 18)}
+                  />
+                  <Tooltip
+                    formatter={(v: any) => [v, 'Продадени бройки']}
+                    labelFormatter={(label) => label}
+                  />
+                  <Bar dataKey="quantity" fill="#10b981" name="Продадени" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -79,17 +126,49 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
+        {/* Top Products by Revenue */}
         <Card>
-          <CardHeader><CardTitle>Ниски наличности</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Топ продукти (приходи)</CardTitle></CardHeader>
           <CardContent>
-            {data.lowStock?.length === 0 ? (
-              <p className="text-muted-foreground">Всички продукти са с достатъчни наличности</p>
+            {data.topRevenue?.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={data.topRevenue}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={100}
+                    dataKey="revenue"
+                    nameKey="name"
+                    label={({ name, percent }: any) => `${truncateName(name, 12)} ${((percent || 0) * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                  >
+                    {data.topRevenue.map((_: any, i: number) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
+                </PieChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="space-y-2">
+              <p className="text-muted-foreground text-center py-12">Няма данни</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Low Stock */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Ниски наличности</CardTitle></CardHeader>
+          <CardContent>
+            {(!data.lowStock || data.lowStock.length === 0) ? (
+              <p className="text-muted-foreground text-center py-12">Всички продукти са с достатъчни наличности</p>
+            ) : (
+              <div className="space-y-2 max-h-[280px] overflow-auto">
                 {data.lowStock.map((p: any) => (
-                  <div key={p.id} className="flex justify-between py-2 border-b">
-                    <span>{p.name}</span>
-                    <span className={p.quantity_on_hand === 0 ? 'text-red-600 font-semibold' : 'text-amber-600'}>
+                  <div key={p.id} className="flex justify-between py-2 border-b last:border-0">
+                    <span className="text-sm truncate mr-4">{p.name}</span>
+                    <span className={p.quantity_on_hand === 0 ? 'text-red-600 font-semibold shrink-0' : 'text-amber-600 shrink-0'}>
                       {p.quantity_on_hand} бр
                     </span>
                   </div>
