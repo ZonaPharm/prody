@@ -1,6 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import Link from 'next/link'
-import { ShoppingBag, Package2, BarChart3 } from 'lucide-react'
+import { ShoppingBag, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RoleBanner } from '@/components/seller/role-banner'
 
@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic'
 const navItems = [
   { href: '/record-sale', label: 'Запиши продажба', icon: ShoppingBag },
   { href: '/my-sales', label: 'Моите продажби', icon: BarChart3 },
-  { href: '/seller-catalog', label: 'Каталог', icon: Package2 },
 ]
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
