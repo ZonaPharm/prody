@@ -1,30 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
-
-function truncateName(name: string, max: number = 18): string {
+function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
 }
 
 export default function ReportsPage() {
-  const [days, setDays] = useState('30')
+  const today = new Date().toISOString().split('T')[0]
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+  const [from, setFrom] = useState(monthAgo)
+  const [to, setTo] = useState(today)
   const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     setLoading(true)
-    fetch(`/api/reports?days=${days}`)
+    const days = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
+    fetch(`/api/reports?from=${from}&to=${to}`)
       .then(r => r.json())
       .then(setData)
       .catch(e => setError(e instanceof Error ? e.message : 'Грешка при зареждане'))
       .finally(() => setLoading(false))
-  }, [days])
+  }, [from, to])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return <div className="p-8 text-muted-foreground">Зареждане...</div>
   if (error) return <div className="p-8 text-red-600">{error}</div>
@@ -32,18 +37,19 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Отчети</h1>
-        <Select value={days} onValueChange={setDays}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">7 дни</SelectItem>
-            <SelectItem value="30">30 дни</SelectItem>
-            <SelectItem value="90">90 дни</SelectItem>
-          </SelectContent>
-        </Select>
+        <form onSubmit={(e) => { e.preventDefault(); fetchData() }} className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="text-xs text-muted-foreground">От</label>
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[140px] h-9 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">До</label>
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[140px] h-9 text-sm" />
+          </div>
+          <Button type="submit" variant="outline" size="sm" className="h-9">Покажи</Button>
+        </form>
       </div>
 
       {/* Summary Cards */}
@@ -131,25 +137,20 @@ export default function ReportsPage() {
           <CardHeader><CardTitle className="text-base">Топ продукти (приходи)</CardTitle></CardHeader>
           <CardContent>
             {data.topRevenue?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={data.topRevenue}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={100}
-                    dataKey="revenue"
-                    nameKey="name"
-                    label={({ name, percent }: any) => `${truncateName(name, 12)} ${((percent || 0) * 100).toFixed(0)}%`}
-                    labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
-                  >
-                    {data.topRevenue.map((_: any, i: number) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={[...data.topRevenue].reverse()} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={160}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => truncateName(v, 22)}
+                  />
                   <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
-                </PieChart>
+                  <Bar dataKey="revenue" fill="#8b5cf6" name="Приходи" radius={[0, 4, 4, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground text-center py-12">Няма данни</p>

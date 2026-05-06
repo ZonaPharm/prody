@@ -31,11 +31,9 @@ export function AdminLayoutClient({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
-  const currentTitle = navItems.find(item => pathname.startsWith(item.href))?.label
-
   return (
     <div className="flex min-h-screen flex-col">
-      <Header title={currentTitle} onMenuClick={() => setSidebarOpen(true)} />
+      <Header onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1">
         {/* Desktop sidebar */}

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { STATUS_LABELS } from '@/lib/constants'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Upload, Star } from 'lucide-react'
 
 type CategoryOption = { id: string; name: string }
@@ -272,6 +273,14 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
       )}
 
+      <Tabs defaultValue="info" className="w-full">
+        <TabsList>
+          <TabsTrigger value="info">Информация</TabsTrigger>
+          <TabsTrigger value="label">Етикет</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="info" className="space-y-6 pt-4">
+
       {/* Row 1: Name — full width */}
       <div className="space-y-2">
         <Label htmlFor="name">Име *</Label>
@@ -372,21 +381,22 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           onChange={(e) => setDescription(e.target.value)} placeholder="Описание на продукта" />
       </div>
 
-      {/* Row 6: Label */}
-      <div className="border-t pt-6 space-y-4">
-        <h3 className="text-lg font-semibold">Етикет</h3>
-        <p className="text-sm text-muted-foreground">Не е задължително. Етикетът се показва в детайлите на продукта и може да се принтира.</p>
-        <div className="grid grid-cols-1 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="label_title">Заглавие</Label>
-            <Input id="label_title" value={labelTitle} onChange={(e) => setLabelTitle(e.target.value)} placeholder="Заглавие на етикета" />
+        </TabsContent>
+
+        <TabsContent value="label" className="space-y-4 pt-4">
+          <p className="text-sm text-muted-foreground">Не е задължително. Етикетът се показва в детайлите на продукта и може да се принтира.</p>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="label_title">Заглавие</Label>
+              <Input id="label_title" value={labelTitle} onChange={(e) => setLabelTitle(e.target.value)} placeholder="Заглавие на етикета" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="label_content">Текст</Label>
+              <Textarea id="label_content" rows={6} value={labelContent} onChange={(e) => setLabelContent(e.target.value)} placeholder="Текст на етикета" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="label_content">Текст</Label>
-            <Textarea id="label_content" rows={3} value={labelContent} onChange={(e) => setLabelContent(e.target.value)} placeholder="Текст на етикета" />
-          </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Row 7: Images */}
       {existingImages.length > 0 && (

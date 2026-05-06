@@ -3,17 +3,25 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const days = parseInt(searchParams.get('days') || '30')
   const supabase = await createServerSupabaseClient()
-  const since = new Date()
-  since.setDate(since.getDate() - days)
-  const sinceDate = since.toISOString().split('T')[0]
+  const from = searchParams.get('from')
+  const to = searchParams.get('to')
+  let sinceDate: string
+  if (from) {
+    sinceDate = from
+  } else {
+    const since = new Date()
+    since.setDate(since.getDate() - 30)
+    sinceDate = since.toISOString().split('T')[0]
+  }
+  const untilDate = to || new Date().toISOString().split('T')[0]
 
   // All sales for the period
   const { data: sales } = await supabase
     .from('sales')
     .select('quantity, sale_price, sale_date, product:products(name)')
     .gte('sale_date', sinceDate)
+    .lte('sale_date', untilDate)
 
   // Aggregate: revenue by day
   const dayMap = new Map<string, number>()
