@@ -1,0 +1,110 @@
+'use client'
+
+import { Button } from '@/components/ui/button'
+import { CartItem } from './cart-types'
+import { Minus, Plus, X, ShoppingCart } from 'lucide-react'
+
+interface CartSidebarProps {
+  items: CartItem[]
+  onAdd: (productId: string) => void
+  onRemove: (productId: string) => void
+  onSetQty: (productId: string, qty: number) => void
+  onSubmit: () => void
+  submitting: boolean
+}
+
+export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
+  const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
+
+  return (
+    <div className="flex flex-col h-full rounded-lg border bg-white">
+      <div className="p-4 border-b">
+        <h2 className="font-semibold text-lg flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5" />
+          Количка
+          {items.length > 0 && (
+            <span className="text-sm font-normal text-muted-foreground">
+              ({items.length})
+            </span>
+          )}
+        </h2>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center p-8 text-center text-muted-foreground text-sm">
+          <p>Добавете продукти от мрежата</p>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <div className="p-3 space-y-2">
+            {items.map(item => (
+              <div
+                key={item.product.id}
+                className="flex items-center gap-3 p-3 rounded-md border bg-slate-50/50"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.product.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => item.qty <= 1 ? onRemove(item.product.id) : onSetQty(item.product.id, item.qty - 1)}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <span className="w-8 text-center text-sm font-medium tabular-nums">
+                    {item.qty}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => onAdd(item.product.id)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                <div className="text-right min-w-[60px]">
+                  <p className="text-sm font-semibold tabular-nums">
+                    {((item.product.price ?? 0) * item.qty).toFixed(2)} €
+                  </p>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-red-500 shrink-0"
+                  onClick={() => onRemove(item.product.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="p-4 border-t space-y-3">
+        <div className="flex items-center justify-between text-lg font-bold">
+          <span>Общо</span>
+          <span className="tabular-nums">{total.toFixed(2)} €</span>
+        </div>
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={items.length === 0 || submitting}
+          onClick={onSubmit}
+        >
+          {submitting ? 'Записване...' : 'Завърши продажба'}
+        </Button>
+      </div>
+    </div>
+  )
+}
