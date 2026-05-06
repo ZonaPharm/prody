@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Package } from 'lucide-react'
-import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
+import { STATUS_LABELS, STATUS_VARIANTS, INACTIVE_REASON_LABELS } from '@/lib/constants'
 
 interface ProductCardProps {
   product: {
@@ -24,8 +24,9 @@ export default function ProductCard({ product, href }: ProductCardProps) {
 
   const categoryName = product.category?.name
 
-  const variant = STATUS_VARIANTS[product.status] || 'default'
+  const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
   const statusLabel = STATUS_LABELS[product.status] || product.status
+  const inactiveReason = (product as any).inactive_reason
 
   return (
     <Link href={href ?? `/catalog/${product.id}`}>
@@ -47,10 +48,17 @@ export default function ProductCard({ product, href }: ProductCardProps) {
         <CardContent className="p-4 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-medium text-sm leading-tight line-clamp-2">{product.name}</h3>
-            <Badge variant={variant} className="shrink-0 text-[10px]">{statusLabel}</Badge>
+            <Badge variant="secondary" className={`shrink-0 text-[10px] ${statusColors.bg} ${statusColors.text} ${statusColors.border} border`}>
+              {statusLabel}
+            </Badge>
           </div>
           {categoryName && (
             <p className="text-xs text-muted-foreground">{categoryName}</p>
+          )}
+          {product.status === 'inactive' && inactiveReason && (
+            <p className="text-[10px] text-muted-foreground">
+              {INACTIVE_REASON_LABELS[inactiveReason] || inactiveReason}
+            </p>
           )}
           <div className="flex items-center justify-between pt-1">
             <span className="font-semibold text-sm">
