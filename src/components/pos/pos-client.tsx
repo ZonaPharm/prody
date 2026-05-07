@@ -1,6 +1,7 @@
 'use client'
 
 import { useReducer, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { Product } from './cart-types'
 import { cartReducer, initialCartState } from './cart-reducer'
@@ -23,9 +24,17 @@ interface POSClientProps {
 }
 
 export function POSClient({ products, categories, frequentlySold, stores, defaultStoreId }: POSClientProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [cart, dispatch] = useReducer(cartReducer, initialCartState)
   const [selectedStoreId, setSelectedStoreId] = useState(defaultStoreId)
+
+  const handleStoreChange = (storeId: string) => {
+    setSelectedStoreId(storeId)
+    const params = new URLSearchParams(window.location.search)
+    params.set('store', storeId)
+    router.push(`/record-sale?${params.toString()}`)
+  }
   const [submitting, setSubmitting] = useState(false)
 
   const handleAddToCart = (product: Product) => {
@@ -89,7 +98,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
               <p className="text-muted-foreground text-sm mt-1">Кликнете върху продукт за добавяне в количката</p>
             </div>
             {stores.length > 1 && (
-              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+              <Select value={selectedStoreId} onValueChange={handleStoreChange}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -126,7 +135,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-lg font-bold">Запиши продажба</h1>
             {stores.length > 1 && (
-              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+              <Select value={selectedStoreId} onValueChange={handleStoreChange}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue />
                 </SelectTrigger>

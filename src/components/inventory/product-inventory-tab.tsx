@@ -18,6 +18,9 @@ interface ProductInventoryTabProps {
 export function ProductInventoryTab({ productId, productName, stores }: ProductInventoryTabProps) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const refresh = () => setRefreshKey(k => k + 1)
 
   useEffect(() => {
     setLoading(true)
@@ -25,7 +28,7 @@ export function ProductInventoryTab({ productId, productName, stores }: ProductI
       .then(r => r.json())
       .then(setData)
       .finally(() => setLoading(false))
-  }, [productId])
+  }, [productId, refreshKey])
 
   if (loading) {
     return (
@@ -78,8 +81,9 @@ export function ProductInventoryTab({ productId, productName, stores }: ProductI
               store_name: s.store_name,
               qty: s.total_qty,
             }))}
+            onSuccess={refresh}
           />
-          <RestockForm productId={productId} productName={productName} stores={stores} />
+          <RestockForm productId={productId} productName={productName} stores={stores} onSuccess={refresh} />
         </div>
       </CardHeader>
       <CardContent>

@@ -32,12 +32,18 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     .order('store(name)')
     : { data: [] }
 
-  // Aggregate stock per product per store
+  // Aggregate stock per product per store (merge duplicates by store name)
   const stockMap: Record<string, { store_name: string; qty: number }[]> = {}
   ;(storeBatches || []).forEach((b: any) => {
     const storeName = b.store?.name || (Array.isArray(b.store) ? b.store[0]?.name : '—')
     if (!stockMap[b.product_id]) stockMap[b.product_id] = []
-    stockMap[b.product_id].push({ store_name: storeName, qty: b.quantity_remaining })
+    // Merge with existing entry for same store
+    const existing = stockMap[b.product_id].find(s => s.store_name === storeName)
+    if (existing) {
+      existing.qty += b.quantity_remaining
+    } else {
+      stockMap[b.product_id].push({ store_name: storeName, qty: b.quantity_remaining })
+    }
   })
 
   // Attach stock data to products

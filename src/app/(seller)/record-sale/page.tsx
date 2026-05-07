@@ -8,7 +8,12 @@ import { AlertTriangle } from 'lucide-react'
 
 type Store = { id: string; name: string }
 
-export default async function RecordSalePage() {
+interface PageProps {
+  searchParams: Promise<{ store?: string }>
+}
+
+export default async function RecordSalePage({ searchParams }: PageProps) {
+  const sp = await searchParams
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
   const supabase = await createServerSupabaseClient()
@@ -28,14 +33,18 @@ export default async function RecordSalePage() {
     )
   }
 
-  // Default store resolution
-  let defaultStoreId = user.store_id
+  // Default store resolution — URL param overrides
+  let defaultStoreId = sp.store || user.store_id
   if (!defaultStoreId && user.role === 'admin' && effectiveRole === 'seller') {
     defaultStoreId = stores[0].id
   }
   if (!defaultStoreId) {
     defaultStoreId = stores[0].id
   }
+
+  // Validate selected store exists and is active
+  const selectedStore = stores.find((s: any) => s.id === defaultStoreId)
+  if (selectedStore) defaultStoreId = selectedStore.id
 
   // Get products with stock in THIS store from stock_batches
   const { data: storeBatches } = await (supabase.from('stock_batches') as any)

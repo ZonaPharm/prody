@@ -22,9 +22,10 @@ interface TransferFormProps {
   productName: string
   stores: StoreInfo[]
   currentStock: { store_id: string; store_name: string; qty: number }[]
+  onSuccess?: () => void
 }
 
-export function TransferForm({ productId, productName, stores, currentStock }: TransferFormProps) {
+export function TransferForm({ productId, productName, stores, currentStock, onSuccess }: TransferFormProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [fromStoreId, setFromStoreId] = useState('')
@@ -57,6 +58,7 @@ export function TransferForm({ productId, productName, stores, currentStock }: T
       if (!res.ok) { const err = await res.json(); throw new Error(err.error) }
       setOpen(false)
       router.refresh()
+      if (onSuccess) onSuccess()
     } catch (err: any) {
       setError(err.message || 'Грешка при трансфер')
     } finally {
