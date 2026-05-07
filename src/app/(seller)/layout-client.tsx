@@ -68,7 +68,7 @@ export function SellerLayoutClient({
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} />
+              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} />
             </aside>
           </div>
         )}
@@ -84,11 +84,13 @@ function SidebarContent({
   pathname,
   displayName,
   isAdminImpersonating,
+  onNavClick,
 }: {
   navItems: NavItem[]
   pathname: string
   displayName: string
   isAdminImpersonating: boolean
+  onNavClick?: () => void
 }) {
   return (
     <>
@@ -109,7 +111,7 @@ function SidebarContent({
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Link href={item.href}>
+              <Link href={item.href} onClick={onNavClick}>
                 {Icon && <Icon className="mr-2 h-4 w-4" />}
                 {item.label}
               </Link>
