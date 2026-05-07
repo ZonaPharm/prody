@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth'
 import { getProducts } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,13 +17,34 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   await requireAdmin()
 
   const params = await searchParams
-  const products = await getProducts({
-    search: params.search,
-    status: params.status,
-    sort: params.sort,
+  const [products, categories] = await Promise.all([
+    getProducts({ search: params.search, status: params.status, sort: params.sort }),
+    getCategories(),
+  ])
+
+  // Fetch per-store stock for all products
+  const supabase = await createServerSupabaseClient()
+  const productIds = (products || []).map((p: any) => p.id)
+  const { data: storeBatches } = productIds.length > 0 ? await (supabase.from('stock_batches') as any)
+    .select('product_id, quantity_remaining, store:stores(name)')
+    .in('product_id', productIds)
+    .gt('quantity_remaining', 0)
+    .order('store(name)')
+    : { data: [] }
+
+  // Aggregate stock per product per store
+  const stockMap: Record<string, { store_name: string; qty: number }[]> = {}
+  ;(storeBatches || []).forEach((b: any) => {
+    const storeName = b.store?.name || (Array.isArray(b.store) ? b.store[0]?.name : '—')
+    if (!stockMap[b.product_id]) stockMap[b.product_id] = []
+    stockMap[b.product_id].push({ store_name: storeName, qty: b.quantity_remaining })
   })
 
-  const categories = await getCategories()
+  // Attach stock data to products
+  const productsWithStock = (products || []).map((p: any) => ({
+    ...p,
+    store_stock: stockMap[p.id] || [],
+  }))
 
   return (
     <div className="space-y-6">
@@ -45,13 +67,13 @@ export default async function CatalogPage({ searchParams }: PageProps) {
         <ProductSearch />
       </Suspense>
 
-      {products.length === 0 ? (
+      {productsWithStock.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-muted-foreground">Няма намерени продукти</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {products.map((product: any) => (
+          {productsWithStock.map((product: any) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

@@ -36,6 +36,7 @@ interface ProductFormProps {
     source_order_date?: string | null
     status?: string
     quantity_on_hand?: number
+    min_quantity?: number
     images?: { id: string; url: string; is_primary: boolean; sort_order: number }[]
     label?: { title: string; content: string } | null
   }
@@ -62,6 +63,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [status, setStatus] = useState(initialData?.status || 'active')
   const [quantityOnHand, setQuantityOnHand] = useState(
     initialData?.quantity_on_hand?.toString() || '0'
+  )
+  const [minQuantity, setMinQuantity] = useState(
+    initialData?.min_quantity?.toString() || '5'
   )
 
   const [files, setFiles] = useState<File[]>([])
@@ -145,6 +149,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         source_order_date: sourceOrderDate || null,
         status,
         quantity_on_hand: quantityOnHand ? parseInt(quantityOnHand, 10) : 0,
+        min_quantity: minQuantity ? parseInt(minQuantity, 10) : 5,
       }
 
       let productId: string
@@ -331,8 +336,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
       </div>
 
-      {/* Row 3: SKU, Barcode, Status, Quantity — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Row 3: SKU, Barcode, Status, Quantity, Min Qty */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
           <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU-001" />
@@ -353,9 +358,15 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="quantity">Наличност</Label>
+          <Label htmlFor="quantity">Наличност (бр.)</Label>
           <Input id="quantity" type="number" min="0" value={quantityOnHand}
             onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="min_quantity">Мин. количество</Label>
+          <Input id="min_quantity" type="number" min="0" value={minQuantity}
+            onChange={(e) => setMinQuantity(e.target.value)} placeholder="5" />
+          <p className="text-[10px] text-muted-foreground">Предупреждение при падане под този брой</p>
         </div>
       </div>
 

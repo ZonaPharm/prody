@@ -17,6 +17,8 @@ interface ProductCardProps {
     quantity_on_hand: number
     category?: { name: string } | null
     source_url?: string | null
+    min_quantity?: number
+    store_stock?: { store_name: string; qty: number }[]
     images?: { url: string; is_primary?: boolean; sort_order?: number }[] | { url: string } | null
   }
   href?: string
@@ -86,6 +88,19 @@ export default function ProductCard({ product, href }: ProductCardProps) {
               <ExternalLink className="h-3 w-3" />
               Отвори в Temu
             </a>
+          )}
+          {product.store_stock && product.store_stock.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {product.store_stock.map((s, i) => (
+                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  s.qty === 0 ? 'bg-red-100 text-red-700' :
+                  product.min_quantity && s.qty <= product.min_quantity ? 'bg-amber-100 text-amber-700' :
+                  'bg-slate-100 text-slate-600'
+                }`}>
+                  {s.store_name}: {s.qty}
+                </span>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

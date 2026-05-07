@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StockPerStore } from './stock-per-store'
 import { MovementHistory } from './movement-history'
 import { RestockForm } from './restock-form'
+import { TransferForm } from './transfer-form'
 import { Loader2 } from 'lucide-react'
 
 interface ProductInventoryTabProps {
@@ -67,7 +68,19 @@ export function ProductInventoryTab({ productId, productName, stores }: ProductI
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Складова наличност и движения</CardTitle>
-        <RestockForm productId={productId} productName={productName} stores={stores} currentStock={[]} />
+        <div className="flex items-center gap-2">
+          <TransferForm
+            productId={productId}
+            productName={productName}
+            stores={stores}
+            currentStock={stockPerStore.map((s: any) => ({
+              store_id: stores.find((st: any) => st.name === s.store_name)?.id || '',
+              store_name: s.store_name,
+              qty: s.total_qty,
+            }))}
+          />
+          <RestockForm productId={productId} productName={productName} stores={stores} />
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="stock">
