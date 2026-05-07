@@ -24,6 +24,18 @@ export default async function ProductDetailPage({ params }: PageProps) {
   if (!product) notFound()
 
   const supabase = await createServerSupabaseClient()
+
+  // Fetch stock per store for this product
+  const { data: productBatches } = await (supabase.from('stock_batches') as any)
+    .select('quantity_remaining, store:stores(name)')
+    .eq('product_id', id)
+
+  const storeStockMap: Record<string, number> = {}
+  ;(productBatches || []).forEach((b: any) => {
+    const name = b.store?.name || (Array.isArray(b.store) ? b.store[0]?.name : '—')
+    storeStockMap[name] = (storeStockMap[name] || 0) + b.quantity_remaining
+  })
+
   const { data: stores } = await (supabase.from('stores') as any)
     .select('id, name, is_warehouse')
     .eq('is_active', true)
@@ -182,6 +194,24 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   <p className="font-medium">{(product as any).min_quantity ?? 5}</p>
                 </div>
               </div>
+              {Object.keys(storeStockMap).length > 0 && (
+                <div className="border-t pt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Наличности по обекти</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(storeStockMap)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([name, qty]) => (
+                        <span key={name} className={`text-xs px-2 py-1 rounded-full ${
+                          qty === 0 ? 'bg-red-100 text-red-700' :
+                          qty <= (product as any).min_quantity ? 'bg-amber-100 text-amber-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {name}: <strong>{qty}</strong>
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
               {product.description && (
                 <div className="border-t pt-4">
                   <p className="text-sm font-medium mb-1">Описание</p>
