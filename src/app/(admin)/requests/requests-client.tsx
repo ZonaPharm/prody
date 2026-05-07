@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react'
+import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock } from 'lucide-react'
 
 interface Request {
   id: string
@@ -28,10 +28,21 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  fulfilled: 'bg-blue-100 text-blue-800',
-  confirmed: 'bg-green-100 text-green-800',
-  partial: 'bg-amber-100 text-amber-800',
+  pending: 'bg-amber-100 text-amber-800 border-amber-200',
+  fulfilled: 'bg-blue-100 text-blue-800 border-blue-200',
+  confirmed: 'bg-green-100 text-green-800 border-green-200',
+  partial: 'bg-orange-100 text-orange-800 border-orange-200',
+}
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'току-що'
+  if (mins < 60) return `преди ${mins} мин`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `преди ${hrs} ч`
+  const days = Math.floor(hrs / 24)
+  return `преди ${days} д`
 }
 
 export function RequestsClient({ requests: initialRequests }: { requests: Request[] }) {
@@ -171,76 +182,88 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
       </div>
 
       {batches.length === 0 && historyBatches.length === 0 ? (
-        <div className="rounded-md border bg-white p-12 text-center text-muted-foreground">Няма заявки</div>
+        <div className="rounded-xl border bg-white p-16 text-center">
+          <Package className="mx-auto h-12 w-12 text-slate-200 mb-4" />
+          <p className="text-muted-foreground text-lg">Няма заявки</p>
+          <p className="text-muted-foreground text-sm mt-1">Когато продавачи направят заявки, те ще се появят тук</p>
+        </div>
       ) : (
         <div className="space-y-6">
           {/* Pending batches */}
           {batches.length > 0 && (
             <div>
-              <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
-                Чакащи <Badge variant="destructive" className="text-[10px]">{pendingCount} артикула</Badge>
-              </h2>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1.5 h-5 bg-amber-400 rounded-full" />
+                <h2 className="text-lg font-bold">Чакащи</h2>
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 text-xs">{pendingCount} артикула</Badge>
+              </div>
               <div className="space-y-3">
                 {batches.map(b => {
                   const isExpanded = expandedBatches.has(b.key)
                   return (
-                    <div key={b.key} className="rounded-lg border bg-white overflow-hidden">
-                      {/* Main row */}
-                      <div
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer"
-                        onClick={() => toggleBatch(b.key)}
-                      >
-                        <button className="shrink-0 p-0.5 hover:bg-slate-200 rounded">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all ${isExpanded ? 'ring-2 ring-amber-200 border-amber-300' : 'hover:shadow-md'}`}>
+                      <div className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none"
+                        onClick={() => toggleBatch(b.key)}>
+                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md transition-colors">
+                          {isExpanded ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
                         </button>
-                        <Store className="h-4 w-4 text-slate-500 shrink-0" />
+                        <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <Store className="h-5 w-5 text-slate-600" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">{b.store_name}</span>
-                            <Badge variant="secondary" className={`text-[10px] ${STATUS_COLOR.pending}`}>
-                              {STATUS_LABEL.pending}
-                            </Badge>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-base">{b.store_name}</span>
+                            <Badge variant="outline" className={`text-[10px] font-medium ${STATUS_COLOR.pending}`}>Чакаща</Badge>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {relativeTime(b.created_at)}
+                            </span>
                           </div>
                           {b.notes && (
-                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" /> {b.notes}
+                            <p className="text-sm text-slate-600 mt-1 flex items-center gap-1.5">
+                              <MessageSquare className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              {b.notes}
                             </p>
                           )}
+                          <div className="flex items-center gap-4 mt-1.5">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Package className="h-3.5 w-3.5" />
+                              {b.productCount} продукта
+                            </span>
+                            <span className="text-sm font-bold tabular-nums">{b.totalQty} бр. общо</span>
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-sm font-bold tabular-nums">{b.totalQty}</span>
-                          <span className="text-xs text-muted-foreground"> бр.</span>
-                          <span className="text-xs text-muted-foreground ml-1">({b.productCount})</span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          onClick={e => { e.stopPropagation(); openFulfill(b.store_id, b.store_name, b.entries) }}
-                        >
-                          <ArrowRightLeft className="mr-1 h-3 w-3" />
-                          Прехвърли
+                        <Button size="sm" className="shrink-0 rounded-lg"
+                          onClick={e => { e.stopPropagation(); openFulfill(b.store_id, b.store_name, b.entries) }}>
+                          <ArrowRightLeft className="mr-1.5 h-4 w-4" />
+                          Прехвърли всички
                         </Button>
                       </div>
 
-                      {/* Expanded products */}
                       {isExpanded && (
-                        <div className="border-t bg-slate-50/30 divide-y">
-                          {b.entries.map(e => (
-                            <div key={e.id} className="px-4 py-2 pl-12 flex items-center justify-between text-sm">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Package className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="truncate">{e.product_name}</span>
+                        <div className="border-t border-amber-100 bg-amber-50/30 rounded-b-xl">
+                          <div className="px-5 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Продукти в заявката
+                          </div>
+                          <div className="divide-y divide-amber-100/50">
+                            {b.entries.map(e => (
+                              <div key={e.id} className="px-5 py-3 flex items-center justify-between hover:bg-amber-50/50 transition-colors">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="h-8 w-8 rounded-md bg-white border flex items-center justify-center shrink-0">
+                                    <Package className="h-4 w-4 text-slate-400" />
+                                  </div>
+                                  <span className="text-sm font-medium truncate">{e.product_name}</span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <span className="text-sm font-bold tabular-nums bg-white px-3 py-1 rounded-full border">{e.quantity} бр.</span>
+                                  <Button size="sm" variant="ghost" className="text-green-600 hover:bg-green-50 h-8 w-8 p-0 rounded-full"
+                                    onClick={() => fulfillSingle(e.id)} disabled={loading === e.id}>
+                                    {loading === e.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="tabular-nums font-medium">{e.quantity} бр.</span>
-                                <Button size="sm" variant="ghost" className="text-green-600 h-7 w-7 p-0"
-                                  onClick={() => fulfillSingle(e.id)} disabled={loading === e.id}>
-                                  {loading === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -253,53 +276,65 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
           {/* History batches */}
           {historyBatches.length > 0 && (
             <div>
-              <h2 className="text-base font-semibold mb-3 text-muted-foreground">
-                Обработени ({doneCount} артикула)
-              </h2>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1.5 h-5 bg-slate-300 rounded-full" />
+                <h2 className="text-lg font-bold text-muted-foreground">Обработени</h2>
+                <span className="text-xs text-muted-foreground">{doneCount} артикула</span>
+              </div>
               <div className="space-y-3">
                 {historyBatches.map(b => {
                   const isExpanded = expandedBatches.has(b.key)
+                  const sc = STATUS_COLOR[b.status] || 'bg-slate-100 text-slate-800 border-slate-200'
                   return (
-                    <div key={b.key} className="rounded-lg border bg-white overflow-hidden opacity-75">
-                      <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer"
+                    <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all opacity-80 hover:opacity-100 ${isExpanded ? 'ring-2 ring-slate-200' : 'hover:shadow-md'}`}>
+                      <div className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none"
                         onClick={() => toggleBatch(b.key)}>
-                        <button className="shrink-0 p-0.5 hover:bg-slate-200 rounded">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md transition-colors">
+                          {isExpanded ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronRight className="h-5 w-5 text-slate-400" />}
                         </button>
-                        <Store className="h-4 w-4 text-slate-400 shrink-0" />
+                        <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <Store className="h-5 w-5 text-slate-500" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">{b.store_name}</span>
-                            <Badge variant="secondary" className={`text-[10px] ${STATUS_COLOR[b.status] || ''}`}>
-                              {STATUS_LABEL[b.status] || b.status}
-                            </Badge>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-base">{b.store_name}</span>
+                            <Badge variant="outline" className={`text-[10px] font-medium ${sc}`}>{STATUS_LABEL[b.status] || b.status}</Badge>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {relativeTime(b.created_at)}
+                            </span>
                           </div>
                           {b.notes && (
-                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" /> {b.notes}
+                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
+                              <MessageSquare className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              {b.notes}
                             </p>
                           )}
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(b.created_at).toLocaleString('bg-BG')}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-sm font-bold tabular-nums">{b.totalQty}</span>
-                          <span className="text-xs text-muted-foreground"> бр.</span>
+                          <div className="flex items-center gap-4 mt-1.5">
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Package className="h-3.5 w-3.5" />{b.entries.length} продукта
+                            </span>
+                            <span className="text-sm font-bold tabular-nums">{b.totalQty} бр.</span>
+                          </div>
                         </div>
                       </div>
                       {isExpanded && (
-                        <div className="border-t bg-slate-50/30 divide-y">
-                          {b.entries.map(e => (
-                            <div key={e.id} className="px-4 py-2 pl-12 flex items-center justify-between text-sm cursor-pointer hover:bg-slate-100"
-                              onClick={() => openDetail(e)}>
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Package className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="truncate">{e.product_name}</span>
+                        <div className="border-t bg-slate-50/30 rounded-b-xl">
+                          <div className="px-5 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Продукти</div>
+                          <div className="divide-y">
+                            {b.entries.map(e => (
+                              <div key={e.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-100/50 cursor-pointer transition-colors"
+                                onClick={() => openDetail(e)}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="h-8 w-8 rounded-md bg-white border flex items-center justify-center shrink-0">
+                                    <Package className="h-4 w-4 text-slate-400" />
+                                  </div>
+                                  <span className="text-sm font-medium truncate">{e.product_name}</span>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums bg-white px-3 py-1 rounded-full border shrink-0">{e.quantity} бр.</span>
                               </div>
-                              <span className="tabular-nums shrink-0">{e.quantity} бр.</span>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
