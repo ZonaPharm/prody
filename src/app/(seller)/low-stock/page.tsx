@@ -58,5 +58,11 @@ export default async function LowStockPage() {
   })).filter((p: any) => p.current_qty <= p.min_quantity)
     .sort((a: any, b: any) => a.current_qty - b.current_qty)
 
-  return <LowStockClient items={items} storeId={storeId} />
+  // Fetch all active products for search
+  const { data: allProducts } = await (supabase.from('products') as any)
+    .select('id, name, price, min_quantity, category:categories(name)')
+    .eq('status', 'active')
+    .order('name')
+
+  return <LowStockClient items={items} storeId={storeId} allProducts={allProducts || []} />
 }

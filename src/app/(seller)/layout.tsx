@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const navItems = [
   { href: '/record-sale', label: 'Запиши продажба' },
   { href: '/my-sales', label: 'Моите продажби' },
-  { href: '/low-stock', label: 'Ниски наличности' },
+  { href: '/low-stock', label: 'Заявки' },
 ]
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {
