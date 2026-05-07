@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
+import { ProductInventoryTab } from '@/components/inventory/product-inventory-tab'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -21,6 +22,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const product = await getProduct(id)
 
   if (!product) notFound()
+
+  const supabase = await createServerSupabaseClient()
+  const { data: stores } = await (supabase.from('stores') as any)
+    .select('id, name, is_warehouse')
+    .eq('is_active', true)
+    .order('name')
 
   const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
   const statusLabel = STATUS_LABELS[product.status] || product.status
@@ -202,6 +209,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
             )
           })()}
         </div>
+      </div>
+
+      {/* Inventory section */}
+      <div className="mt-6">
+        <ProductInventoryTab
+          productId={product.id}
+          productName={product.name}
+          stores={(stores || []) as any}
+        />
       </div>
     </div>
   )
