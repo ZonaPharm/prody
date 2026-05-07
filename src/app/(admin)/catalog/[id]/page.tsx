@@ -183,10 +183,24 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
                   <p className="text-sm text-muted-foreground">SKU</p>
                   <p className="font-medium">{product.sku || '—'}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Баркод</p>
-                  <p className="font-medium">{product.barcode || '—'}</p>
-                </div>
+                {Object.keys(storeStockMap).length > 0 && (
+                  <div className="col-span-full">
+                    <p className="text-sm text-muted-foreground mb-2">Наличности по обекти</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(storeStockMap)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([name, qty]) => (
+                          <span key={name} className={`text-xs px-2 py-1 rounded-full ${
+                            qty === 0 ? 'bg-red-100 text-red-700' :
+                            qty <= ((product as any).min_quantity ?? 5) ? 'bg-amber-100 text-amber-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {name}: <strong>{qty}</strong>
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-muted-foreground">Източник</p>
                   <p className="font-medium">{product.source || '—'}</p>
@@ -196,24 +210,6 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
                   <p className="font-medium">{(product as any).min_quantity ?? 5}</p>
                 </div>
               </div>
-              {Object.keys(storeStockMap).length > 0 && (
-                <div className="border-t pt-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Наличности по обекти</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(storeStockMap)
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([name, qty]) => (
-                        <span key={name} className={`text-xs px-2 py-1 rounded-full ${
-                          qty === 0 ? 'bg-red-100 text-red-700' :
-                          qty <= (product as any).min_quantity ? 'bg-amber-100 text-amber-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
-                          {name}: <strong>{qty}</strong>
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              )}
               {product.description && (
                 <div className="border-t pt-4">
                   <p className="text-sm font-medium mb-1">Описание</p>
