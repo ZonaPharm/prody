@@ -28,7 +28,6 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   const { data: storeBatches } = productIds.length > 0 ? await (supabase.from('stock_batches') as any)
     .select('product_id, quantity_remaining, store:stores(name)')
     .in('product_id', productIds)
-    .gt('quantity_remaining', 0)
     .order('store(name)')
     : { data: [] }
 
