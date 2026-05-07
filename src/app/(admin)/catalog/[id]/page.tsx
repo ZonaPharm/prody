@@ -133,14 +133,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Details */}
-        <div className="lg:col-span-2">
+        {/* Details + Description merged */}
+        <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Детайли</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Цена</p>
                   <p className="font-medium">
@@ -177,28 +177,27 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   <p className="text-sm text-muted-foreground">Източник</p>
                   <p className="font-medium">{product.source || '—'}</p>
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Мин. к-во</p>
+                  <p className="font-medium">{(product as any).min_quantity ?? 5}</p>
+                </div>
               </div>
+              {product.description && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-1">Описание</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {product.description}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          {product.description && (
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle className="text-lg">Описание</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {product.description}
-                </p>
-              </CardContent>
-            </Card>
-          )}
 
           {(() => {
             const label = Array.isArray(product.labels) ? product.labels[0] : null
             if (!label) return null
             return (
-              <Card className="mt-4">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">{label.title || 'Етикет'}</CardTitle>
                   <Button variant="outline" size="sm" asChild>
