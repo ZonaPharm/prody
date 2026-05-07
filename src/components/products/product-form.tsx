@@ -125,6 +125,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
     setSubmitError('')
 
     const supabase = createClient()
+    let newProductId: string | undefined
 
     try {
       const payload = {
@@ -161,6 +162,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
         if (error) throw error
         productId = data.id
+        newProductId = data.id
       }
 
       // Upload new images
@@ -254,7 +256,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         }
       }
 
-      router.push('/catalog')
+      // If new product with quantity, go to detail page for inventory distribution
+      if (newProductId && parseInt(quantityOnHand, 10) > 0) {
+        router.push(`/catalog/${newProductId}`)
+      } else {
+        router.push('/catalog')
+      }
       router.refresh()
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Грешка при запазване')

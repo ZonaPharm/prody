@@ -28,12 +28,40 @@ export default async function RecordSalePage() {
     )
   }
 
-  // Fetch listed products (only with stock)
-  const { data: products } = await (supabase.from('products') as any)
+  // Default store resolution
+  let defaultStoreId = user.store_id
+  if (!defaultStoreId && user.role === 'admin' && effectiveRole === 'seller') {
+    defaultStoreId = stores[0].id
+  }
+  if (!defaultStoreId) {
+    defaultStoreId = stores[0].id
+  }
+
+  // Get products with stock in THIS store from stock_batches
+  const { data: storeBatches } = await (supabase.from('stock_batches') as any)
+    .select('product_id, quantity_remaining')
+    .eq('store_id', defaultStoreId)
+    .gt('quantity_remaining', 0)
+
+  const storeProductIds = new Set((storeBatches || []).map((b: any) => b.product_id))
+  const perStoreQty: Record<string, number> = {}
+  ;(storeBatches || []).forEach((b: any) => {
+    perStoreQty[b.product_id] = (perStoreQty[b.product_id] || 0) + b.quantity_remaining
+  })
+
+  // Fetch listed products (only those with stock in this store)
+  let productQuery = (supabase.from('products') as any)
     .select('id, name, price, quantity_on_hand, category_id')
     .eq('status', 'active')
-    .gt('quantity_on_hand', 0)
     .order('name')
+
+  if (storeProductIds.size > 0) {
+    productQuery = productQuery.in('id', Array.from(storeProductIds))
+  } else {
+    productQuery = productQuery.eq('id', '00000000-0000-0000-0000-000000000000') // no results
+  }
+
+  const { data: products } = await productQuery
 
   // Fetch categories
   const { data: categories } = await (supabase.from('categories') as any)
@@ -58,7 +86,7 @@ export default async function RecordSalePage() {
     id: p.id,
     name: p.name,
     price: p.price,
-    quantity_on_hand: p.quantity_on_hand,
+    quantity_on_hand: perStoreQty[p.id] || p.quantity_on_hand,
     category_id: p.category_id,
     image_url: imageMap[p.id] || null,
   }))
@@ -96,17 +124,6 @@ export default async function RecordSalePage() {
     } else {
       frequentlySold = sellerFreq
     }
-  }
-
-  // Default store resolution (same logic as before)
-  let defaultStoreId = user.store_id
-
-  if (!defaultStoreId && user.role === 'admin' && effectiveRole === 'seller') {
-    defaultStoreId = stores[0].id
-  }
-
-  if (!defaultStoreId) {
-    defaultStoreId = stores[0].id
   }
 
   return (
