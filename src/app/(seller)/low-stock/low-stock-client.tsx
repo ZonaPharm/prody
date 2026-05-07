@@ -16,9 +16,11 @@ interface LowStockItem {
 export function LowStockClient({ items, storeId }: { items: LowStockItem[]; storeId: string }) {
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<string | null>(null)
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
 
   const requestStock = async (productId: string) => {
     setLoading(productId)
+    const qty = quantities[productId] || 10
     try {
       await fetch('/api/inventory/request', {
         method: 'POST',
@@ -26,7 +28,7 @@ export function LowStockClient({ items, storeId }: { items: LowStockItem[]; stor
         body: JSON.stringify({
           product_id: productId,
           store_id: storeId,
-          quantity: 20,
+          quantity: qty,
           notes: 'Заявка от продавач',
         }),
       })
@@ -90,15 +92,26 @@ export function LowStockClient({ items, storeId }: { items: LowStockItem[]; stor
                         <Check className="h-3 w-3" /> Заявено
                       </span>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => requestStock(item.id)}
-                        disabled={loading === item.id}
-                      >
-                        <Send className="mr-1 h-3 w-3" />
-                        Заяви
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          className="w-16 h-8 border rounded px-2 text-sm text-center"
+                          placeholder="10"
+                          value={quantities[item.id] || ''}
+                          onChange={e => setQuantities(prev => ({ ...prev, [item.id]: parseInt(e.target.value) || 0 }))}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => requestStock(item.id)}
+                          disabled={loading === item.id}
+                        >
+                          <Send className="mr-1 h-3 w-3" />
+                          Заяви
+                        </Button>
+                      </div>
                     )}
                   </td>
                 </tr>
