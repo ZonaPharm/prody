@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package } from 'lucide-react'
+import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check } from 'lucide-react'
 
 interface ProductItem {
   id: string
@@ -104,13 +104,20 @@ export function LowStockClient({
 
   const STATUS_BADGE: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
-    fulfilled: 'bg-green-100 text-green-800',
+    fulfilled: 'bg-blue-100 text-blue-800',
+    confirmed: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
   }
   const STATUS_LABEL: Record<string, string> = {
     pending: 'Чакаща',
-    fulfilled: 'Изпълнена',
+    fulfilled: 'Изпратена',
+    confirmed: 'Потвърдена',
     rejected: 'Отказана',
+  }
+
+  const confirmReceipt = async (id: string) => {
+    await fetch(`/api/inventory/requests/${id}/confirm`, { method: 'POST' })
+    setHistory(prev => prev.map(h => h.id === id ? { ...h, status: 'confirmed' } : h))
   }
 
   return (
@@ -272,6 +279,7 @@ export function LowStockClient({
                   <th className="text-center px-4 py-3 font-medium">Кол.</th>
                   <th className="text-center px-4 py-3 font-medium">Статус</th>
                   <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Дата</th>
+                  <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
@@ -286,6 +294,14 @@ export function LowStockClient({
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell">
                       {new Date(h.created_at).toLocaleDateString('bg-BG')}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {h.status === 'fulfilled' && (
+                        <Button size="sm" variant="outline" className="text-green-600" onClick={() => confirmReceipt(h.id)}>
+                          <Check className="mr-1 h-3 w-3" />
+                          Потвърди
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}

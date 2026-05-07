@@ -7,13 +7,12 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const status = searchParams.get('status') || 'pending'
+  const status = searchParams.get('status')
 
-  const { data } = await (supabase.from('stock_requests') as any)
+  let query = (supabase.from('stock_requests') as any)
     .select('id, product:products(name), store:stores(name), requested_qty, status, notes, created_at')
-    .eq('status', status)
-    .order('created_at', { ascending: false })
-    .limit(100)
+  if (status) query = query.eq('status', status)
+  const { data } = await query.order('created_at', { ascending: false }).limit(100)
 
   const requests = (data || []).map((r: any) => ({
     id: r.id,
