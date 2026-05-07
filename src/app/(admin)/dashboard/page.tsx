@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package2, ShoppingBag, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react'
 import Link from 'next/link'
-import { SalesChart, TopProductsChart, StoreSalesChart } from './charts'
+import { SalesChart, TopProductsChart } from './charts'
+import { StoreSalesSection } from './store-sales-section'
 
 export default async function DashboardPage() {
   await requireAdmin()
@@ -34,7 +35,6 @@ export default async function DashboardPage() {
     supabase.from('sales').select('quantity, sale_price, product:products(name)').gte('sale_date', monthAgo),
     supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', weekAgo).order('sale_date'),
     supabase.from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name'),
-    supabase.from('sales').select('quantity, sale_price, store_id, sale_date').gte('sale_date', weekAgo),
   ])
 
   const sumReducer = (sum: number, s: any) => sum + s.quantity * Number(s.sale_price)
@@ -58,26 +58,8 @@ export default async function DashboardPage() {
     amount: Math.round(amount * 100) / 100,
   }))
 
-  // Sales by store for last 7 days (exclude warehouses)
+  // Non-warehouse stores for the store sales section
   const nonWarehouseStores = (stores || []).filter((s: any) => !s.is_warehouse)
-  const storeSalesMap: Record<string, Record<string, number>> = {}
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0]
-    storeSalesMap[d] = {}
-    nonWarehouseStores.forEach((s: any) => { storeSalesMap[d][s.id] = 0 })
-  }
-  ;(weekSalesByStore || []).forEach((s: any) => {
-    if (storeSalesMap[s.sale_date]) {
-      storeSalesMap[s.sale_date][s.store_id] = (storeSalesMap[s.sale_date][s.store_id] || 0) + s.quantity * Number(s.sale_price)
-    }
-  })
-
-  const storeChartData = Object.entries(storeSalesMap).map(([date, stores]) => ({
-    date: new Date(date).toLocaleDateString('bg-BG', { weekday: 'short', day: 'numeric' }),
-    ...Object.fromEntries(
-      nonWarehouseStores.map((s: any) => [s.name, Math.round((stores[s.id] || 0) * 100) / 100])
-    ),
-  }))
 
   // Top products
   const productMap: Record<string, number> = {}
@@ -179,16 +161,9 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Sales by store */}
+      {/* Sales by store — client component with date selector */}
       {nonWarehouseStores.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Продажби по магазини (7 дни)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StoreSalesChart data={storeChartData} stores={nonWarehouseStores.map((s: any) => s.name)} />
-          </CardContent>
-        </Card>
+        <StoreSalesSection stores={nonWarehouseStores.map((s: any) => ({ id: s.id, name: s.name }))} />
       )}
     </div>
   )
