@@ -86,3 +86,32 @@ export async function sendWeeklyReport(
     }],
   })
 }
+
+export async function sendWelcomeEmail(
+  settings: { smtp_host: string; smtp_port: number; smtp_user: string; smtp_pass: string; sender_email: string },
+  user: { email: string; password: string; display_name: string }
+) {
+  const transport = nodemailer.createTransport({
+    host: settings.smtp_host,
+    port: settings.smtp_port,
+    secure: settings.smtp_port === 465,
+    auth: { user: settings.smtp_user, pass: settings.smtp_pass },
+  })
+
+  const loginUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://prody.vercel.app'
+
+  await transport.sendMail({
+    from: settings.sender_email,
+    to: user.email,
+    subject: 'Вашият Prody акаунт е готов',
+    html: `<h2>Добре дошли в Prody!</h2>
+<p>Здравейте, ${user.display_name},</p>
+<p>Вашият акаунт е създаден. Можете да влезете със следните данни:</p>
+<table style="border-collapse:collapse" border="1" cellpadding="8" cellspacing="0">
+<tr><td><strong>Имейл:</strong></td><td>${user.email}</td></tr>
+<tr><td><strong>Парола:</strong></td><td style="font-family:monospace;font-size:16px">${user.password}</td></tr>
+</table>
+<p><a href="${loginUrl}/login" style="display:inline-block;padding:10px 20px;background:#2563eb;color:white;text-decoration:none;border-radius:6px">Влезте в Prody</a></p>
+<p style="color:#666;font-size:12px">Препоръчваме да смените паролата си след първия вход.</p>`,
+  })
+}
