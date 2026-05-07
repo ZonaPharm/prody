@@ -62,7 +62,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
     if (cart.items.length === 0) return
 
     const method = forcedMethod || paymentMethod
-    if (!method) {
+    if (!method || !['cash', 'card'].includes(method)) {
       setShowPaymentPopup(true)
       return
     }

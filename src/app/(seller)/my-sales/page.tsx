@@ -1,6 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { Package2, Download } from 'lucide-react'
+import { Package2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 import { MySalesFilters } from './filters'
@@ -82,15 +82,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
               : `${fromDate} — ${toDate}`}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <MySalesFilters from={fromDate} to={toDate} />
-          <a
-            href={`/api/sales/export?from=${fromDate}&to=${toDate}`}
-            className="inline-flex items-center gap-1.5 bg-green-600 text-white px-3 py-2 rounded-md text-sm hover:bg-green-700 transition-colors shrink-0"
-          >
-            <Download className="h-4 w-4" />
-          </a>
-        </div>
+        <MySalesFilters from={fromDate} to={toDate} />
       </div>
 
       {/* KPI Cards */}
