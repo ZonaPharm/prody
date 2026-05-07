@@ -27,13 +27,15 @@ interface RestockFormProps {
   currentStock?: { store_id: string; qty: number }[]
   autoOpen?: boolean
   onSuccess?: () => void
+  initialQty?: number
+  initialCost?: number
 }
 
-export function RestockForm({ productId, productName, stores, autoOpen, onSuccess }: RestockFormProps) {
+export function RestockForm({ productId, productName, stores, autoOpen, onSuccess, initialQty, initialCost }: RestockFormProps) {
   const router = useRouter()
   const [open, setOpen] = useState(autoOpen || false)
-  const [totalQty, setTotalQty] = useState('')
-  const [unitCost, setUnitCost] = useState('')
+  const [totalQty, setTotalQty] = useState(initialQty ? String(initialQty) : '')
+  const [unitCost, setUnitCost] = useState(initialCost ? String(initialCost) : '')
   const [distribution, setDistribution] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

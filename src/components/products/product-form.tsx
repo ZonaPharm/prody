@@ -81,6 +81,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [restockProductId, setRestockProductId] = useState<string | null>(null)
   const [restockProductName, setRestockProductName] = useState('')
   const [restockStores, setRestockStores] = useState<any[]>([])
+  const [restockInitialQty, setRestockInitialQty] = useState(0)
+  const [restockInitialCost, setRestockInitialCost] = useState(0)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -269,6 +271,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
       if (newProductId && parseInt(quantityOnHand, 10) > 0) {
         setRestockProductId(newProductId)
         setRestockProductName(name.trim())
+        setRestockInitialQty(parseInt(quantityOnHand, 10))
+        setRestockInitialCost(costPrice ? parseFloat(costPrice) : 0)
         // Fetch stores for restock form
         const { data: storeList } = await (supabase.from('stores') as any).select('id, name, is_warehouse').eq('is_active', true).order('name')
         setRestockStores(storeList || [])
@@ -492,6 +496,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           productName={restockProductName}
           stores={restockStores}
           autoOpen={true}
+          initialQty={restockInitialQty}
+          initialCost={restockInitialCost}
           onSuccess={() => {
             setRestockProductId(null)
             router.push('/catalog')
