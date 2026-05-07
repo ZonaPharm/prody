@@ -35,7 +35,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
     params.set('store', storeId)
     router.push(`/record-sale?${params.toString()}`)
   }
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [showPaymentPopup, setShowPaymentPopup] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const handleAddToCart = (product: Product) => {
@@ -57,10 +58,17 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
     dispatch({ type: 'SET_QTY', productId, qty })
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (forcedMethod?: string) => {
     if (cart.items.length === 0) return
 
+    const method = forcedMethod || paymentMethod
+    if (!method) {
+      setShowPaymentPopup(true)
+      return
+    }
+
     setSubmitting(true)
+    setShowPaymentPopup(false)
     try {
       const items = cart.items.map(i => ({
         product_id: i.product.id,
@@ -71,7 +79,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       const res = await fetch('/api/sales/group', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: selectedStoreId, items, payment_method: paymentMethod }),
+        body: JSON.stringify({ store_id: selectedStoreId, items, payment_method: method }),
       })
 
       if (!res.ok) {
@@ -170,6 +178,38 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           />
         )}
       </div>
+
+      {/* Payment method popup */}
+      {showPaymentPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowPaymentPopup(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl p-6 w-[300px] space-y-4">
+            <h3 className="text-lg font-bold text-center">Избери начин на плащане</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleSubmit('cash')}
+                className="p-4 rounded-lg border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-center"
+              >
+                <div className="text-2xl mb-1">💵</div>
+                <div className="font-semibold">Кеш</div>
+              </button>
+              <button
+                onClick={() => handleSubmit('card')}
+                className="p-4 rounded-lg border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 transition-colors text-center"
+              >
+                <div className="text-2xl mb-1">💳</div>
+                <div className="font-semibold">Карта</div>
+              </button>
+            </div>
+            <button
+              onClick={() => setShowPaymentPopup(false)}
+              className="w-full text-sm text-muted-foreground hover:text-foreground"
+            >
+              Отказ
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
