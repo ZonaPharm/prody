@@ -286,6 +286,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const isEdit = Boolean(initialData?.id)
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {submitError && (
         <div className="rounded-md bg-red-50 border border-red-200 p-4">
@@ -498,5 +499,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           }}
         />
       )}
+    </>
   )
 }
