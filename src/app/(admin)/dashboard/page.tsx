@@ -24,6 +24,7 @@ export default async function DashboardPage() {
     { data: topProducts },
     { data: weekDailySales },
     { data: stores },
+    { data: monthStoreSales },
   ] = await Promise.all([
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
     supabase.from('sales').select('quantity, sale_price, product:products(name)').gte('sale_date', monthAgo),
     supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', weekAgo).order('sale_date'),
     supabase.from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name'),
+    supabase.from('sales').select('quantity, sale_price, store_id').gte('sale_date', monthAgo),
   ])
 
   const sumReducer = (sum: number, s: any) => sum + s.quantity * Number(s.sale_price)
@@ -59,6 +61,12 @@ export default async function DashboardPage() {
 
   // Non-warehouse stores for the store sales section
   const nonWarehouseStores = (stores || []).filter((s: any) => !s.is_warehouse)
+
+  // Per-store revenue for last 30 days
+  const storeRevenue: Record<string, number> = {}
+  ;(monthStoreSales || []).forEach((s: any) => {
+    storeRevenue[s.store_id] = (storeRevenue[s.store_id] || 0) + s.quantity * Number(s.sale_price)
+  })
 
   // Top products
   const productMap: Record<string, number> = {}
@@ -122,6 +130,27 @@ export default async function DashboardPage() {
         </Card>
 
       </div>
+
+      {/* Store revenue KPIs */}
+      {nonWarehouseStores.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {nonWarehouseStores.map((store: any) => {
+            const revenue = Math.round((storeRevenue[store.id] || 0) * 100) / 100
+            return (
+              <Card key={store.id}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium truncate">{store.name}</CardTitle>
+                  <ShoppingBag className="h-4 w-4 text-muted-foreground shrink-0" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{revenue.toFixed(0)} €</div>
+                  <p className="text-xs text-muted-foreground">оборот за 30 дни</p>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
