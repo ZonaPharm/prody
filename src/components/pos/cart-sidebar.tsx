@@ -16,7 +16,7 @@ interface CartSidebarProps {
   onPaymentMethodChange: (method: string) => void
 }
 
-export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
+export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting, paymentMethod, onPaymentMethodChange }: CartSidebarProps) {
   const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
 
   return (
