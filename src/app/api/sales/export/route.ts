@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const seller = Array.isArray(s.seller) ? (s.seller[0]?.display_name || '—') : (s.seller?.display_name || '—')
     const total = (s.quantity * Number(s.sale_price)).toFixed(2)
     const date = new Date(s.sale_date).toLocaleDateString('bg-BG')
-    const payment = s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : s.payment_method === 'transfer' ? 'Превод' : '—'
+    const payment = s.payment_method === 'card' ? 'Карта' : 'Кеш'
     const group = s.sale_group_id ? 'Да' : 'Не'
     return [
       `"${name.replace(/"/g, '""')}"`,

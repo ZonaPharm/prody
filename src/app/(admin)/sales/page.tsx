@@ -44,6 +44,14 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   })
 
   const total = (sales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+
+  // Payment method breakdown
+  const cardTotal = (sales || [])
+    .filter((s: any) => s.payment_method === 'card')
+    .reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+  const cashTotal = (sales || [])
+    .filter((s: any) => s.payment_method !== 'card')
+    .reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const exportParams = new URLSearchParams({ from: fromDate, to: toDate })
   if (sp.store) exportParams.set('store', sp.store)
   const exportUrl = `/api/sales/export?${exportParams.toString()}`
@@ -108,9 +116,19 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       </form>
 
       {/* Summary */}
-      <div className="rounded-lg border bg-white p-4">
-        <p className="text-sm text-muted-foreground">Общо продажби</p>
-        <p className="text-2xl font-bold">{total.toFixed(2)} €</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-lg border bg-white p-4">
+          <p className="text-sm text-muted-foreground">Общо продажби</p>
+          <p className="text-2xl font-bold">{total.toFixed(2)} €</p>
+        </div>
+        <div className="rounded-lg border bg-green-50 p-4">
+          <p className="text-sm text-green-700">Плащания с карта</p>
+          <p className="text-2xl font-bold text-green-700">{cardTotal.toFixed(2)} €</p>
+        </div>
+        <div className="rounded-lg border bg-blue-50 p-4">
+          <p className="text-sm text-blue-700">Плащания в брой</p>
+          <p className="text-2xl font-bold text-blue-700">{cashTotal.toFixed(2)} €</p>
+        </div>
       </div>
 
       {/* Sales list */}
