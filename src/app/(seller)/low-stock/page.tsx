@@ -65,7 +65,7 @@ export default async function LowStockPage() {
     .order('name')
 
   // Fetch product images
-  const allIds = [...items.map(i => i.id), ...(allProducts || []).map((p: any) => p.id)]
+  const allIds = [...items.map((i: any) => i.id), ...(allProducts || []).map((p: any) => p.id)]
   const { data: images } = allIds.length > 0 ? await (supabase.from('product_images') as any)
     .select('product_id, url')
     .in('product_id', allIds)
