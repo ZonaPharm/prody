@@ -54,9 +54,7 @@ export function EmailSettings() {
   const addRecipient = () => {
     if (!newRecipient || !newRecipient.includes('@')) return
     const list = settings?.recipients || []
-    if (!list.includes(newRecipient)) {
-      setSettings({ ...settings, recipients: [...list, newRecipient] })
-    }
+    if (!list.includes(newRecipient)) setSettings({ ...settings, recipients: [...list, newRecipient] })
     setNewRecipient('')
   }
 
@@ -75,85 +73,94 @@ export function EmailSettings() {
   return (
     <Card>
       {toast && <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg text-sm">{toast}</div>}
-      <CardHeader>
+      <CardHeader className="pb-4">
         <CardTitle className="text-lg">Имейл настройки</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-5">
         {/* SMTP */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <Label className="text-xs">SMTP Хост</Label>
-            <Input value={settings.smtp_host || ''} onChange={e => setSettings({ ...settings, smtp_host: e.target.value })} placeholder="smtp.gmail.com" className="h-9" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">SMTP Порт</Label>
-            <Input type="number" value={settings.smtp_port || 587} onChange={e => setSettings({ ...settings, smtp_port: parseInt(e.target.value) || 587 })} className="h-9" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Потребител</Label>
-            <Input value={settings.smtp_user || ''} onChange={e => setSettings({ ...settings, smtp_user: e.target.value })} placeholder="prody@gmail.com" className="h-9" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Парола (App Password)</Label>
-            <Input type="password" value={settings.smtp_pass || ''} onChange={e => setSettings({ ...settings, smtp_pass: e.target.value })} className="h-9" />
-          </div>
-        </div>
-
-        {/* Sender */}
-        <div className="space-y-1 max-w-sm">
-          <Label className="text-xs">Имейл подател</Label>
-          <Input value={settings.sender_email || ''} onChange={e => setSettings({ ...settings, sender_email: e.target.value })} placeholder="prody@zonapharm.com" className="h-9" />
-        </div>
-
-        {/* Recipients */}
-        <div className="space-y-2">
-          <Label className="text-xs">Получатели</Label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {(settings.recipients || []).map((email: string) => (
-              <span key={email} className="inline-flex items-center gap-1 bg-slate-100 rounded-full px-3 py-1 text-sm">
-                📧 {email}
-                <button onClick={() => removeRecipient(email)} className="text-slate-400 hover:text-red-500"><X className="h-3 w-3" /></button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input value={newRecipient} onChange={e => setNewRecipient(e.target.value)} placeholder="email@example.com" className="h-9 max-w-xs"
-              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addRecipient())} />
-            <Button size="sm" variant="outline" onClick={addRecipient}><Plus className="mr-1 h-3 w-3" />Добави</Button>
-          </div>
-        </div>
-
-        {/* Report schedule */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <Label className="text-sm">Седмичен отчет:</Label>
-          <Select value={String(settings.report_day || 5)} onValueChange={v => setSettings({ ...settings, report_day: parseInt(v) })}>
-            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={String(settings.report_hour || 18)} onValueChange={v => setSettings({ ...settings, report_hour: parseInt(v) })}>
-            <SelectTrigger className="w-[85px]"><SelectValue /></SelectTrigger>
-            <SelectContent>{Array.from({ length: 24 }, (_, i) => <SelectItem key={i} value={String(i)}>{i}:00</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-
-        {/* Sections */}
-        <div className="space-y-2">
-          <Label className="text-xs">Съдържание на отчета</Label>
-          {SECTIONS.map(s => (
-            <div key={s.key} className="flex items-center gap-2">
-              <input type="checkbox" id={`sec-${s.key}`} checked={(settings.report_sections || []).includes(s.key)} onChange={() => toggleSection(s.key)} className="h-4 w-4 rounded border-gray-300" />
-              <label htmlFor={`sec-${s.key}`} className="text-sm cursor-pointer">{s.label}</label>
+        <div>
+          <h3 className="text-sm font-semibold mb-3">SMTP сървър</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Хост</Label>
+              <Input value={settings.smtp_host || ''} onChange={e => setSettings({ ...settings, smtp_host: e.target.value })} placeholder="smtp.gmail.com" className="h-9" />
             </div>
-          ))}
+            <div className="space-y-1">
+              <Label className="text-xs">Порт</Label>
+              <Input type="number" value={settings.smtp_port || 587} onChange={e => setSettings({ ...settings, smtp_port: parseInt(e.target.value) || 587 })} className="h-9" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Потребител</Label>
+              <Input value={settings.smtp_user || ''} onChange={e => setSettings({ ...settings, smtp_user: e.target.value })} placeholder="prody@gmail.com" className="h-9" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Парола (App Password)</Label>
+              <Input type="password" value={settings.smtp_pass || ''} onChange={e => setSettings({ ...settings, smtp_pass: e.target.value })} className="h-9" />
+            </div>
+          </div>
+          <div className="mt-3 max-w-xs">
+            <Label className="text-xs">Имейл подател</Label>
+            <Input value={settings.sender_email || ''} onChange={e => setSettings({ ...settings, sender_email: e.target.value })} placeholder="prody@zonapharm.com" className="h-9" />
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-2 border-t">
-          <Button onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+        {/* Recipients + Report side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recipients */}
+          <div>
+            <h3 className="text-sm font-semibold mb-2">Получатели</h3>
+            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+              {(settings.recipients || []).length === 0 ? (
+                <span className="text-xs text-muted-foreground">Няма добавени получатели</span>
+              ) : (
+                (settings.recipients || []).map((email: string) => (
+                  <span key={email} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 rounded-full px-2.5 py-0.5 text-xs border border-blue-200">
+                    {email}
+                    <button onClick={() => removeRecipient(email)} className="hover:text-red-500 ml-0.5"><X className="h-3 w-3" /></button>
+                  </span>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input value={newRecipient} onChange={e => setNewRecipient(e.target.value)} placeholder="email@example.com" className="h-8 text-sm"
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addRecipient())} />
+              <Button size="sm" variant="outline" onClick={addRecipient} className="h-8"><Plus className="mr-1 h-3 w-3" />Добави</Button>
+            </div>
+          </div>
+
+          {/* Report schedule */}
+          <div>
+            <h3 className="text-sm font-semibold mb-2">Седмичен отчет</h3>
+            <div className="flex items-center gap-2 mb-3">
+              <Select value={String(settings.report_day || 5)} onValueChange={v => setSettings({ ...settings, report_day: parseInt(v) })}>
+                <SelectTrigger className="w-[130px] h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">в</span>
+              <Select value={String(settings.report_hour || 18)} onValueChange={v => setSettings({ ...settings, report_hour: parseInt(v) })}>
+                <SelectTrigger className="w-[75px] h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>{Array.from({ length: 24 }, (_, i) => <SelectItem key={i} value={String(i)}>{i}:00</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              {SECTIONS.map(s => (
+                <label key={s.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="checkbox" checked={(settings.report_sections || []).includes(s.key)} onChange={() => toggleSection(s.key)} className="h-3.5 w-3.5 rounded" />
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 pt-3 border-t">
+          <Button onClick={save} disabled={saving} size="sm">
+            {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
             Запази
           </Button>
-          <Button variant="outline" onClick={testSend} disabled={testing}>
-            {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+          <Button variant="outline" size="sm" onClick={testSend} disabled={testing}>
+            {testing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1.5 h-3.5 w-3.5" />}
             Изпрати тестов отчет
           </Button>
         </div>
