@@ -47,8 +47,14 @@ export function LowStockClient({
     if (!search || search.length < 2) return []
     const q = search.toLowerCase()
     return (allProducts || []).filter((p: any) => {
-      const name = p.name?.toLowerCase() || ''
-      const cat = typeof p.category === 'object' ? p.category?.name?.toLowerCase() : ''
+      const name = (p.name || '').toLowerCase()
+      let cat = ''
+      const c = p.category
+      if (c) {
+        if (Array.isArray(c)) cat = (c[0]?.name || '').toLowerCase()
+        else if (typeof c === 'object') cat = (c.name || '').toLowerCase()
+        else cat = String(c).toLowerCase()
+      }
       return name.includes(q) || cat.includes(q)
     }).slice(0, 20)
   }, [search, allProducts])
@@ -82,7 +88,7 @@ export function LowStockClient({
                   <p className="text-sm font-medium truncate">{p.name}</p>
                   {p.category && (
                     <p className="text-xs text-muted-foreground">
-                      {typeof p.category === 'object' ? p.category.name : p.category}
+                      {Array.isArray(p.category) ? p.category[0]?.name : p.category?.name || p.category}
                     </p>
                   )}
                 </div>
