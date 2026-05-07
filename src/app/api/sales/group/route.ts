@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { executeSaleFIFO } from '@/lib/inventory'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -89,6 +90,20 @@ export async function POST(request: NextRequest) {
         await (admin.from('products') as any)
           .update({ quantity_on_hand: Math.max(0, prod.quantity_on_hand - item.quantity) })
           .eq('id', item.product_id)
+
+        // FIFO: create sell movements from batches
+        try {
+          await executeSaleFIFO(
+            item.product_id,
+            store_id,
+            item.quantity,
+            item.unit_price,
+            saleGroupId, // use group ID to link to this transaction
+            user.id,
+          )
+        } catch (fifoErr: any) {
+          console.error('FIFO deduction error for product:', item.product_id, fifoErr.message)
+        }
       }
     } catch (e) {
       console.error('Stock decrement error for product:', item.product_id, e)
