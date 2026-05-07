@@ -36,14 +36,29 @@ export function LowStockClient({
   imageMap: Record<string, string>
 }) {
   const [search, setSearch] = useState('')
-  const [cart, setCart] = useState<{ product: any; qty: number }[]>([])
+  const [cart, setCart] = useState<{ product: any; qty: number; notes?: string }[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState('')
   const [history, setHistory] = useState<RequestHistory[]>([])
   const [showCart, setShowCart] = useState(false)
+  const [cartNotes, setCartNotes] = useState('')
   const [confirmReq, setConfirmReq] = useState<RequestHistory | null>(null)
   const [confirmQty, setConfirmQty] = useState(0)
+  const [confirmNotes, setConfirmNotes] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<RequestHistory | null>(null)
+  const [requestEvents, setRequestEvents] = useState<any[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
+
+  const openDetail = async (req: RequestHistory) => {
+    setSelectedRequest(req)
+    setLoadingEvents(true)
+    try {
+      const res = await fetch(`/api/inventory/requests/${req.id}/events`)
+      setRequestEvents(await res.json())
+    } catch { setRequestEvents([]) }
+    setLoadingEvents(false)
+  }
 
   useEffect(() => {
     fetch(`/api/inventory/requests`)
@@ -76,7 +91,7 @@ export function LowStockClient({
         await fetch('/api/inventory/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: item.product.id, store_id: storeId, quantity: item.qty, notes: 'Групова заявка' }),
+          body: JSON.stringify({ product_id: item.product.id, store_id: storeId, quantity: item.qty, notes: cartNotes || null }),
         })
       }
       setCart([])
@@ -125,8 +140,8 @@ export function LowStockClient({
     if (!confirmReq) return
     setConfirming(true)
     const body = confirmQty < confirmReq.quantity
-      ? JSON.stringify({ received_qty: confirmQty, notes: `Получени ${confirmQty} от ${confirmReq.quantity} бр.` })
-      : JSON.stringify({ received_qty: confirmReq.quantity })
+      ? JSON.stringify({ received_qty: confirmQty, notes: confirmNotes || `Получени ${confirmQty} от ${confirmReq.quantity} бр.` })
+      : JSON.stringify({ received_qty: confirmReq.quantity, notes: confirmNotes || null })
     const res = await fetch(`/api/inventory/requests/${confirmReq.id}/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -135,6 +150,7 @@ export function LowStockClient({
     const data = await res.json()
     setHistory(prev => prev.map(h => h.id === confirmReq.id ? { ...h, status: data.status } : h))
     setConfirmReq(null)
+    setConfirmNotes('')
     setConfirming(false)
   }
 
@@ -194,6 +210,14 @@ export function LowStockClient({
               </Button>
             </div>
           ))}
+          <div className="space-y-2">
+            <Input
+              placeholder="Коментар (по желание)"
+              value={cartNotes}
+              onChange={e => setCartNotes(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
           <Button className="w-full" onClick={submitAll} disabled={submitting}>
             <Send className="mr-2 h-4 w-4" />
             {submitting ? 'Изпращане...' : `Изпрати ${cart.length} заявки`}
@@ -302,7 +326,7 @@ export function LowStockClient({
               </thead>
               <tbody>
                 {history.map((h: any) => (
-                  <tr key={h.id} className="border-b last:border-0">
+                  <tr key={h.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => openDetail(h)}>
                     <td className="px-4 py-3 font-medium">{h.product_name}</td>
                     <td className="px-4 py-3 text-center tabular-nums">{h.quantity}</td>
                     <td className="px-4 py-3 text-center">
@@ -328,6 +352,58 @@ export function LowStockClient({
           </div>
         )}
       </div>
+
+      {/* Request Detail Dialog */}
+      {selectedRequest && (
+        <Dialog open={!!selectedRequest} onOpenChange={() => { setSelectedRequest(null); setRequestEvents([]) }}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle>{selectedRequest.product_name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Заявени</p>
+                  <p className="font-bold">{selectedRequest.quantity} бр.</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Статус</p>
+                  <Badge variant="secondary" className={`text-[10px] ${STATUS_BADGE[selectedRequest.status] || ''}`}>
+                    {STATUS_LABEL[selectedRequest.status] || selectedRequest.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-2">Проследимост</p>
+                {loadingEvents ? (
+                  <p className="text-xs text-muted-foreground">Зареждане...</p>
+                ) : requestEvents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Няма данни</p>
+                ) : (
+                  <div className="space-y-0 relative pl-4 border-l-2 border-slate-200">
+                    {requestEvents.map((evt: any, i: number) => (
+                      <div key={i} className="relative pb-3 last:pb-0">
+                        <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${
+                          evt.status === 'pending' ? 'bg-yellow-400' :
+                          evt.status === 'fulfilled' ? 'bg-blue-500' :
+                          evt.status === 'confirmed' ? 'bg-green-500' :
+                          evt.status === 'partial' ? 'bg-amber-500' : 'bg-slate-400'
+                        }`} />
+                        <p className="text-xs font-medium">{STATUS_LABEL[evt.status] || evt.status}</p>
+                        <p className="text-xs text-muted-foreground">{evt.notes}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(evt.created_at).toLocaleString('bg-BG')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Confirm Receipt Dialog */}
       {confirmReq && (
@@ -364,6 +440,14 @@ export function LowStockClient({
                 {confirmQty < confirmReq.quantity && (
                   <p className="text-xs text-amber-600">Ще бъде отбелязано като частично ({confirmQty} от {confirmReq.quantity} бр.)</p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Коментар (по желание)</p>
+                <Input
+                  placeholder="Напр. липсват 2 броя"
+                  value={confirmNotes}
+                  onChange={e => setConfirmNotes(e.target.value)}
+                />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => setConfirmReq(null)}>Отказ</Button>

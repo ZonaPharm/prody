@@ -28,6 +28,26 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
   const [stockData, setStockData] = useState<Record<string, any[]>>({})
   const [transferQtys, setTransferQtys] = useState<Record<string, Record<string, number>>>({})
   const [fulfilling, setFulfilling] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
+  const [requestEvents, setRequestEvents] = useState<any[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
+
+  const openDetail = async (req: Request) => {
+    setSelectedRequest(req)
+    setLoadingEvents(true)
+    try {
+      const res = await fetch(`/api/inventory/requests/${req.id}/events`)
+      setRequestEvents(await res.json())
+    } catch { setRequestEvents([]) }
+    setLoadingEvents(false)
+  }
+
+  const STATUS_LABEL: Record<string, string> = {
+    pending: 'Чакаща',
+    fulfilled: 'Изпратена',
+    confirmed: 'Потвърдена',
+    partial: 'Частична',
+  }
 
   const openFulfill = async (storeId: string, storeName: string, entries: Request[]) => {
     setFulfillStore({ store_id: storeId, store_name: storeName, entries })
@@ -197,7 +217,7 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                   </thead>
                   <tbody>
                     {fulfilled.map(req => (
-                      <tr key={req.id} className="border-b last:border-0">
+                      <tr key={req.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => openDetail(req)}>
                         <td className="px-4 py-3">{req.product_name}</td>
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{req.store_name}</td>
                         <td className="px-4 py-3 text-center tabular-nums">{req.quantity} бр.</td>
@@ -229,7 +249,7 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                   </thead>
                   <tbody>
                     {confirmed.map(req => (
-                      <tr key={req.id} className="border-b last:border-0">
+                      <tr key={req.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => openDetail(req)}>
                         <td className="px-4 py-3">{req.product_name}</td>
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{req.store_name}</td>
                         <td className="px-4 py-3 text-center tabular-nums">{req.quantity} бр.</td>
@@ -246,6 +266,56 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
             </div>
           )}
         </div>
+      )}
+
+      {/* Request Detail Dialog */}
+      {selectedRequest && (
+        <Dialog open={!!selectedRequest} onOpenChange={() => { setSelectedRequest(null); setRequestEvents([]) }}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle>{selectedRequest.product_name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Заявени</p>
+                  <p className="font-bold">{selectedRequest.quantity} бр.</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Магазин</p>
+                  <p className="font-medium">{selectedRequest.store_name}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-2">Проследимост</p>
+                {loadingEvents ? (
+                  <p className="text-xs text-muted-foreground">Зареждане...</p>
+                ) : requestEvents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Няма данни</p>
+                ) : (
+                  <div className="space-y-0 relative pl-4 border-l-2 border-slate-200">
+                    {requestEvents.map((evt: any, i: number) => (
+                      <div key={i} className="relative pb-3 last:pb-0">
+                        <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${
+                          evt.status === 'pending' ? 'bg-yellow-400' :
+                          evt.status === 'fulfilled' ? 'bg-blue-500' :
+                          evt.status === 'confirmed' ? 'bg-green-500' :
+                          evt.status === 'partial' ? 'bg-amber-500' : 'bg-slate-400'
+                        }`} />
+                        <p className="text-xs font-medium">{STATUS_LABEL[evt.status] || evt.status}</p>
+                        <p className="text-xs text-muted-foreground">{evt.notes}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(evt.created_at).toLocaleString('bg-BG')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Fulfill Dialog — per store */}

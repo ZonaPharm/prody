@@ -26,16 +26,29 @@ export async function POST(
 
   const admin = createAdminClient()
   const status = received_qty != null && received_qty < req.requested_qty ? 'partial' : 'confirmed'
-  const confirmNotes = notes || (status === 'partial' ? `Получени ${received_qty} от ${req.requested_qty} бр.` : null)
+  const eventNotes = notes || (status === 'partial'
+    ? `Получени ${received_qty} от ${req.requested_qty} бр.`
+    : `Потвърдено получаване на ${req.requested_qty} бр.`)
 
   await (admin.from('stock_requests') as any)
     .update({
       status,
       received_qty: received_qty ?? req.requested_qty,
-      notes: confirmNotes ? `${req.notes || ''}\n${confirmNotes}`.trim() : req.notes,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
+
+  // Log event (if table exists)
+  try {
+    await (admin.from('request_events') as any).insert({
+      request_id: id,
+      status,
+      user_id: user.id,
+      notes: eventNotes,
+      meta: { received_qty: received_qty ?? req.requested_qty, requested_qty: req.requested_qty },
+      created_at: new Date().toISOString(),
+    })
+  } catch { /* table doesn't exist yet */ }
 
   return NextResponse.json({ success: true, status })
 }

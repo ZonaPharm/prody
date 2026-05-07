@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -26,5 +27,18 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log event (if table exists)
+  try {
+    const admin = createAdminClient()
+    await (admin.from('request_events') as any).insert({
+      request_id: data.id,
+      status: 'pending',
+      user_id: user.id,
+      notes: notes || 'Заявката е създадена',
+      created_at: new Date().toISOString(),
+    })
+  } catch { /* table doesn't exist yet */ }
+
   return NextResponse.json({ success: true, id: data.id })
 }
