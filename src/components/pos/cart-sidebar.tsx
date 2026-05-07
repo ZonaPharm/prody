@@ -124,7 +124,7 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
           className="w-full"
           size="lg"
           disabled={items.length === 0 || submitting}
-          onClick={onSubmit}
+          onClick={() => onSubmit()}
         >
           {submitting ? 'Записване...' : 'Завърши продажба'}
         </Button>
@@ -151,7 +151,7 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
           <span className="font-medium text-sm">Количка ({items.length})</span>
           <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
         </button>
-        <Button size="sm" onClick={onSubmit} disabled={submitting}>
+        <Button size="sm" onClick={() => onSubmit()} disabled={submitting}>
           {submitting ? '...' : 'Завърши'}
         </Button>
       </div>
@@ -215,7 +215,7 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
               </div>
             </div>
             <div className="p-3 border-t">
-              <Button className="w-full" size="lg" onClick={onSubmit} disabled={submitting}>
+              <Button className="w-full" size="lg" onClick={() => onSubmit()} disabled={submitting}>
                 Завърши продажба · {total.toFixed(2)} €
               </Button>
             </div>
