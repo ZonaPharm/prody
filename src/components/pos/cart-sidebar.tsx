@@ -100,7 +100,6 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
           {[
             { value: 'cash', label: 'Кеш' },
             { value: 'card', label: 'Карта' },
-            { value: 'transfer', label: 'Превод' },
           ].map(m => (
             <button
               key={m.value}
