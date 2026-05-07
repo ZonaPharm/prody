@@ -13,12 +13,14 @@ import { ProductInventoryTab } from '@/components/inventory/product-inventory-ta
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ restock?: string; qty?: string; cost?: string }>
 }
 
-export default async function ProductDetailPage({ params }: PageProps) {
+export default async function ProductDetailPage({ params, searchParams }: PageProps) {
   await requireAdmin()
 
   const { id } = await params
+  const sp = await searchParams
   const product = await getProduct(id)
 
   if (!product) notFound()
@@ -254,6 +256,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
           productId={product.id}
           productName={product.name}
           stores={(stores || []) as any}
+          autoRestock={sp.restock === '1'}
+          initialQty={sp.qty ? parseInt(sp.qty) : undefined}
+          initialCost={sp.cost ? parseFloat(sp.cost) : undefined}
         />
       </div>
     </div>

@@ -258,9 +258,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         }
       }
 
-      // If new product with quantity, go to detail page for restock
+      // If new product with quantity, go to detail page with restock prompt
       if (!isEdit && parseInt(quantityOnHand, 10) > 0) {
-        router.push(`/catalog/${productId}`)
+        router.push(`/catalog/${productId}?restock=1&qty=${quantityOnHand}&cost=${costPrice || '0'}`)
       } else {
         router.push('/catalog')
       }

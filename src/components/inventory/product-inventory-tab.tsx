@@ -13,9 +13,12 @@ interface ProductInventoryTabProps {
   productId: string
   productName: string
   stores: { id: string; name: string; is_warehouse: boolean }[]
+  autoRestock?: boolean
+  initialQty?: number
+  initialCost?: number
 }
 
-export function ProductInventoryTab({ productId, productName, stores }: ProductInventoryTabProps) {
+export function ProductInventoryTab({ productId, productName, stores, autoRestock, initialQty, initialCost }: ProductInventoryTabProps) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -83,7 +86,7 @@ export function ProductInventoryTab({ productId, productName, stores }: ProductI
             }))}
             onSuccess={refresh}
           />
-          <RestockForm productId={productId} productName={productName} stores={stores} onSuccess={refresh} />
+          <RestockForm productId={productId} productName={productName} stores={stores} onSuccess={refresh} autoOpen={autoRestock} initialQty={initialQty} initialCost={initialCost} />
         </div>
       </CardHeader>
       <CardContent>
