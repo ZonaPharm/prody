@@ -13,9 +13,10 @@ interface ProductGridProps {
   categories: { id: string; name: string }[]
   frequentlySold: Product[]
   onAddToCart: (product: Product) => void
+  outOfStock?: Product[]
 }
 
-export function ProductGrid({ products, categories, frequentlySold, onAddToCart }: ProductGridProps) {
+export function ProductGrid({ products, categories, frequentlySold, onAddToCart, outOfStock }: ProductGridProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
@@ -128,6 +129,36 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart 
           </div>
         )}
       </div>
+
+      {/* Out of stock section */}
+      {outOfStock && outOfStock.length > 0 && !search && !selectedCategory && (
+        <div className="border-t pt-3 mt-2">
+          <p className="text-xs font-medium text-red-500 mb-2">
+            Изчерпани в този магазин ({outOfStock.length})
+          </p>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 opacity-60">
+            {outOfStock.map(product => (
+              <div
+                key={product.id}
+                className="rounded-lg border border-red-200 bg-red-50/30 p-3 text-left"
+              >
+                <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                  {product.image_url ? (
+                    <img src={product.image_url} alt="" className="w-full h-full object-cover grayscale" />
+                  ) : (
+                    <Package className="h-8 w-8 text-slate-300" />
+                  )}
+                </div>
+                <p className="text-sm font-medium truncate text-slate-500">{product.name}</p>
+                <p className="text-sm font-semibold tabular-nums text-slate-400">
+                  {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
+                </p>
+                <p className="text-xs text-red-500 font-medium">Изчерпан</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

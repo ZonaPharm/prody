@@ -5,14 +5,16 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
-import { X, LayoutDashboard, Package2, ShoppingBag, BarChart3, Settings } from 'lucide-react'
+import { X, LayoutDashboard, Package2, ShoppingBag, BarChart3, Settings, Bell } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
+import { RequestsBadge } from '@/components/admin/requests-badge'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/dashboard': LayoutDashboard,
   '/catalog': Package2,
   '/sales': ShoppingBag,
   '/reports': BarChart3,
+  '/requests': Bell,
   '/settings': Settings,
 }
 
@@ -97,6 +99,7 @@ function SidebarContent({
               <Link href={item.href}>
                 {Icon && <Icon className="mr-2 h-4 w-4" />}
                 {item.label}
+                {item.href === '/requests' && <RequestsBadge />}
               </Link>
             </Button>
           )

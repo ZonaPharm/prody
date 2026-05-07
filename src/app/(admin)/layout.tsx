@@ -4,10 +4,11 @@ import { AdminLayoutClient } from './layout-client'
 export const dynamic = 'force-dynamic'
 
 const navItems = [
-  { href: '/dashboard', label: 'Дашборд' },
+  { href: '/dashboard', label: 'Табло' },
   { href: '/catalog', label: 'Каталог' },
   { href: '/sales', label: 'Продажби' },
   { href: '/reports', label: 'Отчети' },
+  { href: '/requests', label: 'Заявки' },
   { href: '/settings', label: 'Настройки' },
 ]
 

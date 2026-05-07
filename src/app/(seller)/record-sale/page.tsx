@@ -72,17 +72,45 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
 
   const { data: products } = await productQuery
 
+  // Fetch out-of-stock products (had stock in this store but now at 0)
+  const { data: zeroBatches } = await (supabase.from('stock_batches') as any)
+    .select('product_id')
+    .eq('store_id', defaultStoreId)
+    .lte('quantity_remaining', 0)
+
+  const zeroStockIds = new Set((zeroBatches || []).map((b: any) => b.product_id))
+  // Remove products that already have stock > 0
+  zeroStockIds.forEach(id => { if (storeProductIds.has(id)) zeroStockIds.delete(id) })
+
+  let outOfStockProducts: any[] = []
+  if (zeroStockIds.size > 0) {
+    const { data: zeroProducts } = await (supabase.from('products') as any)
+      .select('id, name, price, quantity_on_hand, category_id')
+      .eq('status', 'active')
+      .in('id', Array.from(zeroStockIds))
+      .order('name')
+    outOfStockProducts = (zeroProducts || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      quantity_on_hand: 0,
+      category_id: p.category_id,
+      image_url: null,
+    }))
+  }
+
   // Fetch categories
   const { data: categories } = await (supabase.from('categories') as any)
     .select('id, name')
     .order('name')
 
-  // Fetch primary images for all products
+  // Fetch primary images for all products (in-stock + out-of-stock)
   const productIds = (products || []).map((p: any) => p.id)
-  const { data: images } = productIds.length > 0
+  const allIds = [...productIds, ...outOfStockProducts.map((p: any) => p.id)]
+  const { data: images } = allIds.length > 0
     ? await (supabase.from('product_images') as any)
         .select('product_id, url')
-        .in('product_id', productIds)
+        .in('product_id', allIds)
         .eq('is_primary', true)
     : { data: [] }
 
@@ -90,6 +118,12 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   ;(images || []).forEach((img: any) => {
     if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url
   })
+
+  // Add images to outOfStock
+  outOfStockProducts = outOfStockProducts.map((p: any) => ({
+    ...p,
+    image_url: imageMap[p.id] || null,
+  }))
 
   const productsWithImages: Product[] = (products || []).map((p: any) => ({
     id: p.id,
@@ -142,6 +176,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
       frequentlySold={frequentlySold}
       stores={stores as Store[]}
       defaultStoreId={defaultStoreId!}
+      outOfStock={outOfStockProducts as Product[]}
     />
   )
 }

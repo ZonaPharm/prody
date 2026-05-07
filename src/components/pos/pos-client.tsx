@@ -21,9 +21,10 @@ interface POSClientProps {
   frequentlySold: Product[]
   stores: { id: string; name: string }[]
   defaultStoreId: string
+  outOfStock?: Product[]
 }
 
-export function POSClient({ products, categories, frequentlySold, stores, defaultStoreId }: POSClientProps) {
+export function POSClient({ products, categories, frequentlySold, stores, defaultStoreId, outOfStock }: POSClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [cart, dispatch] = useReducer(cartReducer, initialCartState)
@@ -124,6 +125,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             categories={categories}
             frequentlySold={frequentlySold}
             onAddToCart={handleAddToCart}
+            outOfStock={outOfStock}
           />
         </div>
         <div className="w-[380px] shrink-0 sticky top-4 self-start" style={{maxHeight: 'calc(100vh - 10rem)'}}>
@@ -163,6 +165,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             categories={categories}
             frequentlySold={frequentlySold}
             onAddToCart={handleAddToCart}
+            outOfStock={outOfStock}
           />
         </div>
         {cart.items.length > 0 && (
