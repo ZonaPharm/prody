@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Eye, Shield, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 interface SwitchRoleButtonProps {
   targetRole?: 'seller' | 'admin'
@@ -32,21 +32,18 @@ export function SwitchRoleButton({ targetRole = 'seller' }: SwitchRoleButtonProp
     }
   }
 
+  const isSeller = targetRole === 'seller'
+
   return (
-    <Button
-      variant="ghost"
-      className="w-full justify-start text-slate-400 hover:text-white"
-      onClick={handleSwitch}
-      disabled={loading}
-    >
+    <div className={`rounded-md px-3 py-2 text-xs font-medium text-center transition-colors cursor-pointer ${
+      isSeller
+        ? 'border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+        : 'border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
+    }`} onClick={handleSwitch}>
       {loading ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      ) : targetRole === 'seller' ? (
-        <Eye className="mr-2 h-4 w-4" />
-      ) : (
-        <Shield className="mr-2 h-4 w-4" />
-      )}
-      {targetRole === 'seller' ? 'Виж като продавач' : 'Върни се като админ'}
-    </Button>
+        <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+      ) : null}
+      {isSeller ? 'Виж като продавач' : 'Върни се като админ'}
+    </div>
   )
 }
