@@ -23,27 +23,8 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
 
-  let storeId = user.store_id
-
-  if (!storeId && user.role === 'admin' && effectiveRole === 'seller') {
-    const supabase = await createServerSupabaseClient()
-    const { data: store } = await (supabase
-      .from('stores') as any)
-      .select('id')
-      .limit(1)
-      .single()
-    if (store) storeId = store.id
-  }
-
-  if (!storeId) {
-    return (
-      <div className="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-6 text-amber-800">
-        <p>Нямате зададен магазин. Свържете се с администратор.</p>
-      </div>
-    )
-  }
-
   const params = await searchParams
+  const storeId = user.store_id
   const supabase = await createServerSupabaseClient()
 
   const today = new Date().toISOString().split('T')[0]
@@ -54,10 +35,22 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     .from('sales')
     .select('id, quantity, sale_price, sale_date, sale_group_id, product:products(name), store:stores(name)')
     .eq('sold_by', user.id)
-    .eq('store_id', storeId)
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
+
+  // Only filter by store for real sellers (not admin impersonating)
+  if (user.role === 'seller' && storeId) {
+    query = query.eq('store_id', storeId)
+  }
+
+  if (user.role === 'seller' && !storeId) {
+    return (
+      <div className="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-6 text-amber-800">
+        <p>Нямате зададен магазин. Свържете се с администратор.</p>
+      </div>
+    )
+  }
 
   const { data: sales } = await query
 
