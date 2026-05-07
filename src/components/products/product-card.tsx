@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Package } from 'lucide-react'
+import { Package, ExternalLink } from 'lucide-react'
 import { STATUS_LABELS, STATUS_VARIANTS, INACTIVE_REASON_LABELS } from '@/lib/constants'
 import { ToggleStatusButton } from './toggle-status-button'
 
@@ -14,6 +14,7 @@ interface ProductCardProps {
     status: string
     quantity_on_hand: number
     category?: { name: string } | null
+    source_url?: string | null
     images?: { url: string; is_primary?: boolean; sort_order?: number }[] | { url: string } | null
   }
   href?: string
@@ -72,6 +73,18 @@ export default function ProductCard({ product, href }: ProductCardProps) {
               {product.quantity_on_hand === 0 ? 'Изчерпан' : `${product.quantity_on_hand} бр.`}
             </span>
           </div>
+          {product.source_url && (
+            <a
+              href={product.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 pt-1"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Отвори в Temu
+            </a>
+          )}
         </CardContent>
       </Card>
     </Link>
