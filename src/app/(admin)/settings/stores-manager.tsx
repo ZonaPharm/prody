@@ -68,9 +68,8 @@ export function StoresManager() {
     if (!editName.trim()) return
     setError('')
     const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('stores')
-      .update({ name: editName.trim(), address: editAddress.trim() || null } as any)
+    const { error: updateError } = await (supabase.from('stores') as any)
+      .update({ name: editName.trim(), address: editAddress.trim() || null })
       .eq('id', storeId)
     if (updateError) {
       setError(updateError.message)
@@ -87,9 +86,8 @@ export function StoresManager() {
       prev.map((s) => (s.id === store.id ? { ...s, is_active: updated } : s))
     )
     const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('stores')
-      .update({ is_active: updated } as any)
+    const { error: updateError } = await (supabase.from('stores') as any)
+      .update({ is_active: updated })
       .eq('id', store.id)
     if (updateError) {
       setStores((prev) =>
