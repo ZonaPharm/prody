@@ -43,17 +43,20 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
     )
   }
 
-  const stockMap: Record<string, { qty: number; value: number; batches: number }> = {}
+  // Aggregate by store_id (not name) for reliable store matching
+  const stockMap: Record<string, { store_name: string; qty: number; value: number; batches: number }> = {}
   ;(data?.batches || []).forEach((b: any) => {
+    const sid = b.store_id
     const name = b.store?.name || '—'
-    if (!stockMap[name]) stockMap[name] = { qty: 0, value: 0, batches: 0 }
-    stockMap[name].qty += b.quantity_remaining
-    stockMap[name].value += b.quantity_remaining * Number(b.unit_cost)
-    stockMap[name].batches++
+    if (!stockMap[sid]) stockMap[sid] = { store_name: name, qty: 0, value: 0, batches: 0 }
+    stockMap[sid].qty += b.quantity_remaining
+    stockMap[sid].value += b.quantity_remaining * Number(b.unit_cost)
+    stockMap[sid].batches++
   })
 
-  const stockPerStore = Object.entries(stockMap).map(([store_name, s]) => ({
-    store_name,
+  const stockPerStore = Object.entries(stockMap).map(([store_id, s]) => ({
+    store_id,
+    store_name: s.store_name,
     total_qty: s.qty,
     total_value: Math.round(s.value * 100) / 100,
     batches: s.batches,
@@ -80,7 +83,7 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
             productName={productName}
             stores={stores}
             currentStock={stockPerStore.map((s: any) => ({
-              store_id: stores.find((st: any) => st.name === s.store_name)?.id || '',
+              store_id: s.store_id,
               store_name: s.store_name,
               qty: s.total_qty,
             }))}
