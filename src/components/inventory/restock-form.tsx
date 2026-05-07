@@ -24,12 +24,14 @@ interface RestockFormProps {
   productId: string
   productName: string
   stores: StoreInfo[]
-  currentStock: { store_id: string; qty: number }[]
+  currentStock?: { store_id: string; qty: number }[]
+  autoOpen?: boolean
+  onSuccess?: () => void
 }
 
-export function RestockForm({ productId, productName, stores }: RestockFormProps) {
+export function RestockForm({ productId, productName, stores, autoOpen, onSuccess }: RestockFormProps) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(autoOpen || false)
   const [totalQty, setTotalQty] = useState('')
   const [unitCost, setUnitCost] = useState('')
   const [distribution, setDistribution] = useState<Record<string, string>>({})
@@ -73,6 +75,7 @@ export function RestockForm({ productId, productName, stores }: RestockFormProps
 
       setOpen(false)
       router.refresh()
+      if (onSuccess) onSuccess()
     } catch (err: any) {
       setError(err.message || 'Грешка при зареждане')
     } finally {

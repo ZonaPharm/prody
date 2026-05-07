@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { STATUS_LABELS } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { RestockForm } from '@/components/inventory/restock-form'
 import { Loader2, Upload, Star } from 'lucide-react'
 
 type CategoryOption = { id: string; name: string }
@@ -73,6 +74,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [restockProductId, setRestockProductId] = useState<string | null>(null)
+  const [restockProductName, setRestockProductName] = useState('')
+  const [restockStores, setRestockStores] = useState<any[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -256,13 +260,17 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         }
       }
 
-      // If new product with quantity, go to detail page for inventory distribution
+      // If new product with quantity, show restock modal before navigating
       if (newProductId && parseInt(quantityOnHand, 10) > 0) {
-        router.push(`/catalog/${newProductId}`)
+        setRestockProductId(newProductId)
+        setRestockProductName(name.trim())
+        // Fetch stores for restock form
+        const { data: storeList } = await createClient().from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name')
+        setRestockStores(storeList || [])
       } else {
         router.push('/catalog')
+        router.refresh()
       }
-      router.refresh()
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Грешка при запазване')
     } finally {
@@ -273,6 +281,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const isEdit = Boolean(initialData?.id)
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {submitError && (
         <div className="rounded-md bg-red-50 border border-red-200 p-4">
@@ -465,5 +474,20 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>Отказ</Button>
       </div>
     </form>
+
+      {restockProductId && (
+        <RestockForm
+          productId={restockProductId}
+          productName={restockProductName}
+          stores={restockStores}
+          autoOpen={true}
+          onSuccess={() => {
+            setRestockProductId(null)
+            router.push('/catalog')
+            router.refresh()
+          }}
+        />
+      )}
+    </>
   )
 }
