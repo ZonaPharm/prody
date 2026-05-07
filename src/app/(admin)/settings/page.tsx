@@ -1,6 +1,10 @@
 import { requireAdmin } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { SettingsClient } from './settings-client'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CategoriesManager } from './categories-manager'
+import { StoresManager } from './stores-manager'
+import { AiSettings } from './ai-settings'
+import { MinQtyManager } from './min-qty-manager'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,5 +17,29 @@ export default async function SettingsPage() {
     .eq('status', 'active')
     .order('name')
 
-  return <SettingsClient products={products || []} />
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-6">Настройки</h1>
+      <Tabs defaultValue="categories">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="categories">Категории</TabsTrigger>
+          <TabsTrigger value="stores">Магазини</TabsTrigger>
+          <TabsTrigger value="min-qty">Мин. количества</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
+        </TabsList>
+        <TabsContent value="categories">
+          <CategoriesManager />
+        </TabsContent>
+        <TabsContent value="stores">
+          <StoresManager />
+        </TabsContent>
+        <TabsContent value="min-qty">
+          <MinQtyManager products={products || []} />
+        </TabsContent>
+        <TabsContent value="ai">
+          <AiSettings />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
 }
