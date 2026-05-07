@@ -136,7 +136,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
     const supabase = createClient()
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         name: name.trim(),
         description: description.trim() || null,
         price: price ? parseFloat(price) : null,
@@ -148,8 +148,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         source_url: sourceUrl.trim() || null,
         source_order_date: sourceOrderDate || null,
         status,
-        quantity_on_hand: quantityOnHand ? parseInt(quantityOnHand, 10) : 0,
         min_quantity: minQuantity ? parseInt(minQuantity, 10) : 5,
+      }
+
+      // Only set quantity_on_hand for new products; edits go through inventory system
+      if (!isEdit) {
+        payload.quantity_on_hand = quantityOnHand ? parseInt(quantityOnHand, 10) : 0
       }
 
       let productId: string
@@ -359,8 +363,19 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         </div>
         <div className="space-y-2">
           <Label htmlFor="quantity">Наличност (бр.)</Label>
-          <Input id="quantity" type="number" min="0" value={quantityOnHand}
-            onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
+          {isEdit ? (
+            <>
+              <Input id="quantity" type="number" min="0" value={quantityOnHand} disabled
+                className="bg-slate-50 text-muted-foreground" />
+              <p className="text-[10px] text-muted-foreground">
+                Количествата се управляват през{' '}
+                <a href={`/catalog/${initialData?.id}`} className="text-blue-600 hover:underline">складова наличност</a>
+              </p>
+            </>
+          ) : (
+            <Input id="quantity" type="number" min="0" value={quantityOnHand}
+              onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="min_quantity">Мин. количество</Label>
