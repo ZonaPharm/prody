@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Download, Building2, FileSpreadsheet, Loader2, Package } from 'lucide-react'
 
 function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
@@ -18,6 +20,9 @@ export default function ReportsPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [exportStoreId, setExportStoreId] = useState('')
+  const [exportLoading, setExportLoading] = useState('')
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([])
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -30,6 +35,41 @@ export default function ReportsPage() {
   }, [from, to])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    fetch('/api/stores').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setStores(d.filter((s: any) => !s.is_warehouse))
+    }).catch(() => {})
+  }, [])
+
+  const handleExport = async (type: string) => {
+    setExportLoading(type)
+    try {
+      const res = await fetch('/api/reports/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          from,
+          to,
+          store_id: (exportStoreId && exportStoreId !== '__all__') ? exportStoreId : null,
+        }),
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const labels: Record<string, string> = { store: 'po-obekti', product: 'po-produkti', detail: 'palen-detail' }
+      a.download = `${labels[type] || type}-${from}-${to}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Грешка при експорт')
+    } finally {
+      setExportLoading('')
+    }
+  }
 
   if (loading) return <div className="p-8 text-muted-foreground">Зареждане...</div>
   if (error) return <div className="p-8 text-red-600">{error}</div>
@@ -179,6 +219,66 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Export section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Експорт
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Изтеглете данните в Excel формат с автофилтри и форматиране
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">От дата</label>
+              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[160px]" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">До дата</label>
+              <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[160px]" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Магазин</label>
+              <Select value={exportStoreId || '__all__'} onValueChange={setExportStoreId}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Всички магазини" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Всички магазини</SelectItem>
+                  {stores.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-1"
+              onClick={() => handleExport('store')} disabled={exportLoading === 'store'}>
+              {exportLoading === 'store' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
+              <span className="font-medium">По обекти</span>
+              <span className="text-[10px] text-muted-foreground">Оборот и брой по магазин</span>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-1"
+              onClick={() => handleExport('product')} disabled={exportLoading === 'product'}>
+              {exportLoading === 'product' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Package className="h-5 w-5" />}
+              <span className="font-medium">По продукти</span>
+              <span className="text-[10px] text-muted-foreground">Количество и сума по продукт</span>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-1"
+              onClick={() => handleExport('detail')} disabled={exportLoading === 'detail'}>
+              {exportLoading === 'detail' ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileSpreadsheet className="h-5 w-5" />}
+              <span className="font-medium">Пълен детайл</span>
+              <span className="text-[10px] text-muted-foreground">Всяка продажба като ред</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
