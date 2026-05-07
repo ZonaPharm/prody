@@ -41,9 +41,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
     await requireAdmin()
     const productId = formData.get('id') as string
     const supabase = await createServerSupabaseClient()
-    const { error } = await supabase.from('products').delete().eq('id', productId)
-    if (error) {
-      redirect(`/catalog/${productId}?error=delete_failed`)
+
+    // Clean up inventory records first (FK constraints)
+    await (supabase.from('stock_movements') as any).delete().eq('product_id', productId)
+    await (supabase.from('stock_batches') as any).delete().eq('product_id', productId)
+    await (supabase.from('product_images') as any).delete().eq('product_id', productId)
+    await (supabase.from('labels') as any).delete().eq('product_id', productId)
+
+    const { error: deleteError } = await supabase.from('products').delete().eq('id', productId)
+    if (deleteError) {
+      // If still failing (e.g. sales records exist), show a clear message
+      redirect(`/catalog/${productId}?error=${encodeURIComponent(deleteError.message || 'delete_failed')}`)
     }
     revalidatePath('/catalog')
     redirect('/catalog')
