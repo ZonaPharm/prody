@@ -87,12 +87,18 @@ export function LowStockClient({
     if (cart.length === 0) return
     setSubmitting(true)
     try {
-      for (const item of cart) {
-        await fetch('/api/inventory/request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: item.product.id, store_id: storeId, quantity: item.qty, notes: cartNotes || null }),
-        })
+      const res = await fetch('/api/inventory/request-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: storeId,
+          notes: cartNotes || null,
+          items: cart.map(item => ({ product_id: item.product.id, quantity: item.qty })),
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Грешка')
       }
       setCart([])
       setShowCart(false)
