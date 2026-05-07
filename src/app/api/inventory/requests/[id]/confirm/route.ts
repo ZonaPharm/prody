@@ -11,10 +11,11 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const body = await request.json().catch(() => ({}))
+  const { received_qty, notes } = body
 
-  // Only the seller who made the request (or admin) can confirm
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('store_id, status')
+    .select('store_id, status, requested_qty')
     .eq('id', id)
     .single()
 
@@ -24,9 +25,17 @@ export async function POST(
   }
 
   const admin = createAdminClient()
+  const status = received_qty != null && received_qty < req.requested_qty ? 'partial' : 'confirmed'
+  const confirmNotes = notes || (status === 'partial' ? `Получени ${received_qty} от ${req.requested_qty} бр.` : null)
+
   await (admin.from('stock_requests') as any)
-    .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+    .update({
+      status,
+      received_qty: received_qty ?? req.requested_qty,
+      notes: confirmNotes ? `${req.notes || ''}\n${confirmNotes}`.trim() : req.notes,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, status })
 }

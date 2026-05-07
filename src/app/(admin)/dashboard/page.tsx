@@ -76,7 +76,7 @@ export default async function DashboardPage() {
   })
   const topProductsData = Object.entries(productMap)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
+    .slice(0, 5)
     .map(([name, amount]) => ({ name, amount: Math.round(amount * 100) / 100 }))
 
   return (
@@ -153,8 +153,8 @@ export default async function DashboardPage() {
       )}
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <Card className="lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Продажби по дни</CardTitle>
           </CardHeader>
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Топ продукти (30 дни)</CardTitle>
           </CardHeader>

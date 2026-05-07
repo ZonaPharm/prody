@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2 } from 'lucide-react'
 
 interface ProductItem {
   id: string
@@ -40,6 +41,9 @@ export function LowStockClient({
   const [toast, setToast] = useState('')
   const [history, setHistory] = useState<RequestHistory[]>([])
   const [showCart, setShowCart] = useState(false)
+  const [confirmReq, setConfirmReq] = useState<RequestHistory | null>(null)
+  const [confirmQty, setConfirmQty] = useState(0)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     fetch(`/api/inventory/requests`)
@@ -106,18 +110,32 @@ export function LowStockClient({
     pending: 'bg-yellow-100 text-yellow-800',
     fulfilled: 'bg-blue-100 text-blue-800',
     confirmed: 'bg-green-100 text-green-800',
+    partial: 'bg-amber-100 text-amber-800',
     rejected: 'bg-red-100 text-red-800',
   }
   const STATUS_LABEL: Record<string, string> = {
     pending: 'Чакаща',
     fulfilled: 'Изпратена',
     confirmed: 'Потвърдена',
+    partial: 'Частична',
     rejected: 'Отказана',
   }
 
-  const confirmReceipt = async (id: string) => {
-    await fetch(`/api/inventory/requests/${id}/confirm`, { method: 'POST' })
-    setHistory(prev => prev.map(h => h.id === id ? { ...h, status: 'confirmed' } : h))
+  const confirmReceipt = async () => {
+    if (!confirmReq) return
+    setConfirming(true)
+    const body = confirmQty < confirmReq.quantity
+      ? JSON.stringify({ received_qty: confirmQty, notes: `Получени ${confirmQty} от ${confirmReq.quantity} бр.` })
+      : JSON.stringify({ received_qty: confirmReq.quantity })
+    const res = await fetch(`/api/inventory/requests/${confirmReq.id}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
+    const data = await res.json()
+    setHistory(prev => prev.map(h => h.id === confirmReq.id ? { ...h, status: data.status } : h))
+    setConfirmReq(null)
+    setConfirming(false)
   }
 
   return (
@@ -297,7 +315,7 @@ export function LowStockClient({
                     </td>
                     <td className="px-4 py-3 text-right">
                       {h.status === 'fulfilled' && (
-                        <Button size="sm" variant="outline" className="text-green-600" onClick={() => confirmReceipt(h.id)}>
+                        <Button size="sm" variant="outline" className="text-green-600" onClick={() => { setConfirmReq(h); setConfirmQty(h.quantity) }}>
                           <Check className="mr-1 h-3 w-3" />
                           Потвърди
                         </Button>
@@ -310,6 +328,54 @@ export function LowStockClient({
           </div>
         )}
       </div>
+
+      {/* Confirm Receipt Dialog */}
+      {confirmReq && (
+        <Dialog open={!!confirmReq} onOpenChange={() => setConfirmReq(null)}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Потвърждаване на доставка</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="bg-slate-50 rounded p-3 space-y-1">
+                <p className="text-sm font-medium">{confirmReq.product_name}</p>
+                <p className="text-xs text-muted-foreground">Заявени: {confirmReq.quantity} бр.</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Получено количество</p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setConfirmQty(Math.max(0, confirmQty - 1))}>
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <Input
+                    type="number"
+                    min="0"
+                    className="w-20 text-center"
+                    value={confirmQty}
+                    onChange={e => setConfirmQty(parseInt(e.target.value) || 0)}
+                  />
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setConfirmQty(confirmQty + 1)}>
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmQty(confirmReq.quantity)}>
+                    Всички
+                  </Button>
+                </div>
+                {confirmQty < confirmReq.quantity && (
+                  <p className="text-xs text-amber-600">Ще бъде отбелязано като частично ({confirmQty} от {confirmReq.quantity} бр.)</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="ghost" onClick={() => setConfirmReq(null)}>Отказ</Button>
+                <Button onClick={confirmReceipt} disabled={confirming}>
+                  {confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Потвърди
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

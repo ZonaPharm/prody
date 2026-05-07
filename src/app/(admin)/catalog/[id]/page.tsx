@@ -180,8 +180,8 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
                   <p className="font-medium">{product.quantity_on_hand}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">SKU</p>
-                  <p className="font-medium">{product.sku || '—'}</p>
+                  <p className="text-sm text-muted-foreground">Мин. к-во</p>
+                  <p className="font-medium">{(product as any).min_quantity ?? 5}</p>
                 </div>
                 {Object.keys(storeStockMap).length > 0 && (
                   <div className="col-span-full">
@@ -204,10 +204,6 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
                 <div>
                   <p className="text-sm text-muted-foreground">Източник</p>
                   <p className="font-medium">{product.source || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Мин. к-во</p>
-                  <p className="font-medium">{(product as any).min_quantity ?? 5}</p>
                 </div>
               </div>
               {product.description && (

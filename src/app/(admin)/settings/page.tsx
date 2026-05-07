@@ -1,31 +1,17 @@
 import { requireAdmin } from '@/lib/auth'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CategoriesManager } from './categories-manager'
-import { StoresManager } from './stores-manager'
-import { AiSettings } from './ai-settings'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { SettingsClient } from './settings-client'
+
+export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
   await requireAdmin()
+  const supabase = await createServerSupabaseClient()
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Настройки</h1>
-      <Tabs defaultValue="categories">
-        <TabsList>
-          <TabsTrigger value="categories">Категории</TabsTrigger>
-          <TabsTrigger value="stores">Магазини</TabsTrigger>
-          <TabsTrigger value="ai">AI</TabsTrigger>
-        </TabsList>
-        <TabsContent value="categories">
-          <CategoriesManager />
-        </TabsContent>
-        <TabsContent value="stores">
-          <StoresManager />
-        </TabsContent>
-        <TabsContent value="ai">
-          <AiSettings />
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+  const { data: products } = await (supabase.from('products') as any)
+    .select('id, name, min_quantity')
+    .eq('status', 'active')
+    .order('name')
+
+  return <SettingsClient products={products || []} />
 }

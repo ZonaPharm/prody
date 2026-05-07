@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Check, Loader2, ArrowRightLeft, ChevronDown, ChevronRight, Package } from 'lucide-react'
+import { Check, Loader2, ArrowRightLeft, Package, Store } from 'lucide-react'
 
 interface Request {
   id: string
@@ -24,72 +24,58 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
   const router = useRouter()
   const [requests, setRequests] = useState(initialRequests)
   const [loading, setLoading] = useState<string | null>(null)
-  const [fulfillProduct, setFulfillProduct] = useState<{ id: string; name: string; entries: Request[]; totalQty: number } | null>(null)
-  const [stockData, setStockData] = useState<any[]>([])
-  const [transferQtys, setTransferQtys] = useState<Record<string, number>>({})
+  const [fulfillStore, setFulfillStore] = useState<{ store_id: string; store_name: string; entries: Request[] } | null>(null)
+  const [stockData, setStockData] = useState<Record<string, any[]>>({})
+  const [transferQtys, setTransferQtys] = useState<Record<string, Record<string, number>>>({})
   const [fulfilling, setFulfilling] = useState(false)
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
 
-  const toggleExpand = (productId: string) => {
-    setExpandedProducts(prev => {
-      const next = new Set(prev)
-      if (next.has(productId)) next.delete(productId)
-      else next.add(productId)
-      return next
-    })
-  }
-
-  const openFulfill = async (productId: string, productName: string, entries: Request[], totalQty: number) => {
-    setFulfillProduct({ id: productId, name: productName, entries, totalQty })
+  const openFulfill = async (storeId: string, storeName: string, entries: Request[]) => {
+    setFulfillStore({ store_id: storeId, store_name: storeName, entries })
     setTransferQtys({})
-    try {
-      // Use first entry's id to get stock data
-      const res = await fetch(`/api/inventory/requests/${entries[0].id}/stock`)
-      const data = await res.json()
-      setStockData(data || [])
-    } catch {
-      setStockData([])
+
+    // Fetch stock for each unique product
+    const stockMap: Record<string, any[]> = {}
+    for (const e of entries) {
+      try {
+        const res = await fetch(`/api/inventory/requests/${e.id}/stock`)
+        const data = await res.json()
+        stockMap[e.product_id] = data || []
+      } catch { stockMap[e.product_id] = [] }
     }
+    setStockData(stockMap)
   }
 
   const executeFulfill = async () => {
-    if (!fulfillProduct) return
+    if (!fulfillStore) return
     setFulfilling(true)
 
-    const transfers = Object.entries(transferQtys)
-      .filter(([, qty]) => qty > 0)
-      .map(([storeId, qty]) => ({ fromStoreId: storeId, qty }))
-
     try {
-      // Process each request entry in the product group
-      for (const entry of fulfillProduct.entries) {
-        const totalToTransfer = transferQtys[entry.store_id] || 0
-        // Distribute transfers proportionally
-        let remaining = entry.quantity
+      for (const entry of fulfillStore.entries) {
+        const productTransfers = transferQtys[entry.product_id] || {}
+        const transfers = Object.entries(productTransfers)
+          .filter(([, qty]) => qty > 0)
+          .map(([storeId, qty]) => ({ fromStoreId: storeId, qty }))
+
         for (const t of transfers) {
-          if (remaining <= 0) break
-          const take = Math.min(remaining, t.qty)
-          if (take > 0) {
-            await fetch('/api/inventory/transfer', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                product_id: fulfillProduct.id,
-                from_store_id: t.fromStoreId,
-                to_store_id: entry.store_id,
-                quantity: take,
-              }),
-            })
-            remaining -= take
-          }
+          if (t.qty <= 0) continue
+          await fetch('/api/inventory/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              product_id: entry.product_id,
+              from_store_id: t.fromStoreId,
+              to_store_id: fulfillStore.store_id,
+              quantity: t.qty,
+            }),
+          })
         }
         await fetch(`/api/inventory/requests/${entry.id}/fulfill`, { method: 'POST' })
       }
 
       setRequests(prev => prev.map(r =>
-        fulfillProduct.entries.some(e => e.id === r.id) ? { ...r, status: 'fulfilled' } : r
+        fulfillStore.entries.some(e => e.id === r.id) ? { ...r, status: 'fulfilled' } : r
       ))
-      setFulfillProduct(null)
+      setFulfillStore(null)
       setFulfilling(false)
       router.refresh()
     } catch {
@@ -105,22 +91,23 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
     router.refresh()
   }
 
-  // Group pending requests by product
-  const pendingGroups = useMemo(() => {
-    const map: Record<string, { product_name: string; entries: Request[]; total: number }> = {}
+  // Group pending requests by store
+  const storeGroups = useMemo(() => {
+    const map: Record<string, { store_name: string; entries: Request[]; totalQty: number; productCount: number }> = {}
     requests.filter(r => r.status === 'pending').forEach(r => {
-      if (!map[r.product_id]) {
-        map[r.product_id] = { product_name: r.product_name, entries: [], total: 0 }
+      if (!map[r.store_id]) {
+        map[r.store_id] = { store_name: r.store_name, entries: [], totalQty: 0, productCount: 0 }
       }
-      map[r.product_id].entries.push(r)
-      map[r.product_id].total += r.quantity
+      map[r.store_id].entries.push(r)
+      map[r.store_id].totalQty += r.quantity
+      map[r.store_id].productCount++
     })
-    return Object.entries(map).map(([id, g]) => ({ product_id: id, ...g }))
+    return Object.entries(map).map(([id, g]) => ({ store_id: id, ...g }))
   }, [requests])
 
   const pending = requests.filter(r => r.status === 'pending')
   const fulfilled = requests.filter(r => r.status === 'fulfilled')
-  const confirmed = requests.filter(r => r.status === 'confirmed')
+  const confirmed = requests.filter(r => r.status === 'confirmed' || r.status === 'partial')
 
   return (
     <div className="space-y-6">
@@ -137,84 +124,58 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
         </div>
       ) : (
         <div className="space-y-6">
-          {pendingGroups.length > 0 && (
+          {storeGroups.length > 0 && (
             <div>
               <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
                 Чакащи
                 <Badge variant="destructive" className="text-[10px]">{pending.length}</Badge>
               </h2>
-              <div className="rounded-lg border bg-white overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-medium w-8" />
-                      <th className="text-left px-4 py-3 font-medium">Продукт</th>
-                      <th className="text-center px-4 py-3 font-medium">Общо</th>
-                      <th className="text-center px-4 py-3 font-medium hidden sm:table-cell">Магазини</th>
-                      <th className="text-right px-4 py-3 font-medium">Действие</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingGroups.map(g => {
-                      const isExpanded = expandedProducts.has(g.product_id)
-                      return (
-                        <>
-                          <tr key={g.product_id} className="border-b last:border-0 hover:bg-slate-50/50">
-                            <td className="px-2">
-                              <button onClick={() => toggleExpand(g.product_id)} className="p-1 hover:bg-slate-200 rounded">
-                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              </button>
-                            </td>
-                            <td className="py-3">
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{g.product_name}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="font-bold tabular-nums text-base">{g.total}</span>
-                              <span className="text-muted-foreground"> бр.</span>
-                            </td>
-                            <td className="px-4 py-3 text-center text-muted-foreground hidden sm:table-cell">
-                              {g.entries.map(e => e.store_name).join(', ')}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openFulfill(g.product_id, g.product_name, g.entries, g.total)}
-                              >
-                                <ArrowRightLeft className="mr-1 h-3 w-3" />
-                                Прехвърли
-                              </Button>
-                            </td>
-                          </tr>
-                          {isExpanded && g.entries.map(e => (
-                            <tr key={e.id} className="border-b last:border-0 bg-slate-50/30">
-                              <td />
-                              <td className="px-4 py-2 pl-12 text-sm text-muted-foreground">
-                                ↳ {e.store_name}
-                              </td>
-                              <td className="px-4 py-2 text-center tabular-nums font-medium">{e.quantity} бр.</td>
-                              <td className="px-4 py-2 hidden sm:table-cell" />
-                              <td className="px-4 py-2 text-right">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-green-600"
-                                  onClick={() => fulfillSingle(e.id)}
-                                  disabled={loading === e.id}
-                                >
-                                  {loading === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </>
-                      )
-                    })}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {storeGroups.map(g => (
+                  <div key={g.store_id} className="rounded-lg border bg-white overflow-hidden">
+                    <div className="bg-slate-50 border-b px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Store className="h-4 w-4 text-slate-500" />
+                        <span className="font-semibold text-sm">{g.store_name}</span>
+                        <Badge variant="secondary" className="text-[10px]">{g.productCount} продукта</Badge>
+                      </div>
+                      <span className="text-sm font-bold tabular-nums">{g.totalQty} бр.</span>
+                    </div>
+                    <div className="divide-y">
+                      {g.entries.map(e => (
+                        <div key={e.id} className="px-4 py-2 flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Package className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate">{e.product_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="tabular-nums font-medium">{e.quantity} бр.</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-green-600 h-7 w-7 p-0"
+                              onClick={() => fulfillSingle(e.id)}
+                              disabled={loading === e.id}
+                            >
+                              {loading === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t px-4 py-2 bg-slate-50/50">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => openFulfill(g.store_id, g.store_name, g.entries)}
+                      >
+                        <ArrowRightLeft className="mr-1 h-3 w-3" />
+                        Прехвърли всички
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -273,7 +234,9 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{req.store_name}</td>
                         <td className="px-4 py-3 text-center tabular-nums">{req.quantity} бр.</td>
                         <td className="px-4 py-3 text-right">
-                          <Badge variant="secondary" className="bg-green-100 text-green-800 text-[10px]">Потвърдена</Badge>
+                          <Badge variant="secondary" className={`text-[10px] ${req.status === 'partial' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                            {req.status === 'partial' ? 'Частична' : 'Потвърдена'}
+                          </Badge>
                         </td>
                       </tr>
                     ))}
@@ -285,56 +248,67 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
         </div>
       )}
 
-      {/* Fulfill Dialog */}
-      {fulfillProduct && (
-        <Dialog open={!!fulfillProduct} onOpenChange={() => setFulfillProduct(null)}>
-          <DialogContent className="sm:max-w-[500px]">
+      {/* Fulfill Dialog — per store */}
+      {fulfillStore && (
+        <Dialog open={!!fulfillStore} onOpenChange={() => setFulfillStore(null)}>
+          <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
               <DialogTitle>
-                Прехвърляне: {fulfillProduct.name}
+                Прехвърляне към: {fulfillStore.store_name}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="bg-slate-50 rounded p-3 space-y-1">
-                <p className="text-sm font-medium">Заявени общо: {fulfillProduct.totalQty} бр.</p>
-                {fulfillProduct.entries.map(e => (
+                <p className="text-sm font-medium">Заявени продукти:</p>
+                {fulfillStore.entries.map(e => (
                   <p key={e.id} className="text-xs text-muted-foreground">
-                    {e.store_name}: {e.quantity} бр.
+                    {e.product_name}: {e.quantity} бр.
                   </p>
                 ))}
               </div>
-              {stockData.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Зареждане на данни...</p>
-              ) : (
-                <div className="space-y-2 max-h-[300px] overflow-auto">
-                  {stockData.map((s: any) => (
-                    <div key={s.store_id} className="flex items-center gap-3 p-2 rounded border">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{s.store_name}</p>
-                        <p className="text-xs text-muted-foreground">{s.qty} бр. налични</p>
+
+              {fulfillStore.entries.map(e => {
+                const productStock = stockData[e.product_id] || []
+                const productTransfers = transferQtys[e.product_id] || {}
+                return (
+                  <div key={e.product_id} className="border rounded p-3 space-y-2">
+                    <p className="text-sm font-medium">{e.product_name} (заявени: {e.quantity} бр.)</p>
+                    {productStock.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Няма наличност</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {productStock.map((s: any) => (
+                          <div key={s.store_id} className="flex items-center gap-2">
+                            <span className="text-xs flex-1 truncate">{s.store_name} ({s.qty} бр.)</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max={s.qty}
+                              className="w-16 h-7 text-xs"
+                              placeholder="0"
+                              value={productTransfers[s.store_id] || ''}
+                              onChange={ev => setTransferQtys(prev => ({
+                                ...prev,
+                                [e.product_id]: {
+                                  ...(prev[e.product_id] || {}),
+                                  [s.store_id]: parseInt(ev.target.value) || 0,
+                                },
+                              }))}
+                            />
+                            <span className="text-xs text-muted-foreground">бр.</span>
+                          </div>
+                        ))}
                       </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={s.qty}
-                        className="w-20 h-8 text-sm"
-                        placeholder="0"
-                        value={transferQtys[s.store_id] || ''}
-                        onChange={e => setTransferQtys(prev => ({
-                          ...prev,
-                          [s.store_id]: parseInt(e.target.value) || 0,
-                        }))}
-                      />
-                      <span className="text-xs text-muted-foreground">бр.</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
+                  </div>
+                )
+              })}
+
               <div className="flex justify-end gap-3 pt-2">
-                <Button variant="ghost" onClick={() => setFulfillProduct(null)}>Отказ</Button>
+                <Button variant="ghost" onClick={() => setFulfillStore(null)}>Отказ</Button>
                 <Button onClick={executeFulfill} disabled={fulfilling}>
                   {fulfilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Прехвърли избраните
+                  Прехвърли
                 </Button>
               </div>
             </div>

@@ -50,7 +50,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [description, setDescription] = useState(initialData?.description || '')
   const [price, setPrice] = useState(initialData?.price?.toString() || '')
   const [costPrice, setCostPrice] = useState(initialData?.cost_price?.toString() || '')
-  const [sku, setSku] = useState(initialData?.sku || '')
   const [categoryId, setCategoryId] = useState(initialData?.category_id || '__none__')
   const [source, setSource] = useState(initialData?.source || '')
   const [sourceUrl, setSourceUrl] = useState(initialData?.source_url || '')
@@ -140,7 +139,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         description: description.trim() || null,
         price: price ? parseFloat(price) : null,
         cost_price: costPrice ? parseFloat(costPrice) : null,
-        sku: sku.trim() || null,
         category_id: categoryId === '__none__' ? null : (categoryId || null),
         source: source.trim() || null,
         source_url: sourceUrl.trim() || null,
@@ -340,10 +338,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
       {/* Row 3: SKU, Barcode, Status, Quantity, Min Qty */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="sku">SKU</Label>
-          <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU-001" />
-        </div>
         <div className="space-y-2">
           <Label htmlFor="status">Статус</Label>
           <Select value={status} onValueChange={setStatus}>
