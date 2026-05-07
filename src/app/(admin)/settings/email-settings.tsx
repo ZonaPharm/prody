@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Save, Send, Plus, X, Loader2 } from 'lucide-react'
 
 const DAYS = ['Неделя', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота']
@@ -142,7 +141,7 @@ export function EmailSettings() {
           <Label className="text-xs">Съдържание на отчета</Label>
           {SECTIONS.map(s => (
             <div key={s.key} className="flex items-center gap-2">
-              <Checkbox id={`sec-${s.key}`} checked={(settings.report_sections || []).includes(s.key)} onCheckedChange={() => toggleSection(s.key)} />
+              <input type="checkbox" id={`sec-${s.key}`} checked={(settings.report_sections || []).includes(s.key)} onChange={() => toggleSection(s.key)} className="h-4 w-4 rounded border-gray-300" />
               <label htmlFor={`sec-${s.key}`} className="text-sm cursor-pointer">{s.label}</label>
             </div>
           ))}
