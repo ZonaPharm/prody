@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2 } from 'lucide-react'
+import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2, MessageSquare } from 'lucide-react'
 
 interface ProductItem {
   id: string
@@ -216,12 +216,16 @@ export function LowStockClient({
               </Button>
             </div>
           ))}
-          <div className="space-y-2">
+          <div className="space-y-1.5 px-1">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Коментар към заявката (по желание)
+            </p>
             <Input
-              placeholder="Коментар (по желание)"
+              placeholder="Напр. Трябват за уикенда..."
               value={cartNotes}
               onChange={e => setCartNotes(e.target.value)}
-              className="h-8 text-sm"
+              className="h-10 text-sm"
             />
           </div>
           <Button className="w-full" onClick={submitAll} disabled={submitting}>
@@ -447,12 +451,16 @@ export function LowStockClient({
                   <p className="text-xs text-amber-600">Ще бъде отбелязано като частично ({confirmQty} от {confirmReq.quantity} бр.)</p>
                 )}
               </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Коментар (по желание)</p>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                  Коментар (по желание)
+                </p>
                 <Input
-                  placeholder="Напр. липсват 2 броя"
+                  placeholder="Напр. липсват 2 броя, ще дойдат утре"
                   value={confirmNotes}
                   onChange={e => setConfirmNotes(e.target.value)}
+                  className="h-10"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
