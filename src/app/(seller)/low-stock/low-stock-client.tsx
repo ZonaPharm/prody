@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2, MessageSquare } from 'lucide-react'
+import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2, MessageSquare, AlertOctagon } from 'lucide-react'
 
 interface ProductItem {
   id: string
@@ -335,10 +335,25 @@ export function LowStockClient({
                 </tr>
               </thead>
               <tbody>
-                {history.map((h: any) => (
+                {history.map((h: any) => {
+                    const recvMatch = (h.notes || '').match(/\{\{received:(\d+)\}\}/)
+                    const receivedQty = recvMatch ? parseInt(recvMatch[1]) : null
+                    const isPartial = h.status === 'partial' || (receivedQty !== null && receivedQty < h.quantity)
+                    return (
                   <tr key={h.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => openDetail(h)}>
                     <td className="px-4 py-3 font-medium">{h.product_name}</td>
-                    <td className="px-4 py-3 text-center tabular-nums">{h.quantity}</td>
+                    <td className="px-4 py-3 text-center">
+                      {isPartial ? (
+                        <span className="text-orange-600 font-bold tabular-nums flex items-center justify-center gap-1">
+                          <AlertOctagon className="h-3 w-3" />
+                          {receivedQty}/{h.quantity}
+                        </span>
+                      ) : h.status === 'confirmed' ? (
+                        <span className="text-green-600 font-bold tabular-nums">{h.quantity} ✓</span>
+                      ) : (
+                        <span className="tabular-nums">{h.quantity}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant="secondary" className={`text-[10px] ${STATUS_BADGE[h.status] || ''}`}>
                         {STATUS_LABEL[h.status] || h.status}
@@ -349,14 +364,15 @@ export function LowStockClient({
                     </td>
                     <td className="px-4 py-3 text-right">
                       {h.status === 'fulfilled' && (
-                        <Button size="sm" variant="outline" className="text-green-600" onClick={() => { setConfirmReq(h); setConfirmQty(h.quantity) }}>
+                        <Button size="sm" variant="outline" className="text-green-600" onClick={(e) => { e.stopPropagation(); setConfirmReq(h); setConfirmQty(h.quantity) }}>
                           <Check className="mr-1 h-3 w-3" />
                           Потвърди
                         </Button>
                       )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
