@@ -495,6 +495,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           initialQty={restockQty}
           initialCost={restockCost}
           onSuccess={() => {
+            setRestockProductId(null)
             router.push('/catalog')
           }}
         />

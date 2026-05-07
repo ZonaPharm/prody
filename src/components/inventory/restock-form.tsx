@@ -76,8 +76,8 @@ export function RestockForm({ productId, productName, stores, autoOpen, onSucces
       }
 
       setOpen(false)
-      router.refresh()
       if (onSuccess) onSuccess()
+      else router.refresh()
     } catch (err: any) {
       setError(err.message || 'Грешка при зареждане')
     } finally {
