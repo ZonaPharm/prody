@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Send, Check, Search, ShoppingCart, X, Plus, Minus } from 'lucide-react'
+import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package } from 'lucide-react'
 
 interface ProductItem {
   id: string
@@ -27,10 +27,12 @@ export function LowStockClient({
   items,
   storeId,
   allProducts,
+  imageMap,
 }: {
   items: ProductItem[]
   storeId: string
   allProducts: { id: string; name: string; price: number | null; category: { name: string } | null }[]
+  imageMap: Record<string, string>
 }) {
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<{ product: any; qty: number }[]>([])
@@ -140,6 +142,13 @@ export function LowStockClient({
           <h3 className="font-semibold text-sm">Кошница със заявки</h3>
           {cart.map(item => (
             <div key={item.product.id} className="flex items-center gap-3 py-2 border-b last:border-0">
+              <div className="h-10 w-10 rounded bg-slate-100 shrink-0 overflow-hidden">
+                {imageMap[item.product.id] ? (
+                  <img src={imageMap[item.product.id]} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Package className="h-5 w-5 m-2.5 text-slate-300" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{item.product.name}</p>
                 {item.product.price && (
@@ -177,8 +186,15 @@ export function LowStockClient({
         {filteredProducts.length > 0 && (
           <div className="mt-3 border rounded-md divide-y max-h-[300px] overflow-auto">
             {filteredProducts.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between p-2 hover:bg-slate-50">
-                <div className="min-w-0">
+              <div key={p.id} className="flex items-center gap-3 p-2 hover:bg-slate-50">
+                <div className="h-10 w-10 rounded bg-slate-100 shrink-0 overflow-hidden">
+                  {imageMap[p.id] ? (
+                    <img src={imageMap[p.id]} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Package className="h-5 w-5 m-2.5 text-slate-300" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{p.name}</p>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => addToCart(p)}>
@@ -212,7 +228,16 @@ export function LowStockClient({
                 {items.map(item => (
                   <tr key={item.id} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="px-4 py-3">
-                      <span className="font-medium">{item.name}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded bg-slate-100 shrink-0 overflow-hidden">
+                          {imageMap[item.id] ? (
+                            <img src={imageMap[item.id]} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <Package className="h-5 w-5 m-2.5 text-slate-300" />
+                          )}
+                        </div>
+                        <span className="font-medium">{item.name}</span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`font-semibold tabular-nums ${item.current_qty === 0 ? 'text-red-600' : 'text-amber-600'}`}>

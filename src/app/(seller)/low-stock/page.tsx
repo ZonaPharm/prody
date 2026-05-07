@@ -64,5 +64,16 @@ export default async function LowStockPage() {
     .eq('status', 'active')
     .order('name')
 
-  return <LowStockClient items={items} storeId={storeId} allProducts={allProducts || []} />
+  // Fetch product images
+  const allIds = [...items.map(i => i.id), ...(allProducts || []).map((p: any) => p.id)]
+  const { data: images } = allIds.length > 0 ? await (supabase.from('product_images') as any)
+    .select('product_id, url')
+    .in('product_id', allIds)
+    .eq('is_primary', true)
+    : { data: [] }
+
+  const imageMap: Record<string, string> = {}
+  ;(images || []).forEach((img: any) => { if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url })
+
+  return <LowStockClient items={items} storeId={storeId} allProducts={allProducts || []} imageMap={imageMap} />
 }
