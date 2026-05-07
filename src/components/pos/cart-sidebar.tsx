@@ -135,7 +135,7 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
 }
 
 // CartBottomBar — mobile sticky bar + expandable drawer
-export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
+export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting, paymentMethod, onPaymentMethodChange }: CartSidebarProps) {
   const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
   const [expanded, setExpanded] = useState(false)
 
@@ -192,6 +192,28 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
                   </Button>
                 </div>
               ))}
+            </div>
+            <div className="px-3 pb-1">
+              <div className="flex gap-2">
+                {[
+                  { value: 'cash', label: 'Кеш' },
+                  { value: 'card', label: 'Карта' },
+                  { value: 'transfer', label: 'Превод' },
+                ].map(m => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => onPaymentMethodChange(m.value)}
+                    className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
+                      paymentMethod === m.value
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="p-3 border-t">
               <Button className="w-full" size="lg" onClick={onSubmit} disabled={submitting}>
