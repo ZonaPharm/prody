@@ -24,7 +24,6 @@ export default async function DashboardPage() {
     { data: topProducts },
     { data: weekDailySales },
     { data: stores },
-    { data: weekSalesByStore },
   ] = await Promise.all([
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),

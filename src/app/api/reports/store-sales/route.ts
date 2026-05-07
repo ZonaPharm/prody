@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0]
     storeSalesMap[d] = {}
-    ;(stores || []).forEach(s => { storeSalesMap[d][s.id] = 0 })
+    ;(stores || []).forEach((s: any) => { storeSalesMap[d][s.id] = 0 })
   }
 
   ;(sales || []).forEach((s: any) => {
