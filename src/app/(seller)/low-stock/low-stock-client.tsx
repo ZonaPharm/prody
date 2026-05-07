@@ -105,8 +105,8 @@ export function LowStockClient({
       setToast(`Изпратени ${cart.length} заявки`)
       setTimeout(() => setToast(''), 3000)
       // Refresh history
-      const res = await fetch('/api/inventory/requests')
-      setHistory(await res.json())
+      const hRes = await fetch('/api/inventory/requests')
+      setHistory(await hRes.json())
     } finally {
       setSubmitting(false)
     }
