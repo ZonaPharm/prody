@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { STATUS_LABELS } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { RestockForm } from '@/components/inventory/restock-form'
 import { Loader2, Upload, Star } from 'lucide-react'
 
 type CategoryOption = { id: string; name: string }
@@ -77,6 +78,11 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [restockProductId, setRestockProductId] = useState<string | null>(null)
+  const [restockProductName, setRestockProductName] = useState('')
+  const [restockQty, setRestockQty] = useState(0)
+  const [restockCost, setRestockCost] = useState(0)
+  const [restockStores, setRestockStores] = useState<any[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -258,13 +264,18 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         }
       }
 
-      // If new product with quantity, go to detail page with restock prompt
+      // If new product with quantity, show RestockForm modal inline
       if (!isEdit && parseInt(quantityOnHand, 10) > 0) {
-        router.push(`/catalog/${productId}?restock=1&qty=${quantityOnHand}&cost=${costPrice || '0'}`)
+        const { data: storeList } = await (supabase.from('stores') as any).select('id, name, is_warehouse').eq('is_active', true).order('name')
+        setRestockProductId(productId)
+        setRestockProductName(name.trim())
+        setRestockQty(parseInt(quantityOnHand, 10))
+        setRestockCost(costPrice ? parseFloat(costPrice) : 0)
+        setRestockStores(storeList || [])
       } else {
         router.push('/catalog')
+        router.refresh()
       }
-      router.refresh()
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Грешка при запазване')
     } finally {
@@ -473,5 +484,19 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>Отказ</Button>
       </div>
     </form>
+
+      {restockProductId && (
+        <RestockForm
+          productId={restockProductId}
+          productName={restockProductName}
+          stores={restockStores}
+          autoOpen={true}
+          initialQty={restockQty}
+          initialCost={restockCost}
+          onSuccess={() => {
+            router.push('/catalog')
+          }}
+        />
+      )}
   )
 }
