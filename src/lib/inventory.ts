@@ -198,18 +198,37 @@ export async function executeSaleFIFO(
 export async function getProductInventory(productId: string) {
   const admin = createAdminClient()
 
-  const [{ data: batches }, { data: movements }] = await Promise.all([
+  // Fetch all data in parallel
+  const [{ data: batches }, { data: movements }, { data: stores }] = await Promise.all([
     (admin.from('stock_batches') as any)
-      .select('id, store:stores(name), quantity_remaining, unit_cost, created_at')
+      .select('id, store_id, quantity_remaining, unit_cost, created_at')
       .eq('product_id', productId)
       .gt('quantity_remaining', 0)
       .order('created_at'),
     (admin.from('stock_movements') as any)
-      .select('id, type, quantity, unit_cost, unit_price, store:stores(name), notes, created_by, created_at')
+      .select('id, type, quantity, unit_cost, unit_price, store_id, source_store_id, notes, created_at')
       .eq('product_id', productId)
       .order('created_at', { ascending: false })
       .limit(50),
+    (admin.from('stores') as any)
+      .select('id, name')
+      .eq('is_active', true),
   ])
 
-  return { batches: batches || [], movements: movements || [] }
+  // Build store name lookup
+  const storeMap: Record<string, string> = {}
+  ;(stores || []).forEach((s: any) => { storeMap[s.id] = s.name })
+
+  // Attach store names
+  const batchesWithStore = (batches || []).map((b: any) => ({
+    ...b,
+    store: { name: storeMap[b.store_id] || '—' },
+  }))
+
+  const movementsWithStore = (movements || []).map((m: any) => ({
+    ...m,
+    store: { name: storeMap[m.store_id] || '—' },
+  }))
+
+  return { batches: batchesWithStore, movements: movementsWithStore }
 }

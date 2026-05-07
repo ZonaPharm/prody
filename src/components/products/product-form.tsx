@@ -265,7 +265,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         setRestockProductId(newProductId)
         setRestockProductName(name.trim())
         // Fetch stores for restock form
-        const { data: storeList } = await createClient().from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name')
+        const { data: storeList } = await (supabase.from('stores') as any).select('id, name, is_warehouse').eq('is_active', true).order('name')
         setRestockStores(storeList || [])
       } else {
         router.push('/catalog')
