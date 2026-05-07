@@ -1,4 +1,4 @@
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { LowStockClient } from './low-stock-client'
 
@@ -6,8 +6,20 @@ export const dynamic = 'force-dynamic'
 
 export default async function LowStockPage() {
   const user = await requireAuth()
+  const effectiveRole = await getEffectiveRole(user)
   const supabase = await createServerSupabaseClient()
-  const storeId = user.store_id
+
+  let storeId = user.store_id
+
+  // Admin impersonating: get first active non-warehouse store
+  if (!storeId && user.role === 'admin' && effectiveRole === 'seller') {
+    const { data: stores } = await (supabase.from('stores') as any)
+      .select('id, is_warehouse')
+      .eq('is_active', true)
+      .order('name')
+    const store = (stores || []).find((s: any) => !s.is_warehouse) || (stores || [])[0]
+    if (store) storeId = store.id
+  }
 
   if (!storeId) {
     return (
