@@ -15,7 +15,7 @@ export async function POST(
   const { received_qty, notes } = body
 
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('store_id, status, requested_qty')
+    .select('store_id, status, requested_qty, notes')
     .eq('id', id)
     .single()
 
@@ -25,30 +25,49 @@ export async function POST(
   }
 
   const admin = createAdminClient()
-  const status = received_qty != null && received_qty < req.requested_qty ? 'partial' : 'confirmed'
-  const eventNotes = notes || (status === 'partial'
-    ? `Получени ${received_qty} от ${req.requested_qty} бр.`
+  const actualQty = received_qty ?? req.requested_qty
+  const isPartial = actualQty < req.requested_qty
+  const status = isPartial ? 'partial' : 'confirmed'
+
+  // Build timeline note
+  const confirmNote = notes || (isPartial
+    ? `Получени ${actualQty} от ${req.requested_qty} бр.`
     : `Потвърдено получаване на ${req.requested_qty} бр.`)
 
+  // Append confirm note to existing notes
+  const existingNotes = req.notes || ''
+  const updatedNotes = existingNotes
+    ? `${existingNotes} | ${confirmNote}`
+    : confirmNote
+
+  // Store received_qty as a structured suffix in notes for display
+  const notesWithMeta = `${updatedNotes} {{received:${actualQty}}}`
+
+  const updatePayload: Record<string, any> = {
+    status,
+    updated_at: new Date().toISOString(),
+    notes: notesWithMeta,
+  }
+  // received_qty column may not exist yet (migration pending)
+  try {
+    updatePayload.received_qty = actualQty
+  } catch { /* ignore */ }
+
   await (admin.from('stock_requests') as any)
-    .update({
-      status,
-      received_qty: received_qty ?? req.requested_qty,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', id)
 
-  // Log event (if table exists)
+  // Log event
   try {
     await (admin.from('request_events') as any).insert({
       request_id: id,
       status,
       user_id: user.id,
-      notes: eventNotes,
-      meta: { received_qty: received_qty ?? req.requested_qty, requested_qty: req.requested_qty },
+      notes: confirmNote,
+      meta: { received_qty: actualQty, requested_qty: req.requested_qty },
       created_at: new Date().toISOString(),
     })
   } catch { /* table doesn't exist yet */ }
 
-  return NextResponse.json({ success: true, status })
+  return NextResponse.json({ success: true, status, received_qty: actualQty })
 }

@@ -13,7 +13,7 @@ export async function POST(
   const { id } = await params
 
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('product_id, store_id, requested_qty, status')
+    .select('product_id, store_id, requested_qty, status, notes')
     .eq('id', id)
     .single()
 
@@ -21,17 +21,34 @@ export async function POST(
 
   const admin = createAdminClient()
   const now = new Date().toISOString()
+
+  const fulfillNote = 'Изпълнена от администратор'
+  const existingNotes = req.notes || ''
+  const updatedNotes = existingNotes
+    ? `${existingNotes} | ${fulfillNote}`
+    : fulfillNote
+
+  const updatePayload: Record<string, any> = {
+    status: 'fulfilled',
+    updated_at: now,
+    notes: updatedNotes,
+  }
+  try {
+    updatePayload.fulfilled_by = user.id
+    updatePayload.fulfilled_at = now
+  } catch { /* columns may not exist */ }
+
   await (admin.from('stock_requests') as any)
-    .update({ status: 'fulfilled', updated_at: now })
+    .update(updatePayload)
     .eq('id', id)
 
-  // Log event (if table exists)
+  // Log event
   try {
     await (admin.from('request_events') as any).insert({
       request_id: id,
       status: 'fulfilled',
       user_id: user.id,
-      notes: 'Заявката е изпълнена',
+      notes: fulfillNote,
       meta: { fulfilled_by: user.id },
       created_at: now,
     })

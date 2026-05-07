@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock } from 'lucide-react'
+import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 interface Request {
   id: string
@@ -34,6 +34,13 @@ const STATUS_COLOR: Record<string, string> = {
   partial: 'bg-orange-100 text-orange-800 border-orange-200',
 }
 
+const STATUS_DOT: Record<string, string> = {
+  pending: 'bg-amber-500',
+  fulfilled: 'bg-blue-500',
+  confirmed: 'bg-green-500',
+  partial: 'bg-orange-500',
+}
+
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
@@ -45,6 +52,33 @@ function relativeTime(dateStr: string): string {
   return `преди ${days} д`
 }
 
+// Parse notes: extract comment (before first " | " with status info) and received qty
+function parseNotes(notes: string | null): { comment: string; received: number | null; timeline: string[] } {
+  if (!notes) return { comment: '', received: null, timeline: [] }
+  // Extract received marker: {{received:N}}
+  const recvMatch = notes.match(/\{\{received:(\d+)\}\}/)
+  const received = recvMatch ? parseInt(recvMatch[1]) : null
+  const clean = notes.replace(/\{\{received:\d+\}\}/, '').trim()
+
+  // Split by " | " to get timeline entries
+  const parts = clean.split(' | ').map(s => s.trim()).filter(Boolean)
+
+  // First part is the original comment (if it doesn't contain status words)
+  const statusWords = ['Изпълнена', 'Потвърдено', 'Получени', 'Заявката']
+  const commentParts: string[] = []
+  const timeline: string[] = []
+
+  for (const p of parts) {
+    if (statusWords.some(w => p.includes(w))) {
+      timeline.push(p)
+    } else {
+      commentParts.push(p)
+    }
+  }
+
+  return { comment: commentParts.join(' | '), received, timeline }
+}
+
 export function RequestsClient({ requests: initialRequests }: { requests: Request[] }) {
   const router = useRouter()
   const [requests, setRequests] = useState(initialRequests)
@@ -53,7 +87,6 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
   const [stockData, setStockData] = useState<Record<string, any[]>>({})
   const [transferQtys, setTransferQtys] = useState<Record<string, Record<string, number>>>({})
   const [fulfilling, setFulfilling] = useState(false)
-  const [selectedBatch, setSelectedBatch] = useState<Request[] | null>(null)
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
   const [detailReq, setDetailReq] = useState<Request | null>(null)
   const [requestEvents, setRequestEvents] = useState<any[]>([])
@@ -125,9 +158,7 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
     router.refresh()
   }
 
-  // Group by batch: same store + same created_at second + same notes = one request batch
   const batches = useMemo(() => {
-    // First pass: group by (store_id, created_at.substring(0,19)) — same second
     const map: Record<string, Request[]> = {}
     requests.filter(r => r.status === 'pending').forEach(r => {
       const key = `${r.store_id}|${r.created_at?.substring(0, 19) || ''}|${r.notes || ''}`
@@ -135,13 +166,14 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
       map[key].push(r)
     })
     return Object.entries(map).map(([key, entries]) => {
-      const [storeId, , ] = key.split('|')
+      const [storeId] = key.split('|')
+      const { comment } = parseNotes(entries[0].notes)
       return {
         key,
         store_id: storeId,
         store_name: entries[0].store_name,
         status: entries[0].status,
-        notes: entries[0].notes,
+        comment,
         created_at: entries[0].created_at,
         entries,
         totalQty: entries.reduce((s, e) => s + e.quantity, 0),
@@ -150,7 +182,6 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
     }).sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [requests])
 
-  // Non-pending batches for history
   const historyBatches = useMemo(() => {
     const map: Record<string, Request[]> = {}
     requests.filter(r => r.status !== 'pending').forEach(r => {
@@ -162,7 +193,7 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
       key,
       store_name: entries[0].store_name,
       status: entries[0].status,
-      notes: entries[0].notes,
+      comment: parseNotes(entries[0].notes).comment,
       created_at: entries[0].created_at,
       entries,
       totalQty: entries.reduce((s, e) => s + e.quantity, 0),
@@ -188,8 +219,8 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
           <p className="text-muted-foreground text-sm mt-1">Когато продавачи направят заявки, те ще се появят тук</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Pending batches */}
+        <div className="space-y-8">
+          {/* Pending */}
           {batches.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -197,68 +228,50 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                 <h2 className="text-lg font-bold">Чакащи</h2>
                 <Badge variant="secondary" className="bg-amber-100 text-amber-800 text-xs">{pendingCount} артикула</Badge>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {batches.map(b => {
                   const isExpanded = expandedBatches.has(b.key)
                   return (
                     <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all ${isExpanded ? 'ring-2 ring-amber-200 border-amber-300' : 'hover:shadow-md'}`}>
-                      <div className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none"
+                      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleBatch(b.key)}>
-                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md transition-colors">
+                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md">
                           {isExpanded ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
                         </button>
-                        <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                          <Store className="h-5 w-5 text-slate-600" />
+                        <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <Store className="h-4 w-4 text-slate-600" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-base">{b.store_name}</span>
-                            <Badge variant="outline" className={`text-[10px] font-medium ${STATUS_COLOR.pending}`}>Чакаща</Badge>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {relativeTime(b.created_at)}
-                            </span>
+                            <span className="font-bold text-sm">{b.store_name}</span>
+                            <div className={`w-2 h-2 rounded-full ${STATUS_DOT.pending}`} />
+                            <span className="text-xs text-muted-foreground">{relativeTime(b.created_at)}</span>
                           </div>
-                          {b.notes && (
-                            <p className="text-sm text-slate-600 mt-1 flex items-center gap-1.5">
-                              <MessageSquare className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              {b.notes}
+                          {b.comment && (
+                            <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3 text-slate-400 shrink-0" />
+                              <span className="truncate">{b.comment}</span>
                             </p>
                           )}
-                          <div className="flex items-center gap-4 mt-1.5">
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Package className="h-3.5 w-3.5" />
-                              {b.productCount} продукта
-                            </span>
-                            <span className="text-sm font-bold tabular-nums">{b.totalQty} бр. общо</span>
-                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{b.productCount} продукта · {b.totalQty} бр.</p>
                         </div>
                         <Button size="sm" className="shrink-0 rounded-lg"
                           onClick={e => { e.stopPropagation(); openFulfill(b.store_id, b.store_name, b.entries) }}>
                           <ArrowRightLeft className="mr-1.5 h-4 w-4" />
-                          Прехвърли всички
+                          Прехвърли
                         </Button>
                       </div>
-
                       {isExpanded && (
                         <div className="border-t border-amber-100 bg-amber-50/30 rounded-b-xl">
-                          <div className="px-5 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Продукти в заявката
-                          </div>
                           <div className="divide-y divide-amber-100/50">
                             {b.entries.map(e => (
-                              <div key={e.id} className="px-5 py-3 flex items-center justify-between hover:bg-amber-50/50 transition-colors">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="h-8 w-8 rounded-md bg-white border flex items-center justify-center shrink-0">
-                                    <Package className="h-4 w-4 text-slate-400" />
-                                  </div>
-                                  <span className="text-sm font-medium truncate">{e.product_name}</span>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <span className="text-sm font-bold tabular-nums bg-white px-3 py-1 rounded-full border">{e.quantity} бр.</span>
-                                  <Button size="sm" variant="ghost" className="text-green-600 hover:bg-green-50 h-8 w-8 p-0 rounded-full"
+                              <div key={e.id} className="px-4 py-2.5 pl-12 flex items-center justify-between text-sm">
+                                <span className="font-medium truncate">{e.product_name}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="tabular-nums font-bold">{e.quantity} бр.</span>
+                                  <Button size="sm" variant="ghost" className="text-green-600 h-7 w-7 p-0 rounded-full"
                                     onClick={() => fulfillSingle(e.id)} disabled={loading === e.id}>
-                                    {loading === e.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                    {loading === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                                   </Button>
                                 </div>
                               </div>
@@ -273,7 +286,7 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
             </div>
           )}
 
-          {/* History batches */}
+          {/* History */}
           {historyBatches.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -281,59 +294,80 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                 <h2 className="text-lg font-bold text-muted-foreground">Обработени</h2>
                 <span className="text-xs text-muted-foreground">{doneCount} артикула</span>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {historyBatches.map(b => {
                   const isExpanded = expandedBatches.has(b.key)
-                  const sc = STATUS_COLOR[b.status] || 'bg-slate-100 text-slate-800 border-slate-200'
+                  const isPartial = b.status === 'partial'
+                  const borderColor = isPartial ? 'border-orange-200' : ''
                   return (
-                    <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all opacity-80 hover:opacity-100 ${isExpanded ? 'ring-2 ring-slate-200' : 'hover:shadow-md'}`}>
-                      <div className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none"
+                    <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all opacity-85 hover:opacity-100 ${borderColor} ${isExpanded ? 'ring-2 ring-slate-200' : 'hover:shadow-md'}`}>
+                      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleBatch(b.key)}>
-                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md transition-colors">
+                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md">
                           {isExpanded ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronRight className="h-5 w-5 text-slate-400" />}
                         </button>
-                        <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                          <Store className="h-5 w-5 text-slate-500" />
+                        <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <Store className="h-4 w-4 text-slate-500" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-base">{b.store_name}</span>
-                            <Badge variant="outline" className={`text-[10px] font-medium ${sc}`}>{STATUS_LABEL[b.status] || b.status}</Badge>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {relativeTime(b.created_at)}
-                            </span>
+                            <span className="font-bold text-sm">{b.store_name}</span>
+                            <div className={`w-2 h-2 rounded-full ${STATUS_DOT[b.status] || 'bg-slate-400'}`} />
+                            <Badge variant="outline" className={`text-[10px] font-medium ${STATUS_COLOR[b.status] || ''}`}>
+                              {STATUS_LABEL[b.status] || b.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">{relativeTime(b.created_at)}</span>
                           </div>
-                          {b.notes && (
-                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
-                              <MessageSquare className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                              {b.notes}
+                          {b.comment && (
+                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3 text-slate-400 shrink-0" />
+                              <span className="truncate">{b.comment}</span>
                             </p>
                           )}
-                          <div className="flex items-center gap-4 mt-1.5">
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Package className="h-3.5 w-3.5" />{b.entries.length} продукта
-                            </span>
-                            <span className="text-sm font-bold tabular-nums">{b.totalQty} бр.</span>
-                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{b.entries.length} продукта · {b.totalQty} бр.</p>
                         </div>
                       </div>
                       {isExpanded && (
                         <div className="border-t bg-slate-50/30 rounded-b-xl">
-                          <div className="px-5 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Продукти</div>
                           <div className="divide-y">
-                            {b.entries.map(e => (
-                              <div key={e.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-100/50 cursor-pointer transition-colors"
-                                onClick={() => openDetail(e)}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="h-8 w-8 rounded-md bg-white border flex items-center justify-center shrink-0">
-                                    <Package className="h-4 w-4 text-slate-400" />
+                            {b.entries.map(e => {
+                              const { received, timeline } = parseNotes(e.notes)
+                              const hasPartial = received !== null && received < e.quantity
+                              return (
+                                <div key={e.id} className="px-4 py-2.5 pl-12 flex items-center justify-between text-sm cursor-pointer hover:bg-slate-100/50"
+                                  onClick={() => openDetail(e)}>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium truncate">{e.product_name}</span>
+                                    </div>
+                                    {timeline.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {timeline.map((t, i) => (
+                                          <span key={i} className="text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded">
+                                            {t.length > 40 ? t.substring(0, 40) + '…' : t}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                  <span className="text-sm font-medium truncate">{e.product_name}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {hasPartial ? (
+                                      <span className="text-xs font-bold text-orange-600 flex items-center gap-1">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        {received}/{e.quantity} бр.
+                                      </span>
+                                    ) : e.status === 'confirmed' ? (
+                                      <span className="text-xs font-bold text-green-600 flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        {e.quantity} бр.
+                                      </span>
+                                    ) : (
+                                      <span className="tabular-nums font-medium text-xs">{e.quantity} бр.</span>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="text-sm font-bold tabular-nums bg-white px-3 py-1 rounded-full border shrink-0">{e.quantity} бр.</span>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         </div>
                       )}
@@ -358,26 +392,42 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                 <div><p className="text-muted-foreground">Заявени</p><p className="font-bold">{detailReq.quantity} бр.</p></div>
                 <div><p className="text-muted-foreground">Магазин</p><p className="font-medium">{detailReq.store_name}</p></div>
               </div>
-              <div>
-                <p className="text-sm font-medium mb-2">Проследимост</p>
-                {loadingEvents ? <p className="text-xs text-muted-foreground">Зареждане...</p>
-                : requestEvents.length === 0 ? <p className="text-xs text-muted-foreground">Няма данни</p>
-                : (
-                  <div className="space-y-0 relative pl-4 border-l-2 border-slate-200">
-                    {requestEvents.map((evt: any, i: number) => (
-                      <div key={i} className="relative pb-3 last:pb-0">
-                        <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${
-                          evt.status === 'pending' ? 'bg-yellow-400' : evt.status === 'fulfilled' ? 'bg-blue-500' :
-                          evt.status === 'confirmed' ? 'bg-green-500' : evt.status === 'partial' ? 'bg-amber-500' : 'bg-slate-400'
-                        }`} />
-                        <p className="text-xs font-medium">{STATUS_LABEL[evt.status] || evt.status}</p>
-                        <p className="text-xs text-muted-foreground">{evt.notes}</p>
-                        <p className="text-[10px] text-muted-foreground">{new Date(evt.created_at).toLocaleString('bg-BG')}</p>
+              {(() => {
+                const { received, timeline } = parseNotes(detailReq.notes)
+                return (
+                  <>
+                    {received !== null && received < detailReq.quantity && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
+                        <span className="text-sm text-orange-700">Получени {received} от {detailReq.quantity} бр.</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    )}
+                    {timeline.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">История</p>
+                        <div className="space-y-0 relative pl-4 border-l-2 border-slate-200">
+                          <div className="relative pb-2">
+                            <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white bg-amber-400" />
+                            <p className="text-xs text-muted-foreground">{new Date(detailReq.created_at).toLocaleString('bg-BG')}</p>
+                            <p className="text-xs">Създадена · {detailReq.quantity} бр.</p>
+                          </div>
+                          {timeline.map((t, i) => {
+                            const isFulfill = t.includes('Изпълнена')
+                            const isConfirm = t.includes('Потвърдено') || t.includes('Получени')
+                            const dotColor = isFulfill ? 'bg-blue-500' : isConfirm ? t.includes('Получени') ? 'bg-orange-500' : 'bg-green-500' : 'bg-slate-400'
+                            return (
+                              <div key={i} className="relative pb-2">
+                                <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${dotColor}`} />
+                                <p className="text-xs">{t}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </DialogContent>
         </Dialog>
