@@ -31,6 +31,32 @@ function truncateName(name: string, max: number = 20): string {
   return name.length > max ? name.slice(0, max) + '...' : name
 }
 
+const STORE_COLORS = ['#3b82f6', '#f59e0b', '#22c55e', '#ef4444', '#8b5cf6', '#ec4899']
+
+export function StoreSalesChart({ data, stores }: { data: any[]; stores: string[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
+        <Tooltip
+          contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+        />
+        {stores.map((store, i) => (
+          <Bar
+            key={store}
+            dataKey={store}
+            fill={STORE_COLORS[i % STORE_COLORS.length]}
+            radius={[4, 4, 0, 0]}
+            name={store}
+          />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
 export function TopProductsChart({ data }: { data: { name: string; amount: number }[] }) {
   // Horizontal bar chart — much easier to read than pie for product names
   const sorted = [...data].sort((a, b) => a.amount - b.amount)
