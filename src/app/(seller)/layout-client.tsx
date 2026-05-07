@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
 import { RoleBanner } from '@/components/seller/role-banner'
@@ -33,6 +32,7 @@ export function SellerLayoutClient({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -43,7 +43,7 @@ export function SellerLayoutClient({
       <div className="flex flex-1">
         {/* Desktop sidebar — sticky, doesn't scroll */}
         <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
-          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} />
+          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} />
         </aside>
 
         {/* Mobile overlay */}
@@ -68,7 +68,7 @@ export function SellerLayoutClient({
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} />
+              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} router={router} />
             </aside>
           </div>
         )}
@@ -85,12 +85,14 @@ function SidebarContent({
   displayName,
   isAdminImpersonating,
   onNavClick,
+  router,
 }: {
   navItems: NavItem[]
   pathname: string
   displayName: string
   isAdminImpersonating: boolean
   onNavClick?: () => void
+  router: ReturnType<typeof useRouter>
 }) {
   return (
     <>
@@ -104,17 +106,18 @@ function SidebarContent({
             <Button
               key={item.href}
               variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
-              asChild
               className={`w-full justify-start ${
                 pathname.startsWith(item.href)
                   ? 'bg-slate-800 text-white'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
+              onClick={() => {
+                onNavClick?.()
+                router.push(item.href)
+              }}
             >
-              <Link href={item.href} onClick={onNavClick}>
-                {Icon && <Icon className="mr-2 h-4 w-4" />}
-                {item.label}
-              </Link>
+              {Icon && <Icon className="mr-2 h-4 w-4" />}
+              {item.label}
             </Button>
           )
         })}
