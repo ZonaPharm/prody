@@ -35,6 +35,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
     params.set('store', storeId)
     router.push(`/record-sale?${params.toString()}`)
   }
+  const [paymentMethod, setPaymentMethod] = useState('cash')
   const [submitting, setSubmitting] = useState(false)
 
   const handleAddToCart = (product: Product) => {
@@ -70,7 +71,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       const res = await fetch('/api/sales/group', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: selectedStoreId, items }),
+        body: JSON.stringify({ store_id: selectedStoreId, items, payment_method: paymentMethod }),
       })
 
       if (!res.ok) {
@@ -125,6 +126,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             onSetQty={handleSetQty}
             onSubmit={handleSubmit}
             submitting={submitting}
+            paymentMethod={paymentMethod}
+            onPaymentMethodChange={setPaymentMethod}
           />
         </div>
       </div>
@@ -162,6 +165,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             onSetQty={handleSetQty}
             onSubmit={handleSubmit}
             submitting={submitting}
+            paymentMethod={paymentMethod}
+            onPaymentMethodChange={setPaymentMethod}
           />
         )}
       </div>

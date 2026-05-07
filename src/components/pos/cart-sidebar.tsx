@@ -12,6 +12,8 @@ interface CartSidebarProps {
   onSetQty: (productId: string, qty: number) => void
   onSubmit: () => void
   submitting: boolean
+  paymentMethod: string
+  onPaymentMethodChange: (method: string) => void
 }
 
 export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
@@ -93,6 +95,28 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
       )}
 
       <div className="p-4 border-t space-y-3">
+        {/* Payment method */}
+        <div className="flex gap-2">
+          {[
+            { value: 'cash', label: 'Кеш' },
+            { value: 'card', label: 'Карта' },
+            { value: 'transfer', label: 'Превод' },
+          ].map(m => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => onPaymentMethodChange(m.value)}
+              className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
+                paymentMethod === m.value
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center justify-between text-lg font-bold">
           <span>Общо</span>
           <span className="tabular-nums">{total.toFixed(2)} €</span>

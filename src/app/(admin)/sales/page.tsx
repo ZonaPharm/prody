@@ -108,21 +108,9 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       </form>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Общо продажби</p>
-          <p className="text-2xl font-bold">{total.toFixed(2)} €</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Брой транзакции</p>
-          <p className="text-2xl font-bold">{(sales || []).length}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Среден чек</p>
-          <p className="text-2xl font-bold">
-            {(sales || []).length > 0 ? (total / (sales || []).length).toFixed(2) : '0.00'} €
-          </p>
-        </div>
+      <div className="rounded-lg border bg-white p-4">
+        <p className="text-sm text-muted-foreground">Общо продажби</p>
+        <p className="text-2xl font-bold">{total.toFixed(2)} €</p>
       </div>
 
       {/* Sales list */}
@@ -138,6 +126,11 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
               {s.sale_group_id && groupCounts[s.sale_group_id] > 1 && (
                 <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
                   група
+                </span>
+              )}
+              {s.payment_method && (
+                <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                  {s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : 'Превод'}
                 </span>
               )}
             </div>

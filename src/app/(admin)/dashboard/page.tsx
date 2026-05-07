@@ -1,7 +1,7 @@
 import { requireAdmin } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package2, ShoppingBag, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react'
+import { Package2, ShoppingBag, AlertTriangle, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { SalesChart, TopProductsChart } from './charts'
 import { StoreSalesSection } from './store-sales-section'
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-bold tracking-tight">Табло</h1>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Продукти</CardTitle>
@@ -121,18 +121,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Средна продажба</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {todayCount > 0 ? (todayTotal / todayCount).toFixed(0) : '0'} €
-            </div>
-            <p className="text-xs text-muted-foreground">за днес</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Charts */}

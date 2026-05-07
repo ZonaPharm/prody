@@ -21,9 +21,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { store_id, items } = body as {
+  const { store_id, items, payment_method } = body as {
     store_id: string
     items: { product_id: string; quantity: number; unit_price: number }[]
+    payment_method?: string
   }
 
   if (!items || items.length === 0) {
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
     sale_price: item.unit_price,
     sale_date: new Date().toISOString().split('T')[0],
     sale_group_id: saleGroupId,
+    payment_method: payment_method || 'cash',
   }))
 
   const { error: insertError } = await (supabase.from('sales') as any).insert(rows)

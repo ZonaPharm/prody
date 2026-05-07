@@ -12,8 +12,8 @@ import {
 
 export function SalesChart({ data }: { data: { date: string; amount: number }[] }) {
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data}>
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={data} barGap={4}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
