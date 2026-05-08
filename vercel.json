@@ -1,0 +1,6 @@
+{
+  "crons": [{
+    "path": "/api/cron/weekly-report?secret=prody-cron-2026",
+    "schedule": "0 * * * *"
+  }]
+}
