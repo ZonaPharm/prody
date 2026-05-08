@@ -190,7 +190,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
           const ext = file.name.split('.').pop() || 'jpg'
-          const path = `${productId}/${i + 1}.${ext}`
+          const path = `${productId}/${Date.now()}-${i}.${ext}`
 
           const { error: uploadError } = await supabase.storage
             .from('products')
