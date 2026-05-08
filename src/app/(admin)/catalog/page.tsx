@@ -70,7 +70,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
         </Button>
       </div>
 
-      <div className="sticky top-14 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 bg-slate-50/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 bg-slate-50/95 backdrop-blur-sm">
         <Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded-md" />}>
           <ProductSearch />
         </Suspense>
