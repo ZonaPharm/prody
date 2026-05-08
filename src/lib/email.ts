@@ -98,7 +98,7 @@ export async function sendWelcomeEmail(
     auth: { user: settings.smtp_user, pass: settings.smtp_pass },
   })
 
-  const loginUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://prody.vercel.app'
+  const loginUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://prody-sepia.vercel.app'
 
   await transport.sendMail({
     from: settings.sender_email,
