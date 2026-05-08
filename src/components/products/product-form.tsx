@@ -70,6 +70,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [existingImages, setExistingImages] = useState<
     { id: string; url: string; is_primary: boolean; sort_order: number }[]
   >(initialData?.images || [])
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([])
 
   const [labelTitle, setLabelTitle] = useState(initialData?.label?.title || '')
   const [labelContent, setLabelContent] = useState(initialData?.label?.content || '')
@@ -119,6 +120,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const removeExistingImage = (id: string) => {
     setExistingImages((prev) => prev.filter((img) => img.id !== id))
+    setRemovedImageIds((prev) => [...prev, id])
   }
 
   const setPrimaryExistingImage = (id: string) => {
@@ -173,6 +175,16 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         productId = data.id
       }
 
+      // Delete removed images from storage and DB
+      for (const imgId of removedImageIds) {
+        const img = initialData?.images?.find(i => i.id === imgId)
+        if (img) {
+          const urlPath = img.url.split('/').slice(-2).join('/')
+          await supabase.storage.from('products').remove([urlPath])
+          await (supabase.from('product_images') as any).delete().eq('id', imgId)
+        }
+      }
+
       // Upload new images
       if (files.length > 0) {
         for (let i = 0; i < files.length; i++) {
@@ -182,7 +194,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
           const { error: uploadError } = await supabase.storage
             .from('products')
-            .upload(path, file)
+            .upload(path, file, { upsert: true })
 
           if (uploadError) {
             // Clean up: delete the product if it was just created and image upload fails
