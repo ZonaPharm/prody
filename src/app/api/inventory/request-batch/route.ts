@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logAction } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -56,5 +57,6 @@ export async function POST(request: NextRequest) {
     results.push(data.id)
   }
 
+  logAction({ action: 'request_create', userId: user.id, entityType: 'stock_request', details: `${items.length} продукта` }).catch(() => {})
   return NextResponse.json({ success: true, ids: results, count: results.length })
 }

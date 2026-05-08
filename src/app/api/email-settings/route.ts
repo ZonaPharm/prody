@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { logAction } from '@/lib/audit'
 
 export async function GET() {
   const supabase = await createServerSupabaseClient()
@@ -25,5 +26,6 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  logAction({ action: 'settings_update', userId: user.id, entityType: 'email_settings' }).catch(() => {})
   return NextResponse.json(data)
 }

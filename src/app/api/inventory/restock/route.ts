@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { executeRestock } from '@/lib/inventory'
+import { logAction } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
       distribution: distribution || [],
       notes,
     })
+    logAction({ action: 'restock', userId: user.id, entityType: 'stock_batch', details: `Заредени ${quantity} бр.` }).catch(() => {})
     return NextResponse.json({ success: true, batches: results })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Грешка при зареждане' }, { status: 500 })

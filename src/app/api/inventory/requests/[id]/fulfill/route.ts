@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logAction } from '@/lib/audit'
 
 export async function POST(
   request: NextRequest,
@@ -54,5 +55,6 @@ export async function POST(
     })
   } catch { /* table doesn't exist yet */ }
 
+  logAction({ action: 'request_fulfill', userId: user.id, entityType: 'stock_request', entityId: id }).catch(() => {})
   return NextResponse.json({ success: true })
 }

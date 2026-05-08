@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logAction } from '@/lib/audit'
 
 export async function GET() {
   const supabase = await createServerSupabaseClient()
@@ -66,6 +67,8 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* SMTP not configured or failed */ }
   }
+
+  logAction({ action: 'user_create', userId: user.id, userName: user.email, entityType: 'user', details: display_name }).catch(() => {})
 
   return NextResponse.json({
     success: true,

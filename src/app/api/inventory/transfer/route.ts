@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getFIFOBatches, calculateFIFODeduction } from '@/lib/inventory'
+import { logAction } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    logAction({ action: 'transfer', userId: user.id, entityType: 'stock_movement', details: `${from_store_id} → ${to_store_id}, ${quantity} бр.` }).catch(() => {})
     return NextResponse.json({ success: true, transferred: deductedFrom.length })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Грешка при трансфер' }, { status: 500 })
