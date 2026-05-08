@@ -39,7 +39,7 @@ export function AdminLayoutClient({
 
       <div className="flex flex-1">
         {/* Desktop sidebar — sticky, doesn't scroll */}
-        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
+        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-0 h-screen">
           <SidebarContent navItems={navItems} pathname={pathname} router={router} />
         </aside>
 
