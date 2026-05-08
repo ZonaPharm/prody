@@ -34,7 +34,7 @@ export function AdminLayoutClient({
   const router = useRouter()
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <Header onMenuClick={() => setSidebarOpen(true)} sticky={false} />
 
       <div className="flex flex-1">
