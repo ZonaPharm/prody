@@ -14,9 +14,11 @@ const errorMessages: Record<string, string> = {
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<'password' | 'magiclink'>('password')
   const supabase = createClient()
   const searchParams = useSearchParams()
 
@@ -27,9 +29,7 @@ export default function LoginForm() {
     }
   }, [searchParams])
 
-  // Check for existing client-side session (from hash fragments or previous login)
   useEffect(() => {
-    // Check hash fragments first
     const hash = window.location.hash.substring(1)
     if (hash) {
       const params = new URLSearchParams(hash)
@@ -41,28 +41,44 @@ export default function LoginForm() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ access_token, refresh_token }),
-        }).then(() => {
-          window.location.href = '/'
-        })
+        }).then(() => { window.location.href = '/' })
         return
       }
     }
 
-    // Check Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        window.location.href = '/'
-      }
+      if (session) window.location.href = '/'
     })
   }, [])
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handlePasswordLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    if (!password) { setError('Въведи парола'); return }
+    setLoading(true)
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+
+    if (error) {
+      if (error.message?.includes('Invalid login credentials')) {
+        setError('Грешен имейл или парола')
+      } else {
+        setError(error.message)
+      }
+      return
+    }
+
+    window.location.href = '/'
+  }
+
+  async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
     })
     setLoading(false)
     if (error) setError(error.message)
@@ -75,24 +91,57 @@ export default function LoginForm() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Prody</CardTitle>
           <CardDescription>
-            {sent ? 'Провери имейла си за линк за вход' : 'Влез с имейл'}
+            {sent ? 'Провери имейла си за линк за вход' : 'Влез в акаунта си'}
           </CardDescription>
         </CardHeader>
         {!sent && (
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <Input
-                type="email"
-                placeholder="email@example.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-              />
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Изпращане...' : 'Изпрати линк за вход'}
-              </Button>
-            </form>
+          <CardContent className="space-y-4">
+            {mode === 'password' ? (
+              <form onSubmit={handlePasswordLogin} className="space-y-4">
+                <Input
+                  type="email"
+                  placeholder="Имейл"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+                <Input
+                  type="password"
+                  placeholder="Парола"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Вход...' : 'Вход'}
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  <button type="button" onClick={() => { setMode('magiclink'); setError('') }} className="text-blue-600 hover:underline">
+                    Вход с magic link
+                  </button>
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleMagicLink} className="space-y-4">
+                <Input
+                  type="email"
+                  placeholder="Имейл"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Изпращане...' : 'Изпрати линк за вход'}
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  <button type="button" onClick={() => { setMode('password'); setError('') }} className="text-blue-600 hover:underline">
+                    Вход с парола
+                  </button>
+                </p>
+              </form>
+            )}
           </CardContent>
         )}
       </Card>
