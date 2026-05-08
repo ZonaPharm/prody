@@ -175,22 +175,13 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         productId = data.id
       }
 
-      // When editing: if uploading new files, delete ALL existing images from storage and DB
-      if (isEdit && files.length > 0 && initialData?.images) {
-        for (const img of initialData.images) {
+      // Delete individually removed images from storage and DB
+      for (const imgId of removedImageIds) {
+        const img = initialData?.images?.find(i => i.id === imgId)
+        if (img) {
           const urlPath = img.url.split('/').slice(-2).join('/')
           await supabase.storage.from('products').remove([urlPath]).catch(() => {})
-          await (supabase.from('product_images') as any).delete().eq('id', img.id).catch(() => {})
-        }
-      } else {
-        // Delete individually removed images (when not replacing all)
-        for (const imgId of removedImageIds) {
-          const img = initialData?.images?.find(i => i.id === imgId)
-          if (img) {
-            const urlPath = img.url.split('/').slice(-2).join('/')
-            await supabase.storage.from('products').remove([urlPath]).catch(() => {})
-            await (supabase.from('product_images') as any).delete().eq('id', imgId).catch(() => {})
-          }
+          await (supabase.from('product_images') as any).delete().eq('id', imgId).catch(() => {})
         }
       }
 
