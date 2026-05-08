@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { requireAdmin } from '@/lib/auth'
 import { getProducts } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'

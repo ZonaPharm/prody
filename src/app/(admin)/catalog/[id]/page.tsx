@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { requireAdmin } from '@/lib/auth'
 import { getProduct } from '@/lib/db/products'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
