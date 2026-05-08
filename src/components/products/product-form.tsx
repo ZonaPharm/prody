@@ -180,8 +180,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         const img = initialData?.images?.find(i => i.id === imgId)
         if (img) {
           const urlPath = img.url.split('/').slice(-2).join('/')
-          await supabase.storage.from('products').remove([urlPath]).catch(() => {})
-          await (supabase.from('product_images') as any).delete().eq('id', imgId).catch(() => {})
+          const { error: removeErr } = await supabase.storage.from('products').remove([urlPath])
+          if (removeErr) console.error('Storage remove error:', removeErr)
+          const { error: deleteErr } = await (supabase.from('product_images') as any).delete().eq('id', imgId)
+          if (deleteErr) console.error('DB delete error:', deleteErr)
         }
       }
 
