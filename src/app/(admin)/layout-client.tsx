@@ -35,7 +35,7 @@ export function AdminLayoutClient({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header onMenuClick={() => setSidebarOpen(true)} />
+      <Header onMenuClick={() => setSidebarOpen(true)} sticky={false} />
 
       <div className="flex flex-1">
         {/* Desktop sidebar — sticky, doesn't scroll */}

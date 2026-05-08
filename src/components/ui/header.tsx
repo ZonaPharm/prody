@@ -8,11 +8,12 @@ import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
 interface HeaderProps {
   onMenuClick?: () => void
+  sticky?: boolean
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ onMenuClick, sticky = true }: HeaderProps) {
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-white px-4 lg:px-6">
+    <header className={`${sticky ? 'sticky top-0 z-40' : ''} flex h-14 items-center gap-4 border-b bg-white px-4 lg:px-6`}>
       <Button
         variant="ghost"
         size="icon"
