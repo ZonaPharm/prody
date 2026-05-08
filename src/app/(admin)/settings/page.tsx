@@ -7,6 +7,7 @@ import { AiSettings } from './ai-settings'
 import { MinQtyManager } from './min-qty-manager'
 import { EmailSettings } from './email-settings'
 import { UsersManager } from './users-manager'
+import { AuditLogs } from './audit-logs'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="email">Имейл</TabsTrigger>
           <TabsTrigger value="users">Потребители</TabsTrigger>
+          <TabsTrigger value="logs">Логове</TabsTrigger>
         </TabsList>
         <TabsContent value="categories">
           <CategoriesManager />
@@ -48,6 +50,9 @@ export default async function SettingsPage() {
         </TabsContent>
         <TabsContent value="users">
           <UsersManager />
+        </TabsContent>
+        <TabsContent value="logs">
+          <AuditLogs />
         </TabsContent>
       </Tabs>
     </div>
