@@ -19,6 +19,8 @@ export async function getProducts(filters?: {
   }
   if (filters?.status) {
     query = query.eq('status', filters.status)
+  } else {
+    query = query.eq('status', 'active')
   }
   if (filters?.sort === 'name') query = query.order('name')
   else if (filters?.sort === 'price_asc') query = query.order('price', { ascending: true })
