@@ -5,8 +5,8 @@ import { getProducts } from '@/lib/db/products'
 import { getStores } from '@/lib/db/stores'
 import ExcelJS from 'exceljs'
 
-const IMG_ROW_HEIGHT = 80
-const IMG_HEIGHT = 65
+const IMG_ROW_HEIGHT = 100
+const IMG_HEIGHT = 85
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
   // Set column widths
   ws.getColumn(1).width = 14
   ws.getColumn(2).width = 28
-  ws.getColumn(3).width = 14
+  ws.getColumn(3).width = 22
   ws.getColumn(4).width = 36
   ws.getColumn(5).width = 14
   ws.getColumn(6).width = 12
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
         })
         ws.addImage(imgId, {
           tl: { col: 2, row: row.number - 1 } as any,
-          br: { col: 2.9, row: (row.number - 1) + IMG_HEIGHT / IMG_ROW_HEIGHT } as any,
+          br: { col: 3.8, row: (row.number - 1) + IMG_HEIGHT / IMG_ROW_HEIGHT } as any,
           editAs: 'oneCell',
         })
       } catch {
