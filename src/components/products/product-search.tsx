@@ -13,7 +13,7 @@ const STATUS_OPTIONS = [
 ]
 
 const IMAGE_OPTIONS = [
-  { value: 'all', label: 'Всички снимки' },
+  { value: 'all', label: 'Снимки' },
   { value: 'yes', label: 'Със снимки' },
   { value: 'no', label: 'Без снимки' },
 ]

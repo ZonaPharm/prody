@@ -30,7 +30,7 @@ export function Header({ onMenuClick, sticky = true }: HeaderProps) {
         alt="Prody"
         width={100}
         height={21}
-        className="h-5 w-auto"
+        className="h-7 w-auto"
         priority
       />
 
