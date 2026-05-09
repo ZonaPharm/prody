@@ -29,13 +29,6 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
 
   const supabase = await createServerSupabaseClient()
 
-  // DEBUG: test direct audit insert
-  const { error: auditErr } = await (supabase.from('audit_logs') as any).insert({
-    type: 'action', action: 'view_product', details: `Viewed product ${product.name}`,
-  })
-  if (auditErr) console.error('AUDIT INSERT FAILED:', JSON.stringify(auditErr))
-  else console.log('AUDIT INSERT OK')
-
   // Fetch stock per store for this product
   const { data: productBatches } = await (supabase.from('stock_batches') as any)
     .select('quantity_remaining, store:stores(name)')

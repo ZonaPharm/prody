@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    logAction({ action: 'transfer', userId: user.id, entityType: 'stock_movement', details: `${from_store_id} → ${to_store_id}, ${quantity} бр.` }).catch(() => {})
+    await logAction({ action: 'transfer', userId: user.id, entityType: 'stock_movement', details: `${from_store_id} → ${to_store_id}, ${quantity} бр.` }, supabase)
     return NextResponse.json({ success: true, transferred: deductedFrom.length })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Грешка при трансфер' }, { status: 500 })

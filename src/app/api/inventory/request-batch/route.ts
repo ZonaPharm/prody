@@ -57,6 +57,6 @@ export async function POST(request: NextRequest) {
     results.push(data.id)
   }
 
-  logAction({ action: 'request_create', userId: user.id, entityType: 'stock_request', details: `${items.length} продукта` }).catch(() => {})
+  await logAction({ action: 'request_create', userId: user.id, entityType: 'stock_request', details: `${items.length} продукта` }, supabase)
   return NextResponse.json({ success: true, ids: results, count: results.length })
 }

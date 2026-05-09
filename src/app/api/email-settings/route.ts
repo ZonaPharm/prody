@@ -26,6 +26,6 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  logAction({ action: 'settings_update', userId: user.id, entityType: 'email_settings' }).catch(() => {})
+  await logAction({ action: 'settings_update', userId: user.id, entityType: 'email_settings' }, supabase)
   return NextResponse.json(data)
 }

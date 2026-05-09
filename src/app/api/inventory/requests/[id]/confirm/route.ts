@@ -70,6 +70,6 @@ export async function POST(
     })
   } catch { /* table doesn't exist yet */ }
 
-  logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` }).catch(() => {})
+  await logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` }, supabase)
   return NextResponse.json({ success: true, status, received_qty: actualQty })
 }

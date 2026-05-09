@@ -24,12 +24,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     getCategories(),
   ])
 
-  // Test: direct audit log insert
   const supabase = await createServerSupabaseClient()
-  const { error: testLogError } = await (supabase.from('audit_logs') as any).insert({
-    type: 'action', action: 'view_catalog', details: `Viewed catalog with ${(products || []).length} products`,
-  })
-  if (testLogError) console.error('Catalog audit test failed:', JSON.stringify(testLogError))
   const productIds = (products || []).map((p: any) => p.id)
   const { data: storeBatches } = productIds.length > 0 ? await (supabase.from('stock_batches') as any)
     .select('product_id, quantity_remaining, store:stores(name)')

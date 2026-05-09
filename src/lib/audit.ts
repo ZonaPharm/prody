@@ -1,4 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/supabase'
 
 interface LogEntry {
   type: 'action' | 'auth'
@@ -12,9 +14,12 @@ interface LogEntry {
   status?: string
 }
 
-export async function logAction(entry: Omit<LogEntry, 'type'>) {
+export async function logAction(
+  entry: Omit<LogEntry, 'type'>,
+  client?: SupabaseClient<Database>
+) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = client || await createServerSupabaseClient()
     const { error } = await (supabase.from('audit_logs') as any).insert({
       type: 'action',
       action: entry.action,
@@ -25,13 +30,16 @@ export async function logAction(entry: Omit<LogEntry, 'type'>) {
       details: entry.details || null,
       metadata: entry.metadata || null,
     })
-    if (error) console.error('logAction failed:', error)
+    if (error) console.error('logAction failed:', JSON.stringify(error))
   } catch (e) { console.error('logAction failed:', e) }
 }
 
-export async function logAuth(entry: Omit<LogEntry, 'type'>) {
+export async function logAuth(
+  entry: Omit<LogEntry, 'type'>,
+  client?: SupabaseClient<Database>
+) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = client || await createServerSupabaseClient()
     const { error } = await (supabase.from('audit_logs') as any).insert({
       type: 'auth',
       action: entry.action,
@@ -41,6 +49,6 @@ export async function logAuth(entry: Omit<LogEntry, 'type'>) {
       status: entry.status || null,
       metadata: entry.metadata || null,
     })
-    if (error) console.error('logAuth failed:', error)
+    if (error) console.error('logAuth failed:', JSON.stringify(error))
   } catch (e) { console.error('logAuth failed:', e) }
 }

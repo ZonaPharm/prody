@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     } catch { /* SMTP not configured or failed */ }
   }
 
-  logAction({ action: 'user_create', userId: user.id, userName: user.email, entityType: 'user', details: display_name }).catch(() => {})
+  await logAction({ action: 'user_create', userId: user.id, userName: user.email, entityType: 'user', details: display_name }, supabase)
 
   return NextResponse.json({
     success: true,
