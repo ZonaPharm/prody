@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 interface LogEntry {
   type: 'action' | 'auth'
@@ -14,8 +14,8 @@ interface LogEntry {
 
 export async function logAction(entry: Omit<LogEntry, 'type'>) {
   try {
-    const admin = createAdminClient()
-    await (admin.from('audit_logs') as any).insert({
+    const supabase = await createServerSupabaseClient()
+    const { error } = await (supabase.from('audit_logs') as any).insert({
       type: 'action',
       action: entry.action,
       user_id: entry.userId || null,
@@ -25,13 +25,14 @@ export async function logAction(entry: Omit<LogEntry, 'type'>) {
       details: entry.details || null,
       metadata: entry.metadata || null,
     })
+    if (error) console.error('logAction failed:', error)
   } catch (e) { console.error('logAction failed:', e) }
 }
 
 export async function logAuth(entry: Omit<LogEntry, 'type'>) {
   try {
-    const admin = createAdminClient()
-    await (admin.from('audit_logs') as any).insert({
+    const supabase = await createServerSupabaseClient()
+    const { error } = await (supabase.from('audit_logs') as any).insert({
       type: 'auth',
       action: entry.action,
       user_id: entry.userId || null,
@@ -40,5 +41,6 @@ export async function logAuth(entry: Omit<LogEntry, 'type'>) {
       status: entry.status || null,
       metadata: entry.metadata || null,
     })
+    if (error) console.error('logAuth failed:', error)
   } catch (e) { console.error('logAuth failed:', e) }
 }
