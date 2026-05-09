@@ -42,7 +42,7 @@ export function SellerLayoutClient({
 
       <div className="flex flex-1">
         {/* Desktop sidebar — sticky, doesn't scroll */}
-        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-32 h-[calc(100vh-8rem)]">
+        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
           <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} />
         </aside>
 
