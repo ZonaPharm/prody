@@ -39,7 +39,7 @@ export function AdminLayoutClient({
 
       <div className="flex flex-1">
         {/* Desktop sidebar — sticky, doesn't scroll */}
-        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-0 h-screen">
+        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 fixed top-0 left-0 h-screen z-20">
           <SidebarContent navItems={navItems} pathname={pathname} router={router} />
         </aside>
 
@@ -67,7 +67,7 @@ export function AdminLayoutClient({
           </div>
         )}
 
-        <main className="flex-1 bg-slate-50 p-4 lg:p-8">{children}</main>
+        <main className="flex-1 bg-slate-50 p-4 lg:pl-60 lg:p-8">{children}</main>
       </div>
     </div>
   )
