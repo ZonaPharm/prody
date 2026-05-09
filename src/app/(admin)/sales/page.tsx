@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Download } from 'lucide-react'
+import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
 interface PageProps {
   searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string }>
@@ -134,13 +135,18 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       {/* Sales list */}
       <div className="space-y-2">
         {(sales || []).map((s: any) => (
-          <div key={s.id} className="flex items-center justify-between py-3 px-4 bg-white rounded border hover:border-slate-300 transition-colors">
+          <div key={s.id} className={`flex items-center justify-between py-3 px-4 bg-white rounded border hover:border-slate-300 transition-colors ${s.voided ? 'opacity-60' : ''}`}>
             <div className="min-w-0">
-              <span className="font-medium">{s.product?.name}</span>
+              <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
               <span className="text-slate-400 mx-1">&times;{s.quantity}</span>
               <span className="text-sm text-muted-foreground">
                 &mdash; {s.store?.name} от {s.seller?.display_name}
               </span>
+              {s.voided && (
+                <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
+                  сторнирана
+                </span>
+              )}
               {s.sale_group_id && groupCounts[s.sale_group_id] > 1 && (
                 <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
                   група
@@ -152,9 +158,12 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                 </span>
               )}
             </div>
-            <div className="text-right shrink-0 ml-4">
-              <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
-              <p className="text-xs text-muted-foreground">{new Date(s.sale_date).toLocaleDateString('bg-BG')}</p>
+            <div className="text-right shrink-0 ml-4 flex items-center gap-2">
+              {!s.voided && <VoidSaleButton saleId={s.id} />}
+              <div>
+                <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
+                <p className="text-xs text-muted-foreground">{new Date(s.sale_date).toLocaleDateString('bg-BG')}</p>
+              </div>
             </div>
           </div>
         ))}

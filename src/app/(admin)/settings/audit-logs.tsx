@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input'
 
 const ACTION_LABELS: Record<string, string> = {
   create_product: '📦 Създаден продукт', update_product: '✏️ Редактиран продукт', delete_product: '🗑️ Изтрит продукт',
-  restock: '📥 Зареждане', transfer: '🔄 Трансфер', sale: '🛒 Продажба',
-  request_create: '📋 Заявка', request_fulfill: '✅ Изпълнена заявка', request_confirm: '✔️ Потвърдена заявка',
+  restock: '📥 Зареждане', transfer: '🔄 Трансфер', sale: '🛒 Продажба', sale_void: '↩️ Сторнирана продажба',
+  request_create: '📋 Заявка', request_fulfill: '✅ Изпълнена заявка', request_confirm: '✔️ Потвърдена заявка', request_reject: '❌ Отказана заявка',
   user_create: '👤 Създаден потребител', user_update: '✏️ Редактиран потребител', user_deactivate: '🚫 Деактивиран',
   settings_update: '⚙️ Настройки', error: '❌ Грешка',
   login: '🔑 Вход', magiclink: '📧 Magic link', logout: '🚪 Изход',

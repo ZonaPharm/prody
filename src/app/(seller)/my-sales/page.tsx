@@ -1,6 +1,7 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Package2 } from 'lucide-react'
+import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
 export const dynamic = 'force-dynamic'
 import { MySalesFilters } from './filters'
@@ -13,6 +14,7 @@ type SaleRow = {
   product_name: string
   store_name: string
   sale_group_id: string | null
+  voided: boolean
 }
 
 interface PageProps {
@@ -60,6 +62,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     sale_price: s.sale_price,
     sale_date: s.sale_date,
     sale_group_id: s.sale_group_id,
+    voided: s.voided || false,
     product_name: Array.isArray(s.product) ? (s.product[0]?.name ?? '—') : (s.product?.name ?? '—'),
     store_name: Array.isArray(s.store) ? (s.store[0]?.name ?? '—') : (s.store?.name ?? '—'),
   }))
@@ -124,13 +127,19 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                   <th className="text-right px-4 py-3 font-medium">Сума</th>
                   <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Обект</th>
                   <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Дата</th>
+                  <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
                 {rows.map(row => (
-                  <tr key={row.id} className="border-b last:border-0 hover:bg-slate-50/50">
+                  <tr key={row.id} className={`border-b last:border-0 hover:bg-slate-50/50 ${row.voided ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3">
-                      <span className="font-medium">{row.product_name}</span>
+                      <span className={`font-medium ${row.voided ? 'line-through' : ''}`}>{row.product_name}</span>
+                      {row.voided && (
+                        <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
+                          сторнирана
+                        </span>
+                      )}
                       {row.sale_group_id && groupCounts[row.sale_group_id] > 1 && (
                         <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
                           група
@@ -145,6 +154,9 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums">
                       {new Date(row.sale_date).toLocaleDateString('bg-BG')}
+                    </td>
+                    <td className="px-2 py-3">
+                      {!row.voided && <VoidSaleButton saleId={row.id} />}
                     </td>
                   </tr>
                 ))}

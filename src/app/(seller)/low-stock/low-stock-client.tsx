@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2, MessageSquare, AlertOctagon } from 'lucide-react'
+import { RejectRequestButton } from '@/components/inventory/reject-request-button'
 
 interface ProductItem {
   id: string
@@ -368,6 +369,11 @@ export function LowStockClient({
                           <Check className="mr-1 h-3 w-3" />
                           Потвърди
                         </Button>
+                      )}
+                      {h.status === 'pending' && (
+                        <span onClick={e => e.stopPropagation()}>
+                          <RejectRequestButton requestId={h.id} />
+                        </span>
                       )}
                     </td>
                   </tr>
