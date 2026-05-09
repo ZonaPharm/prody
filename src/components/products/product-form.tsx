@@ -164,6 +164,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
         if (error) throw error
         productId = initialData.id
+        // Audit: update product
+        supabase.from('audit_logs').insert({ type: 'action', action: 'update_product', details: payload.name, entity_id: productId } as any).then(() => {})
       } else {
         const { data, error } = await (supabase
           .from('products') as any)
@@ -173,6 +175,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
         if (error) throw error
         productId = data.id
+        // Audit: create product
+        supabase.from('audit_logs').insert({ type: 'action', action: 'create_product', details: payload.name, entity_id: productId } as any).then(() => {})
       }
 
       // Delete individually removed images from storage and DB

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
+import { logAction } from '@/lib/audit'
 import { ProductInventoryTab } from '@/components/inventory/product-inventory-tab'
 
 interface PageProps {
@@ -69,6 +70,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
       // If still failing (e.g. sales records exist), show a clear message
       redirect(`/catalog/${productId}?error=${encodeURIComponent(deleteError.message || 'delete_failed')}`)
     }
+    await logAction({ action: 'delete_product', entityType: 'product', entityId: productId, details: product?.name || productId }, supabase)
     revalidatePath('/catalog')
     redirect('/catalog')
   }
