@@ -2,6 +2,7 @@
 
 'use client'
 
+import Image from 'next/image'
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
@@ -24,7 +25,14 @@ export function Header({ onMenuClick, sticky = true }: HeaderProps) {
         <span className="sr-only">Меню</span>
       </Button>
 
-      <span className="font-bold text-lg tracking-tight">Prody</span>
+      <Image
+        src="/logo.png"
+        alt="Prody"
+        width={100}
+        height={21}
+        className="h-5 w-auto"
+        priority
+      />
 
       <div className="flex-1" />
     </header>
