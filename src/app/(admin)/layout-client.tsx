@@ -34,40 +34,40 @@ export function AdminLayoutClient({
   const router = useRouter()
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header onMenuClick={() => setSidebarOpen(true)} sticky={false} />
+    <div className="flex min-h-screen">
+      {/* Desktop sidebar — fixed, never scrolls */}
+      <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 fixed top-0 left-0 h-screen z-20">
+        <SidebarContent navItems={navItems} pathname={pathname} router={router} />
+      </aside>
 
-      <div className="flex flex-1">
-        {/* Desktop sidebar — sticky, doesn't scroll */}
-        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 fixed top-0 left-0 h-screen z-20">
-          <SidebarContent navItems={navItems} pathname={pathname} router={router} />
-        </aside>
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 h-full w-64 bg-slate-900 text-white flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <span className="font-bold text-lg">Prody</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-400"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <SidebarContent navItems={navItems} pathname={pathname} onNavClick={() => setSidebarOpen(false)} router={router} />
+          </aside>
+        </div>
+      )}
 
-        {/* Mobile overlay */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setSidebarOpen(false)}
-            />
-            <aside className="absolute left-0 top-0 h-full w-64 bg-slate-900 text-white flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-slate-800">
-                <span className="font-bold text-lg">Prody</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-slate-400"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-              <SidebarContent navItems={navItems} pathname={pathname} onNavClick={() => setSidebarOpen(false)} router={router} />
-            </aside>
-          </div>
-        )}
-
-        <main className="flex-1 bg-slate-50 p-4 lg:pl-60 lg:p-8">{children}</main>
+      {/* Main content area — scrolls with header */}
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-56">
+        <Header onMenuClick={() => setSidebarOpen(true)} sticky={false} />
+        <main className="flex-1 bg-slate-50 p-4 lg:p-8">{children}</main>
       </div>
     </div>
   )
