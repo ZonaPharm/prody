@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
@@ -42,18 +41,8 @@ export function SellerLayoutClient({
       {isAdminImpersonating && <RoleBanner />}
 
       <div className="flex flex-1">
-        {/* Desktop sidebar — fixed below header */}
-        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 fixed top-14 left-0 h-[calc(100vh-3.5rem)] z-20">
-          <div className="p-4 bg-white border-b">
-            <Image
-              src="/logo.png"
-              alt="Prody"
-              width={100}
-              height={21}
-              className="h-12 w-auto mx-auto"
-              priority
-            />
-          </div>
+        {/* Desktop sidebar — sticky, doesn't scroll */}
+        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
           <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} />
         </aside>
 
@@ -84,7 +73,7 @@ export function SellerLayoutClient({
           </div>
         )}
 
-        <main className="flex-1 bg-slate-50 p-4 lg:ml-56 lg:p-8 overflow-auto">{children}</main>
+        <main className="flex-1 bg-slate-50 p-4 lg:p-8 overflow-auto">{children}</main>
       </div>
     </div>
   )

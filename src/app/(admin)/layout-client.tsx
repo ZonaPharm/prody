@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
@@ -39,18 +38,8 @@ export function AdminLayoutClient({
       <Header onMenuClick={() => setSidebarOpen(true)} sticky={false} />
 
       <div className="flex flex-1">
-        {/* Desktop sidebar — fixed below header */}
-        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 fixed top-0 left-0 h-screen z-20">
-          <div className="p-3 bg-white border-b">
-            <Image
-              src="/logo.png"
-              alt="Prody"
-              width={100}
-              height={21}
-              className="h-10 w-auto mx-auto"
-              priority
-            />
-          </div>
+        {/* Desktop sidebar — sticky, doesn't scroll */}
+        <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-0 h-screen">
           <SidebarContent navItems={navItems} pathname={pathname} router={router} />
         </aside>
 
@@ -78,7 +67,7 @@ export function AdminLayoutClient({
           </div>
         )}
 
-        <main className="flex-1 bg-slate-50 p-4 lg:ml-56 lg:p-8">{children}</main>
+        <main className="flex-1 bg-slate-50 p-4 lg:p-8">{children}</main>
       </div>
     </div>
   )
