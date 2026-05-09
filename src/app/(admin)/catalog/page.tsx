@@ -12,7 +12,7 @@ import ProductSearch from '@/components/products/product-search'
 import ProductCard from '@/components/products/product-card'
 
 interface PageProps {
-  searchParams: Promise<{ search?: string; status?: string; sort?: string }>
+  searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string }>
 }
 
 export default async function CatalogPage({ searchParams }: PageProps) {
@@ -20,7 +20,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
   const params = await searchParams
   const [products, categories] = await Promise.all([
-    getProducts({ search: params.search, status: params.status, sort: params.sort }),
+    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages }),
     getCategories(),
   ])
 

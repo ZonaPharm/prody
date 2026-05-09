@@ -5,6 +5,7 @@ export async function getProducts(filters?: {
   categoryId?: string
   status?: string
   sort?: string
+  hasImages?: string
 }) {
   const supabase = await createServerSupabaseClient()
   let query = supabase
@@ -28,7 +29,13 @@ export async function getProducts(filters?: {
   else query = query.order('created_at', { ascending: false })
 
   const { data } = await query
-  return data || []
+  let result = data || []
+  if (filters?.hasImages === 'yes') {
+    result = result.filter((p: any) => p.images && p.images.length > 0)
+  } else if (filters?.hasImages === 'no') {
+    result = result.filter((p: any) => !p.images || p.images.length === 0)
+  }
+  return result
 }
 
 export { getCategories } from './categories'
