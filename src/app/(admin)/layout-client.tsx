@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
@@ -37,6 +38,16 @@ export function AdminLayoutClient({
     <div className="flex min-h-screen">
       {/* Desktop sidebar — fixed, never scrolls */}
       <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 fixed top-0 left-0 h-screen z-20">
+        <div className="p-4 bg-white border-b">
+          <Image
+            src="/logo.png"
+            alt="Prody"
+            width={100}
+            height={21}
+            className="h-12 w-auto mx-auto"
+            priority
+          />
+        </div>
         <SidebarContent navItems={navItems} pathname={pathname} router={router} />
       </aside>
 
