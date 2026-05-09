@@ -25,16 +25,14 @@ export function Header({ onMenuClick, sticky = true }: HeaderProps) {
         <span className="sr-only">Меню</span>
       </Button>
 
-      <div className="lg:hidden">
-        <Image
-          src="/logo.png"
-          alt="Prody"
-          width={100}
-          height={21}
-          className="h-10 w-auto"
-          priority
-        />
-      </div>
+      <Image
+        src="/logo.png"
+        alt="Prody"
+        width={100}
+        height={21}
+        className="h-10 w-auto"
+        priority
+      />
 
       <div className="flex-1" />
     </header>
