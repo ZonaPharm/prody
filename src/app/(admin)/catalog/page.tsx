@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Suspense } from 'react'
 import ProductSearch from '@/components/products/product-search'
 import ProductCard from '@/components/products/product-card'
+import { ExportButton } from '@/components/products/export-button'
 
 interface PageProps {
   searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string }>
@@ -61,12 +62,17 @@ export default async function CatalogPage({ searchParams }: PageProps) {
             {products.length} продукт{products.length === 1 ? '' : 'а'}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/catalog/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Добави продукт
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Suspense>
+            <ExportButton />
+          </Suspense>
+          <Button asChild>
+            <Link href="/catalog/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Добави продукт
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 bg-slate-50/95 backdrop-blur-sm">
