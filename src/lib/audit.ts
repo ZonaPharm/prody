@@ -25,7 +25,7 @@ export async function logAction(entry: Omit<LogEntry, 'type'>) {
       details: entry.details || null,
       metadata: entry.metadata || null,
     })
-  } catch { /* silent */ }
+  } catch (e) { console.error('logAction failed:', e) }
 }
 
 export async function logAuth(entry: Omit<LogEntry, 'type'>) {
@@ -40,5 +40,5 @@ export async function logAuth(entry: Omit<LogEntry, 'type'>) {
       status: entry.status || null,
       metadata: entry.metadata || null,
     })
-  } catch { /* silent */ }
+  } catch (e) { console.error('logAuth failed:', e) }
 }
