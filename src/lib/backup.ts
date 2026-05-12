@@ -1,6 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gzipSync } from 'zlib'
-import nodemailer from 'nodemailer'
 
 const TABLES = [
   'products',
@@ -100,7 +99,8 @@ export async function runBackup(): Promise<BackupResult> {
         const adminEmails = (admins || []).map((u: any) => u.email).filter(Boolean)
 
         if (adminEmails.length > 0) {
-          const transport = nodemailer.createTransport({
+          const nodemailer = await import('nodemailer')
+          const transport = nodemailer.default.createTransport({
             host: settings.smtp_host,
             port: settings.smtp_port,
             secure: settings.smtp_port === 465,
