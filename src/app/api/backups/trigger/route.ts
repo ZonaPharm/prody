@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { runBackup } from '@/lib/backup'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -13,16 +14,7 @@ export async function POST() {
     .select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  // Call the cron backup endpoint internally
-  const secret = process.env.CRON_SECRET
-  if (!secret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
-
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-
-  const res = await fetch(`${baseUrl}/api/cron/backup?secret=${encodeURIComponent(secret)}`)
-  const data = await res.json()
-
-  return NextResponse.json(data, { status: res.ok ? 200 : 500 })
+  const result = await runBackup()
+  const statusCode = result.status === 'error' ? 500 : result.status === 'partial' ? 500 : 200
+  return NextResponse.json(result, { status: statusCode })
 }
