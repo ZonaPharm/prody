@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient()
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const backup: Record<string, any[]> = {}
+  let emailResult = 'not sent'
 
   try {
     // 1. Export all tables
@@ -89,37 +90,45 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. Email backup
+    // 4. Email backup to admin users only
     try {
       const { data: settings } = await (admin.from('email_settings') as any)
         .select('*').limit(1).single()
 
       if (settings) {
-        const transport = nodemailer.createTransport({
-          host: settings.smtp_host,
-          port: settings.smtp_port,
-          secure: settings.smtp_port === 465,
-          auth: { user: settings.smtp_user, pass: settings.smtp_pass },
-        })
+        const { data: admins } = await (admin.from('users') as any)
+          .select('email').eq('role', 'admin')
+        const adminEmails = (admins || []).map((u: any) => u.email).filter(Boolean)
 
-        const sizeKB = (gzipped.length / 1024).toFixed(1)
-        await transport.sendMail({
-          from: settings.sender_email,
-          to: settings.recipients.join(', '),
-          subject: `[Prody Backup] ${timestamp}`,
-          html: `<p>Бекъп на базата данни — ${new Date().toLocaleDateString('bg-BG')}</p>
+        if (adminEmails.length > 0) {
+          const transport = nodemailer.createTransport({
+            host: settings.smtp_host,
+            port: settings.smtp_port,
+            secure: settings.smtp_port === 465,
+            auth: { user: settings.smtp_user, pass: settings.smtp_pass },
+          })
+
+          const sizeKB = (gzipped.length / 1024).toFixed(1)
+          await transport.sendMail({
+            from: settings.sender_email,
+            to: adminEmails.join(', '),
+            subject: `[Prody Backup] ${timestamp}`,
+            html: `<p>Бекъп на базата данни — ${new Date().toLocaleDateString('bg-BG')}</p>
 <p>Редове: ${totalRows} | Таблици: ${Object.keys(backup).length}</p>
 <p>Размер: ${sizeKB} KB</p>
 <p>Детайли: ${rowCounts}</p>`,
-          attachments: [{
-            filename,
-            content: gzipped,
-            contentType: 'application/gzip',
-          }],
-        })
+            attachments: [{
+              filename,
+              content: gzipped,
+              contentType: 'application/gzip',
+            }],
+          })
+          emailResult = `sent to ${adminEmails.join(', ')}`
+        }
       }
     } catch (emailErr: any) {
       console.error('Backup: email error:', emailErr.message)
+      emailResult = `failed: ${emailErr.message}`
     }
 
     return NextResponse.json({
@@ -129,6 +138,7 @@ export async function GET(request: NextRequest) {
       tables: Object.keys(backup).length,
       rows: totalRows,
       details: rowCounts,
+      email: emailResult,
     })
   } catch (err: any) {
     console.error('Backup: fatal error:', err.message)

@@ -8,6 +8,7 @@ import { MinQtyManager } from './min-qty-manager'
 import { EmailSettings } from './email-settings'
 import { UsersManager } from './users-manager'
 import { AuditLogs } from './audit-logs'
+import { BackupSettings } from './backup-settings'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
           <TabsTrigger value="email">Имейл</TabsTrigger>
           <TabsTrigger value="users">Потребители</TabsTrigger>
           <TabsTrigger value="logs">Логове</TabsTrigger>
+          <TabsTrigger value="backup">Бекъп</TabsTrigger>
         </TabsList>
         <TabsContent value="categories">
           <CategoriesManager />
@@ -53,6 +55,9 @@ export default async function SettingsPage() {
         </TabsContent>
         <TabsContent value="logs">
           <AuditLogs />
+        </TabsContent>
+        <TabsContent value="backup">
+          <BackupSettings />
         </TabsContent>
       </Tabs>
     </div>
