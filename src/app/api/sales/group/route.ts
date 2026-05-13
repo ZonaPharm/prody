@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { executeSaleFIFO } from '@/lib/inventory'
+import { logAction } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: profile } = await (supabase.from('users') as any)
-    .select('role, store_id')
+    .select('role, store_id, display_name')
     .eq('id', user.id)
     .single()
 
@@ -111,6 +112,15 @@ export async function POST(request: NextRequest) {
       console.error('Stock decrement error for product:', item.product_id, e)
     }
   }
+
+  await logAction({
+    action: 'sale_group',
+    userId: user.id,
+    userName: profile?.display_name || user.email,
+    entityType: 'sale',
+    entityId: saleGroupId,
+    details: `Продажба: ${items.length} артикула, плащане ${payment_method || 'cash'}`,
+  }, admin)
 
   return NextResponse.json({ success: true, sale_group_id: saleGroupId, count: items.length })
 }

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await (supabase.from('users') as any)
-    .select('role').eq('id', user.id).single()
+    .select('role, display_name').eq('id', user.id).single()
 
   const { sale_id } = await request.json()
   if (!sale_id) return NextResponse.json({ error: 'Missing sale_id' }, { status: 400 })
@@ -75,10 +75,11 @@ export async function POST(request: NextRequest) {
   await logAction({
     action: 'sale_void',
     userId: user.id,
+    userName: profile?.display_name || user.email,
     entityType: 'sale',
     entityId: sale_id,
     details: `Сторнирана продажба: ${sale.quantity} бр. от ${sale.product_id}`,
-  }, supabase)
+  }, admin)
 
   return NextResponse.json({ success: true, voided: true })
 }
