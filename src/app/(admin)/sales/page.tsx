@@ -4,10 +4,21 @@ import { Download } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
 interface PageProps {
-  searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string }>
+  searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string }>
 }
 
 export const dynamic = 'force-dynamic'
+
+const PAGE_SIZE = 50
+
+function buildPageUrl(sp: Record<string, string | undefined>, page: number) {
+  const params = new URLSearchParams()
+  Object.entries(sp).forEach(([k, v]) => {
+    if (v !== undefined && v !== '' && k !== 'page') params.set(k, v)
+  })
+  params.set('page', String(page))
+  return params.toString()
+}
 
 export default async function AdminSalesPage({ searchParams }: PageProps) {
   await requireAdmin()
@@ -17,6 +28,8 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const today = new Date().toISOString().split('T')[0]
   const fromDate = sp.from || today
   const toDate = sp.to || today
+  const page = Math.max(1, parseInt(sp.page || '1') || 1)
+  const offset = (page - 1) * PAGE_SIZE
 
   // Fetch filter options
   const [{ data: stores }, { data: categories }, { data: products }] = await Promise.all([
@@ -27,35 +40,42 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('sales')
-    .select('*, product:products!inner(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
+    .select('*, product:products!inner(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)', { count: 'exact' })
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(offset, offset + PAGE_SIZE - 1)
 
   if (sp.store) query = query.eq('store_id', sp.store)
   if (sp.product) query = query.eq('product_id', sp.product)
   if (sp.category) query = query.eq('product.category_id', sp.category)
 
-  const { data: sales } = await query
+  const { data: sales, count: totalCount } = await query
+  const totalPages = Math.ceil((totalCount || 0) / PAGE_SIZE)
+  const hasMore = page < totalPages
+  const hasPrev = page > 1
+
+  // Fetch totals for the ENTIRE period (not just current page)
+  let totalsQuery = supabase
+    .from('sales')
+    .select('quantity, sale_price, payment_method')
+    .gte('sale_date', fromDate)
+    .lte('sale_date', toDate)
+    .eq('voided', false)
+  if (sp.store) totalsQuery = totalsQuery.eq('store_id', sp.store)
+  if (sp.product) totalsQuery = totalsQuery.eq('product_id', sp.product)
+  if (sp.category) totalsQuery = totalsQuery.eq('product.category_id', sp.category)
+  const { data: allActiveSales } = await totalsQuery
+
+  const total = (allActiveSales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+  const cardTotal = (allActiveSales || []).filter((s: any) => s.payment_method === 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+  const cashTotal = (allActiveSales || []).filter((s: any) => s.payment_method !== 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
 
   // Compute group counts so we only show "група" for 2+ items
   const groupCounts: Record<string, number> = {}
   ;(sales || []).forEach((s: any) => {
     if (s.sale_group_id) groupCounts[s.sale_group_id] = (groupCounts[s.sale_group_id] || 0) + 1
   })
-
-  const activeSales = (sales || []).filter((s: any) => !s.voided)
-
-  const total = activeSales.reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
-
-  // Payment method breakdown
-  const cardTotal = activeSales
-    .filter((s: any) => s.payment_method === 'card')
-    .reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
-  const cashTotal = activeSales
-    .filter((s: any) => s.payment_method !== 'card')
-    .reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const exportParams = new URLSearchParams({ from: fromDate, to: toDate })
   if (sp.store) exportParams.set('store', sp.store)
   const exportUrl = `/api/sales/export?${exportParams.toString()}`
@@ -174,6 +194,33 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
           <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-muted-foreground">
+            Страница {page} от {totalPages} (общо {totalCount})
+          </p>
+          <div className="flex gap-2">
+            {hasPrev && (
+              <a
+                href={`/sales?${buildPageUrl(sp, page - 1)}`}
+                className="px-4 py-2 rounded border text-sm hover:bg-slate-50 transition-colors"
+              >
+                ← Назад
+              </a>
+            )}
+            {hasMore && (
+              <a
+                href={`/sales?${buildPageUrl(sp, page + 1)}`}
+                className="px-4 py-2 rounded border text-sm hover:bg-slate-50 transition-colors"
+              >
+                Напред →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
