@@ -18,7 +18,18 @@ type SaleRow = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ from?: string; to?: string }>
+  searchParams: Promise<{ from?: string; to?: string; page?: string }>
+}
+
+const MY_PAGE_SIZE = 50
+
+function buildMyPageUrl(params: Record<string, string | undefined>, page: number) {
+  const p = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== '' && k !== 'page') p.set(k, v)
+  })
+  p.set('page', String(page))
+  return p.toString()
 }
 
 export default async function MySalesPage({ searchParams }: PageProps) {
@@ -32,15 +43,17 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const today = new Date().toISOString().split('T')[0]
   const fromDate = params.from || today
   const toDate = params.to || today
+  const page = Math.max(1, parseInt(params.page || '1') || 1)
+  const offset = (page - 1) * MY_PAGE_SIZE
 
   let query = supabase
     .from('sales')
-    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, product:products(name), store:stores(name)')
+    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, product:products(name), store:stores(name)', { count: 'exact' })
     .eq('sold_by', user.id)
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(offset, offset + MY_PAGE_SIZE - 1)
 
   // Only filter by store for real sellers (not admin impersonating)
   if (user.role === 'seller' && storeId) {
@@ -55,7 +68,26 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     )
   }
 
-  const { data: sales } = await query
+  const { data: sales, count: totalCount } = await query
+  const totalPages = Math.ceil((totalCount || 0) / MY_PAGE_SIZE)
+
+  // Fetch totals for ENTIRE period (not just current page)
+  let totalsQuery = supabase
+    .from('sales')
+    .select('quantity, sale_price')
+    .eq('sold_by', user.id)
+    .eq('voided', false)
+    .gte('sale_date', fromDate)
+    .lte('sale_date', toDate)
+  if (user.role === 'seller' && storeId) {
+    totalsQuery = totalsQuery.eq('store_id', storeId)
+  }
+  const { data: allActiveSales } = await totalsQuery
+
+  const total = (allActiveSales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+  const activeCount = (allActiveSales || []).length
+  const uniqueProducts = new Set((allActiveSales || []).map((s: any) => s.product_id)).size
+  const groupSales = (allActiveSales || []).filter((s: any) => s.sale_group_id).length
 
   const rows: SaleRow[] = (sales || []).map((s: any) => ({
     id: s.id,
@@ -70,11 +102,6 @@ export default async function MySalesPage({ searchParams }: PageProps) {
 
   const groupCounts: Record<string, number> = {}
   rows.forEach(r => { if (r.sale_group_id) groupCounts[r.sale_group_id] = (groupCounts[r.sale_group_id] || 0) + 1 })
-
-  const activeRows = rows.filter(r => !r.voided)
-  const total = activeRows.reduce((sum, r) => sum + r.quantity * r.sale_price, 0)
-  const uniqueProducts = new Set(activeRows.map(r => r.product_name)).size
-  const groupSales = activeRows.filter(r => r.sale_group_id).length
 
   return (
     <div className="space-y-6">
@@ -98,13 +125,13 @@ export default async function MySalesPage({ searchParams }: PageProps) {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-sm text-muted-foreground">Брой продажби</p>
-          <p className="text-2xl font-bold tabular-nums">{activeRows.length}</p>
+          <p className="text-2xl font-bold tabular-nums">{activeCount}</p>
           <p className="text-xs text-muted-foreground">за {uniqueProducts} продукта</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-sm text-muted-foreground">Среден чек</p>
           <p className="text-2xl font-bold tabular-nums">
-            {activeRows.length > 0 ? (total / activeRows.length).toFixed(2) : '0.00'} €
+            {activeCount > 0 ? (total / activeCount).toFixed(2) : '0.00'} €
           </p>
           {groupSales > 0 && (
             <p className="text-xs text-muted-foreground">{groupSales} в групови продажби</p>
@@ -118,6 +145,26 @@ export default async function MySalesPage({ searchParams }: PageProps) {
           <p>Няма продажби за избрания период</p>
         </div>
       ) : (
+        <>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Страница {page} от {totalPages} (общо {totalCount})
+              </p>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <a href={`/my-sales?${buildMyPageUrl(params, page - 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                    ← Назад
+                  </a>
+                )}
+                {page < totalPages && (
+                  <a href={`/my-sales?${buildMyPageUrl(params, page + 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                    Напред →
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         <div className="rounded-lg border bg-white overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -174,6 +221,26 @@ export default async function MySalesPage({ searchParams }: PageProps) {
             </table>
           </div>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Страница {page} от {totalPages} (общо {totalCount})
+            </p>
+            <div className="flex gap-2">
+              {page > 1 && (
+                <a href={`/my-sales?${buildMyPageUrl(params, page - 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                  ← Назад
+                </a>
+              )}
+              {page < totalPages && (
+                <a href={`/my-sales?${buildMyPageUrl(params, page + 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                  Напред →
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )
