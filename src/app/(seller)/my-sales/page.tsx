@@ -40,6 +40,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
+    .limit(200)
 
   // Only filter by store for real sellers (not admin impersonating)
   if (user.role === 'seller' && storeId) {

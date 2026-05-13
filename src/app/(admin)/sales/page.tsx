@@ -31,6 +31,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
+    .limit(200)
 
   if (sp.store) query = query.eq('store_id', sp.store)
   if (sp.product) query = query.eq('product_id', sp.product)
