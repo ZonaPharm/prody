@@ -295,6 +295,15 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
     return historyBatches
   }, [activeTab, batches, inProgressBatches, historyBatches])
 
+  // Auto-select first batch when switching tabs
+  useEffect(() => {
+    if (filteredBatches.length > 0 && !filteredBatches.some(b => b.key === selectedBatch?.key)) {
+      setSelectedBatch(filteredBatches[0])
+    } else if (filteredBatches.length === 0) {
+      setSelectedBatch(null)
+    }
+  }, [activeTab, filteredBatches])
+
   const pendingCount = requests.filter(r => r.status === 'pending').length
   const inProgressCount = requests.filter(r => ['accepted', 'in_transit', 'delivered'].includes(r.status)).length
   const doneCount = requests.filter(r => ['confirmed', 'partial', 'fulfilled', 'rejected'].includes(r.status)).length
@@ -332,6 +341,12 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
                   {{ pending: 'Чакащи', in_progress: 'В процес', done: 'Приключени' }[tab]}
                   {tab === 'pending' && pendingCount > 0 && (
                     <span className="ml-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                  )}
+                  {tab === 'in_progress' && inProgressCount > 0 && (
+                    <span className="ml-1 bg-sky-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{inProgressCount}</span>
+                  )}
+                  {tab === 'done' && doneCount > 0 && (
+                    <span className="ml-1 bg-slate-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{doneCount}</span>
                   )}
                 </button>
               ))}
