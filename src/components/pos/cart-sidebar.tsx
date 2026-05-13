@@ -119,18 +119,28 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
 
   return (
     <>
-      {/* Collapsed bar */}
-      <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30">
+      {/* Collapsed bar — always at bottom, outside scroll area */}
+      <div className="border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30 shrink-0">
         <button
           type="button"
           className="flex items-center gap-2 flex-1 min-w-0"
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => items.length > 0 && setExpanded(!expanded)}
         >
           <ShoppingCart className="h-5 w-5" />
-          <span className="font-medium text-sm">Количка ({items.length})</span>
-          <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
+          <span className="font-medium text-sm">
+            Количка{items.length > 0 ? ` (${items.length})` : ''}
+          </span>
+          {items.length > 0 ? (
+            <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
+          ) : (
+            <span className="text-xs text-muted-foreground ml-auto">празна</span>
+          )}
         </button>
-        <Button size="sm" onClick={() => onSubmit()} disabled={submitting}>
+        <Button
+          size="sm"
+          onClick={() => onSubmit()}
+          disabled={submitting || items.length === 0}
+        >
           {submitting ? '...' : 'Завърши'}
         </Button>
       </div>
