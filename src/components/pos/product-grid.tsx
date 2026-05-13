@@ -94,71 +94,74 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
         </div>
       )}
 
-      {/* Product grid */}
+      {/* Product grid + out of stock — both scroll together */}
       <div className="overflow-auto flex-1 min-h-0">
-        {filtered.length === 0 ? (
+        {filtered.length === 0 && (!outOfStock || outOfStock.length === 0 || search || selectedCategory) ? (
           <div className="py-16 text-center text-muted-foreground">
             {search.length >= 2
               ? `Няма съвпадения за "${search}"`
               : 'Няма налични продукти'}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {filtered.map(product => (
-              <button
-                key={product.id}
-                className="rounded-lg border bg-white p-3 text-left hover:shadow-md hover:border-slate-300 transition-all"
-                onClick={() => onAddToCart(product)}
-              >
-                <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <Package className="h-8 w-8 text-slate-300" />
-                  )}
+          <>
+            {filtered.length > 0 && (
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                {filtered.map(product => (
+                  <button
+                    key={product.id}
+                    className="rounded-lg border bg-white p-3 text-left hover:shadow-md hover:border-slate-300 transition-all"
+                    onClick={() => onAddToCart(product)}
+                  >
+                    <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Package className="h-8 w-8 text-slate-300" />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium truncate">{product.name}</p>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {product.quantity_on_hand} бр.
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {outOfStock && outOfStock.length > 0 && !search && !selectedCategory && (
+              <div className={filtered.length > 0 ? 'border-t pt-3 mt-3' : ''}>
+                <p className="text-xs font-medium text-red-500 mb-2">
+                  Изчерпани в този магазин ({outOfStock.length})
+                </p>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 opacity-60">
+                  {outOfStock.map(product => (
+                    <div
+                      key={product.id}
+                      className="rounded-lg border border-red-200 bg-red-50/30 p-3 text-left"
+                    >
+                      <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                        {product.image_url ? (
+                          <img src={product.image_url} alt="" className="w-full h-full object-cover grayscale" />
+                        ) : (
+                          <Package className="h-8 w-8 text-slate-300" />
+                        )}
+                      </div>
+                      <p className="text-sm font-medium truncate text-slate-500">{product.name}</p>
+                      <p className="text-sm font-semibold tabular-nums text-slate-400">
+                        {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
+                      </p>
+                      <p className="text-xs text-red-500 font-medium">Изчерпан</p>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-sm font-medium truncate">{product.name}</p>
-                <p className="text-sm font-semibold tabular-nums">
-                  {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {product.quantity_on_hand} бр.
-                </p>
-              </button>
-            ))}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      {/* Out of stock section */}
-      {outOfStock && outOfStock.length > 0 && !search && !selectedCategory && (
-        <div className="border-t pt-3 mt-2">
-          <p className="text-xs font-medium text-red-500 mb-2">
-            Изчерпани в този магазин ({outOfStock.length})
-          </p>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 opacity-60">
-            {outOfStock.map(product => (
-              <div
-                key={product.id}
-                className="rounded-lg border border-red-200 bg-red-50/30 p-3 text-left"
-              >
-                <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt="" className="w-full h-full object-cover grayscale" />
-                  ) : (
-                    <Package className="h-8 w-8 text-slate-300" />
-                  )}
-                </div>
-                <p className="text-sm font-medium truncate text-slate-500">{product.name}</p>
-                <p className="text-sm font-semibold tabular-nums text-slate-400">
-                  {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
-                </p>
-                <p className="text-xs text-red-500 font-medium">Изчерпан</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

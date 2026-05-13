@@ -168,18 +168,16 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             outOfStock={outOfStock}
           />
         </div>
-        {cart.items.length > 0 && (
-          <CartBottomBar
-            items={cart.items}
-            onAdd={handleAdd}
-            onRemove={handleRemove}
-            onSetQty={handleSetQty}
-            onSubmit={handleSubmit}
-            submitting={submitting}
-            paymentMethod={paymentMethod}
-            onPaymentMethodChange={setPaymentMethod}
-          />
-        )}
+        <CartBottomBar
+          items={cart.items}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onSetQty={handleSetQty}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          paymentMethod={paymentMethod}
+          onPaymentMethodChange={setPaymentMethod}
+        />
       </div>
 
       {/* Payment method popup */}

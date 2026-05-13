@@ -95,27 +95,6 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
       )}
 
       <div className="p-4 border-t space-y-3">
-        {/* Payment method */}
-        <div className="flex gap-2">
-          {[
-            { value: 'cash', label: 'Кеш' },
-            { value: 'card', label: 'Карта' },
-          ].map(m => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => onPaymentMethodChange(m.value)}
-              className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
-                paymentMethod === m.value
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-
         <div className="flex items-center justify-between text-lg font-bold">
           <span>Общо</span>
           <span className="tabular-nums">{total.toFixed(2)} €</span>
@@ -133,36 +112,42 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
   )
 }
 
-// CartBottomBar — mobile sticky bar + expandable drawer
-export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting, paymentMethod, onPaymentMethodChange }: CartSidebarProps) {
+// CartBottomBar — mobile sticky bar + expandable drawer (always visible)
+export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
   const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
   const [expanded, setExpanded] = useState(false)
 
   return (
     <>
-      {/* Collapsed bar */}
+      {/* Collapsed bar — always visible */}
       <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30">
         <button
           type="button"
           className="flex items-center gap-2 flex-1 min-w-0"
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => items.length > 0 && setExpanded(!expanded)}
         >
           <ShoppingCart className="h-5 w-5" />
           <span className="font-medium text-sm">Количка ({items.length})</span>
-          <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
+          {items.length > 0 && (
+            <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
+          )}
         </button>
-        <Button size="sm" onClick={() => onSubmit()} disabled={submitting}>
+        <Button
+          size="sm"
+          onClick={() => onSubmit()}
+          disabled={submitting || items.length === 0}
+        >
           {submitting ? '...' : 'Завърши'}
         </Button>
       </div>
 
       {/* Expanded drawer */}
-      {expanded && (
+      {expanded && items.length > 0 && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setExpanded(false)} />
           <div className="fixed inset-x-0 bottom-0 z-50 bg-white border-t rounded-t-xl shadow-2xl max-h-[70vh] flex flex-col">
             <div className="p-3 border-b flex items-center justify-between">
-              <h3 className="font-semibold">Количка</h3>
+              <h3 className="font-semibold">Количка ({items.length})</h3>
               <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>Готово</Button>
             </div>
             <div className="flex-1 overflow-auto p-3 space-y-2">
@@ -192,29 +177,11 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
                 </div>
               ))}
             </div>
-            <div className="px-3 pb-1">
-              <div className="flex gap-2">
-                {[
-                  { value: 'cash', label: 'Кеш' },
-                  { value: 'card', label: 'Карта' },
-                  { value: 'transfer', label: 'Превод' },
-                ].map(m => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => onPaymentMethodChange(m.value)}
-                    className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
-                      paymentMethod === m.value
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-slate-600 border-slate-200'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
+            <div className="p-3 border-t space-y-2">
+              <div className="flex items-center justify-between text-lg font-bold">
+                <span>Общо</span>
+                <span className="tabular-nums">{total.toFixed(2)} €</span>
               </div>
-            </div>
-            <div className="p-3 border-t">
               <Button className="w-full" size="lg" onClick={() => onSubmit()} disabled={submitting}>
                 Завърши продажба · {total.toFixed(2)} €
               </Button>
