@@ -143,7 +143,10 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div className="lg:hidden pb-16">
+      <div
+        className="lg:hidden pb-16"
+        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
+      >
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-bold">Запиши продажба</h1>
           {stores.length > 1 && (
@@ -166,7 +169,10 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           onAddToCart={handleAddToCart}
           outOfStock={outOfStock}
         />
-        <div className="fixed bottom-0 left-0 right-0 z-30">
+        <div
+          className="fixed bottom-0 left-0 right-0 z-30"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <CartBottomBar
             items={cart.items}
             onAdd={handleAdd}
