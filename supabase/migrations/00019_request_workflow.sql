@@ -24,7 +24,11 @@ ALTER TABLE stock_requests ADD COLUMN IF NOT EXISTS accepted_at timestamptz;
 ALTER TABLE stock_requests ADD COLUMN IF NOT EXISTS in_transit_at timestamptz;
 ALTER TABLE stock_requests ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
 
--- 3. Fix request_events RLS — allow insert + read for all authenticated
+-- 3. Update status check constraint to allow new statuses
+ALTER TABLE stock_requests DROP CONSTRAINT IF EXISTS stock_requests_status_check;
+ALTER TABLE stock_requests ADD CONSTRAINT stock_requests_status_check CHECK (status IN ('pending', 'accepted', 'in_transit', 'delivered', 'fulfilled', 'confirmed', 'partial', 'rejected'));
+
+-- 4. Fix request_events RLS — allow insert + read for all authenticated
 DROP POLICY IF EXISTS "Admins full access events" ON request_events;
 CREATE POLICY "Users can read request events" ON request_events FOR SELECT TO authenticated
   USING (true);

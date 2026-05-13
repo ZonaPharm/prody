@@ -212,9 +212,23 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
     }).sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [requests])
 
+  const inProgressBatches: Batch[] = useMemo(() => {
+    const map: Record<string, Request[]> = {}
+    requests.filter(r => ['accepted', 'in_transit', 'delivered'].includes(r.status)).forEach(r => {
+      const key = `${r.store_id}|${r.created_at?.substring(0, 19) || ''}|${r.notes || ''}`
+      if (!map[key]) map[key] = []
+      map[key].push(r)
+    })
+    return Object.entries(map).map(([key, entries]) => ({
+      key, store_id: entries[0].store_id, store_name: entries[0].store_name, status: entries[0].status,
+      comment: parseNotes(entries[0].notes).comment, created_at: entries[0].created_at, entries,
+      totalQty: entries.reduce((s, e) => s + e.quantity, 0), productCount: entries.length,
+    })).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }, [requests])
+
   const historyBatches: Batch[] = useMemo(() => {
     const map: Record<string, Request[]> = {}
-    requests.filter(r => r.status !== 'pending').forEach(r => {
+    requests.filter(r => ['confirmed', 'partial', 'fulfilled', 'rejected'].includes(r.status)).forEach(r => {
       const key = `${r.store_id}|${r.created_at?.substring(0, 19) || ''}|${r.notes || ''}`
       if (!map[key]) map[key] = []
       map[key].push(r)
@@ -228,20 +242,20 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
 
   const filteredBatches = useMemo(() => {
     if (activeTab === 'pending') return batches
-    if (activeTab === 'in_progress') return [...batches, ...historyBatches].filter(b =>
-      !['pending', 'confirmed', 'partial', 'rejected', 'fulfilled'].includes(b.status))
+    if (activeTab === 'in_progress') return inProgressBatches
     return historyBatches
-  }, [activeTab, batches, historyBatches])
+  }, [activeTab, batches, inProgressBatches, historyBatches])
 
   const pendingCount = requests.filter(r => r.status === 'pending').length
-  const doneCount = requests.filter(r => r.status !== 'pending').length
+  const inProgressCount = requests.filter(r => ['accepted', 'in_transit', 'delivered'].includes(r.status)).length
+  const doneCount = requests.filter(r => ['confirmed', 'partial', 'fulfilled', 'rejected'].includes(r.status)).length
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Заявки за зареждане</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {pendingCount} чакащи · {doneCount} обработени
+          {pendingCount} чакащи · {inProgressCount} в процес · {doneCount} приключени
         </p>
       </div>
 
