@@ -95,6 +95,8 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   let lastGroupId: string | null = null
   const exportParams = new URLSearchParams({ from: fromDate, to: toDate })
   if (sp.store) exportParams.set('store', sp.store)
+  if (sp.product) exportParams.set('product', sp.product)
+  if (sp.category) exportParams.set('category', sp.category)
   const exportUrl = `/api/sales/export?${exportParams.toString()}`
 
   return (

@@ -9,13 +9,22 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const from = searchParams.get('from') || new Date().toISOString().split('T')[0]
   const to = searchParams.get('to') || new Date().toISOString().split('T')[0]
+  const store = searchParams.get('store')
+  const product = searchParams.get('product')
+  const category = searchParams.get('category')
 
-  const { data: sales } = await (supabase.from('sales') as any)
-    .select('quantity, sale_price, sale_date, sale_group_id, product:products(name), store:stores(name), seller:users(display_name)')
+  let query = (supabase.from('sales') as any)
+    .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products(name, category_id), store:stores(name), seller:users(display_name)')
     .gte('sale_date', from)
     .lte('sale_date', to)
     .eq('voided', false)
     .order('created_at', { ascending: false })
+
+  if (store) query = query.eq('store_id', store)
+  if (product) query = query.eq('product_id', product)
+  if (category) query = query.eq('product.category_id', category)
+
+  const { data: sales } = await query
 
   // Build CSV with BOM for Excel Bulgarian charset
   const BOM = '﻿'
@@ -26,7 +35,7 @@ export async function GET(request: NextRequest) {
     const seller = Array.isArray(s.seller) ? (s.seller[0]?.display_name || '—') : (s.seller?.display_name || '—')
     const total = (s.quantity * Number(s.sale_price)).toFixed(2)
     const date = new Date(s.sale_date).toLocaleDateString('bg-BG')
-    const payment = s.payment_method === 'card' ? 'Карта' : 'Кеш'
+    const payment = s.payment_method === 'card' ? 'Карта' : s.payment_method === 'transfer' ? 'Превод' : 'Кеш'
     const group = s.sale_group_id ? 'Да' : 'Не'
     return [
       `"${name.replace(/"/g, '""')}"`,
