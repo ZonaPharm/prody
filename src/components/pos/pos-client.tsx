@@ -143,37 +143,41 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div className="lg:hidden flex flex-col min-h-full">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold">Запиши продажба</h1>
-          {stores.length > 1 && (
-            <Select value={selectedStoreId} onValueChange={handleStoreChange}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {stores.map(store => (
-                  <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+      <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h1 className="text-lg font-bold">Запиши продажба</h1>
+            {stores.length > 1 && (
+              <Select value={selectedStoreId} onValueChange={handleStoreChange}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map(store => (
+                    <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <ProductGrid
+            products={products}
+            categories={categories}
+            frequentlySold={frequentlySold}
+            onAddToCart={handleAddToCart}
+            outOfStock={outOfStock}
+          />
         </div>
-        <ProductGrid
-          products={products}
-          categories={categories}
-          frequentlySold={frequentlySold}
-          onAddToCart={handleAddToCart}
-          outOfStock={outOfStock}
-        />
-        <CartBottomBar
-          items={cart.items}
-          onAdd={handleAdd}
-          onRemove={handleRemove}
-          onSetQty={handleSetQty}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
+        {cart.items.length > 0 && (
+          <CartBottomBar
+            items={cart.items}
+            onAdd={handleAdd}
+            onRemove={handleRemove}
+            onSetQty={handleSetQty}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+          />
+        )}
       </div>
 
       {/* Payment method popup */}

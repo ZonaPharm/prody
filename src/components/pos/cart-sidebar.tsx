@@ -112,42 +112,36 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
   )
 }
 
-// CartBottomBar — mobile bottom bar + expandable drawer (always visible)
+// CartBottomBar — mobile sticky bar + expandable drawer
 export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting, paymentMethod: _pm, onPaymentMethodChange: _opm }: CartSidebarProps) {
   const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
   const [expanded, setExpanded] = useState(false)
 
   return (
     <>
-      {/* Bar — sticky to bottom */}
-      <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-20">
+      {/* Collapsed bar */}
+      <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30">
         <button
           type="button"
           className="flex items-center gap-2 flex-1 min-w-0"
-          onClick={() => items.length > 0 && setExpanded(!expanded)}
+          onClick={() => setExpanded(!expanded)}
         >
           <ShoppingCart className="h-5 w-5" />
           <span className="font-medium text-sm">Количка ({items.length})</span>
-          {items.length > 0 && (
-            <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
-          )}
+          <span className="text-sm font-bold ml-auto tabular-nums">{total.toFixed(2)} €</span>
         </button>
-        <Button
-          size="sm"
-          onClick={() => onSubmit()}
-          disabled={submitting || items.length === 0}
-        >
+        <Button size="sm" onClick={() => onSubmit()} disabled={submitting}>
           {submitting ? '...' : 'Завърши'}
         </Button>
       </div>
 
       {/* Expanded drawer */}
-      {expanded && items.length > 0 && (
+      {expanded && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setExpanded(false)} />
           <div className="fixed inset-x-0 bottom-0 z-50 bg-white border-t rounded-t-xl shadow-2xl max-h-[70vh] flex flex-col">
             <div className="p-3 border-b flex items-center justify-between">
-              <h3 className="font-semibold">Количка ({items.length})</h3>
+              <h3 className="font-semibold">Количка</h3>
               <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>Готово</Button>
             </div>
             <div className="flex-1 overflow-auto p-3 space-y-2">
