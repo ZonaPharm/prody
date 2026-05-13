@@ -12,8 +12,8 @@ interface CartSidebarProps {
   onSetQty: (productId: string, qty: number) => void
   onSubmit: () => void
   submitting: boolean
-  paymentMethod: string
-  onPaymentMethodChange: (method: string) => void
+  paymentMethod?: string
+  onPaymentMethodChange?: (method: string) => void
 }
 
 export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting, paymentMethod, onPaymentMethodChange }: CartSidebarProps) {
@@ -112,15 +112,15 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
   )
 }
 
-// CartBottomBar — mobile sticky bar + expandable drawer (always visible)
-export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting }: CartSidebarProps) {
+// CartBottomBar — mobile bottom bar + expandable drawer (always visible)
+export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, submitting, paymentMethod: _pm, onPaymentMethodChange: _opm }: CartSidebarProps) {
   const total = items.reduce((sum, i) => sum + i.qty * (i.product.price ?? 0), 0)
   const [expanded, setExpanded] = useState(false)
 
   return (
     <>
-      {/* Collapsed bar — always visible */}
-      <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30">
+      {/* Bar — always visible */}
+      <div className="border-t bg-white p-3 flex items-center gap-3 shadow-lg">
         <button
           type="button"
           className="flex items-center gap-2 flex-1 min-w-0"

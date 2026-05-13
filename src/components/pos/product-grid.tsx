@@ -30,7 +30,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
   })
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 space-y-4">
+    <div className="space-y-4">
       {/* Category pills */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Button
@@ -94,8 +94,8 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
         </div>
       )}
 
-      {/* Product grid + out of stock — both scroll together */}
-      <div className="overflow-auto flex-1 min-h-0">
+      {/* Product grid + out of stock */}
+      <div>
         {filtered.length === 0 && (!outOfStock || outOfStock.length === 0 || search || selectedCategory) ? (
           <div className="py-16 text-center text-muted-foreground">
             {search.length >= 2
