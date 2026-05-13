@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get('category')
 
   let query = (supabase.from('sales') as any)
-    .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products(name, category_id), store:stores(name), seller:users(display_name)')
+    .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
     .gte('sale_date', from)
     .lte('sale_date', to)
     .eq('voided', false)

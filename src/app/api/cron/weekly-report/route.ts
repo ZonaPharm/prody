@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
   const fetchSalesForExport = async (q: { from: string; to: string; store_id?: string | null }) => {
     let query = (admin.from('sales') as any)
-      .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users(display_name)')
+      .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
       .gte('sale_date', q.from).lte('sale_date', q.to).eq('voided', false).order('sale_date', { ascending: false })
     if (q.store_id) query = query.eq('store_id', q.store_id)
     const { data } = await query
