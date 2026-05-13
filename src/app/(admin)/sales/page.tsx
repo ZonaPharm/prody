@@ -60,7 +60,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   // Fetch totals for the ENTIRE period (not just current page)
   let totalsQuery = supabase
     .from('sales')
-    .select('quantity, sale_price, payment_method')
+    .select('quantity, sale_price, payment_method, product:products!inner(category_id)')
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .eq('voided', false)
