@@ -44,13 +44,15 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     if (s.sale_group_id) groupCounts[s.sale_group_id] = (groupCounts[s.sale_group_id] || 0) + 1
   })
 
-  const total = (sales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+  const activeSales = (sales || []).filter((s: any) => !s.voided)
+
+  const total = activeSales.reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
 
   // Payment method breakdown
-  const cardTotal = (sales || [])
+  const cardTotal = activeSales
     .filter((s: any) => s.payment_method === 'card')
     .reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
-  const cashTotal = (sales || [])
+  const cashTotal = activeSales
     .filter((s: any) => s.payment_method !== 'card')
     .reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const exportParams = new URLSearchParams({ from: fromDate, to: toDate })

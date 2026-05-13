@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   const { data: sales } = await (admin.from('sales') as any)
     .select('quantity, sale_price, product:products(name)')
-    .gte('sale_date', weekAgo).lte('sale_date', today)
+    .gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
 
   const productQty = new Map<string, number>()
   let totalRevenue = 0, totalCount = 0
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   const topProducts = Array.from(productQty.entries()).map(([name, quantity]) => ({ name, quantity })).sort((a, b) => b.quantity - a.quantity).slice(0, 10)
   const { data: lowStock } = await (admin.from('products') as any).select('name, quantity_on_hand').eq('status', 'active').lte('quantity_on_hand', 5).order('quantity_on_hand')
 
-  const { data: storeSales } = await (admin.from('sales') as any).select('quantity, sale_price, store:stores(name)').gte('sale_date', weekAgo).lte('sale_date', today)
+  const { data: storeSales } = await (admin.from('sales') as any).select('quantity, sale_price, store:stores(name)').gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
   const storeMap: Record<string, { count: number; revenue: number }> = {}
   ;(storeSales || []).forEach((s: any) => {
     const store = Array.isArray(s.store) ? s.store[0]?.name : s.store?.name || '—'
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   const fetchSalesForExport = async (q: { from: string; to: string; store_id?: string | null }) => {
     let query = (admin.from('sales') as any)
       .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users(display_name)')
-      .gte('sale_date', q.from).lte('sale_date', q.to).order('sale_date', { ascending: false })
+      .gte('sale_date', q.from).lte('sale_date', q.to).eq('voided', false).order('sale_date', { ascending: false })
     if (q.store_id) query = query.eq('store_id', q.store_id)
     const { data } = await query
     const productIds = [...new Set((data || []).map((s: any) => s.product_id))]

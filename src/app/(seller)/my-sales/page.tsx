@@ -35,7 +35,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('sales')
-    .select('id, quantity, sale_price, sale_date, sale_group_id, product:products(name), store:stores(name)')
+    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, product:products(name), store:stores(name)')
     .eq('sold_by', user.id)
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
@@ -70,9 +70,10 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const groupCounts: Record<string, number> = {}
   rows.forEach(r => { if (r.sale_group_id) groupCounts[r.sale_group_id] = (groupCounts[r.sale_group_id] || 0) + 1 })
 
-  const total = rows.reduce((sum, r) => sum + r.quantity * r.sale_price, 0)
-  const uniqueProducts = new Set(rows.map(r => r.product_name)).size
-  const groupSales = rows.filter(r => r.sale_group_id).length
+  const activeRows = rows.filter(r => !r.voided)
+  const total = activeRows.reduce((sum, r) => sum + r.quantity * r.sale_price, 0)
+  const uniqueProducts = new Set(activeRows.map(r => r.product_name)).size
+  const groupSales = activeRows.filter(r => r.sale_group_id).length
 
   return (
     <div className="space-y-6">
@@ -96,13 +97,13 @@ export default async function MySalesPage({ searchParams }: PageProps) {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-sm text-muted-foreground">Брой продажби</p>
-          <p className="text-2xl font-bold tabular-nums">{rows.length}</p>
+          <p className="text-2xl font-bold tabular-nums">{activeRows.length}</p>
           <p className="text-xs text-muted-foreground">за {uniqueProducts} продукта</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-sm text-muted-foreground">Среден чек</p>
           <p className="text-2xl font-bold tabular-nums">
-            {rows.length > 0 ? (total / rows.length).toFixed(2) : '0.00'} €
+            {activeRows.length > 0 ? (total / activeRows.length).toFixed(2) : '0.00'} €
           </p>
           {groupSales > 0 && (
             <p className="text-xs text-muted-foreground">{groupSales} в групови продажби</p>

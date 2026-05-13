@@ -30,12 +30,12 @@ export default async function DashboardPage() {
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'inactive').eq('inactive_reason', 'ordered'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active').lte('quantity_on_hand', 5),
-    supabase.from('sales').select('quantity, sale_price').gte('sale_date', today),
-    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', monthAgo).order('sale_date'),
-    supabase.from('sales').select('quantity, sale_price, product:products(name)').gte('sale_date', monthAgo),
-    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', weekAgo).order('sale_date'),
+    supabase.from('sales').select('quantity, sale_price').gte('sale_date', today).eq('voided', false),
+    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', monthAgo).order('sale_date').eq('voided', false),
+    supabase.from('sales').select('quantity, sale_price, product:products(name)').gte('sale_date', monthAgo).eq('voided', false),
+    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', weekAgo).order('sale_date').eq('voided', false),
     supabase.from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name'),
-    supabase.from('sales').select('quantity, sale_price, store_id').gte('sale_date', monthAgo),
+    supabase.from('sales').select('quantity, sale_price, store_id').gte('sale_date', monthAgo).eq('voided', false),
   ])
 
   const sumReducer = (sum: number, s: any) => sum + s.quantity * Number(s.sale_price)

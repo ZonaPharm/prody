@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   const { data: sales } = await (admin.from('sales') as any)
     .select('quantity, sale_price, product:products(name)')
-    .gte('sale_date', weekAgo).lte('sale_date', today)
+    .gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
 
   const productQty = new Map<string, number>()
   let totalRevenue = 0, totalCount = 0
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   const fetchSalesForExport = async (q: { from: string; to: string; store_id?: string | null }) => {
     let query = (admin.from('sales') as any)
       .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users(display_name)')
-      .gte('sale_date', q.from).lte('sale_date', q.to).order('sale_date', { ascending: false })
+      .gte('sale_date', q.from).lte('sale_date', q.to).eq('voided', false).order('sale_date', { ascending: false })
     const { data } = await query
     return (data || []).map((s: any) => ({
       quantity: s.quantity, sale_price: s.sale_price, sale_date: s.sale_date, payment_method: s.payment_method,

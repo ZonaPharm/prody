@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     .select('quantity, sale_price, sale_date, product:products(name)')
     .gte('sale_date', sinceDate)
     .lte('sale_date', untilDate)
+    .eq('voided', false)
 
   // Aggregate: revenue by day
   const dayMap = new Map<string, number>()

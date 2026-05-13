@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     .select('quantity, sale_price, sale_date, sale_group_id, product:products(name), store:stores(name), seller:users(display_name)')
     .gte('sale_date', from)
     .lte('sale_date', to)
+    .eq('voided', false)
     .order('created_at', { ascending: false })
 
   // Build CSV with BOM for Excel Bulgarian charset

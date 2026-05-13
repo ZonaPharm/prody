@@ -20,6 +20,7 @@ export async function GET(request: Request) {
   const { data: sales } = await supabase.from('sales')
     .select('quantity, sale_price, store_id, sale_date')
     .gte('sale_date', sinceDate)
+    .eq('voided', false)
 
   // Build store sales map
   const storeSalesMap: Record<string, Record<string, number>> = {}

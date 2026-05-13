@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users(display_name)')
       .gte('sale_date', q.from)
       .lte('sale_date', q.to)
+      .eq('voided', false)
       .order('sale_date', { ascending: false })
     if (q.store_id) query = query.eq('store_id', q.store_id)
     const { data } = await query

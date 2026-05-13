@@ -140,6 +140,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   const { data: recentSales } = await (supabase.from('sales') as any)
     .select('product_id')
     .eq('sold_by', user.id)
+    .eq('voided', false)
     .order('created_at', { ascending: false })
     .limit(20)
 
