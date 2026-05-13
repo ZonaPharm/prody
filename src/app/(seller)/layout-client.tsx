@@ -11,7 +11,7 @@ import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/record-sale': ShoppingBag,
   '/my-sales': BarChart3,
-  '/requests': Bell,
+  '/my-requests': Bell,
   '/low-stock': AlertTriangle,
 }
 

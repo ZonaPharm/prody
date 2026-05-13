@@ -47,7 +47,7 @@ export function SellerRequestsClient({ products, myRequests, activeTab }: Props)
 
   const switchTab = (t: string) => {
     setTab(t)
-    router.push(`/requests?tab=${t}`)
+    router.push(`/my-requests?tab=${t}`)
   }
 
   const filtered = products.filter(p =>
