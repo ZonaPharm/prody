@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { logAction } from '@/lib/audit'
 
 export async function POST(
@@ -30,12 +31,22 @@ export async function POST(
     return NextResponse.json({ error: 'Можете да откажете само ваши заявки' }, { status: 403 })
   }
 
+  const admin = createAdminClient()
   const now = new Date().toISOString()
   const productName = Array.isArray(req.product) ? req.product[0]?.name : req.product?.name
 
-  await (supabase.from('stock_requests') as any)
+  await (admin.from('stock_requests') as any)
     .update({ status: 'rejected', updated_at: now })
     .eq('id', id)
+
+  // Log event
+  try {
+    await (admin.from('request_events') as any).insert({
+      request_id: id, status: 'rejected', user_id: user.id,
+      notes: `Отказана заявка: ${productName || '—'} (${req.requested_qty} бр.)`,
+      created_at: now,
+    })
+  } catch { /* table may not exist yet */ }
 
   await logAction({
     action: 'request_reject',
@@ -43,7 +54,7 @@ export async function POST(
     entityType: 'stock_request',
     entityId: id,
     details: `Отказана заявка: ${productName || '—'} (${req.requested_qty} бр.)`,
-  }, supabase)
+  }, admin)
 
   return NextResponse.json({ success: true, status: 'rejected' })
 }
