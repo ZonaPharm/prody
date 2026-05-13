@@ -143,8 +143,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+      <div className="lg:hidden grid h-[calc(100vh-4rem)]" style={{ gridTemplateRows: '1fr auto' }}>
+        <div className="overflow-y-auto p-4 min-h-0">
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-lg font-bold">Запиши продажба</h1>
             {stores.length > 1 && (
