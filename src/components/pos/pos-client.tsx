@@ -144,7 +144,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
 
       {/* Mobile/Tablet: stacked layout */}
       <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex-1 overflow-hidden p-4">
+        <div className="flex-1 overflow-hidden p-4 flex flex-col min-h-0">
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-lg font-bold">Запиши продажба</h1>
             {stores.length > 1 && (
