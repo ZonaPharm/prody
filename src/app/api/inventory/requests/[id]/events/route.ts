@@ -23,7 +23,7 @@ export async function GET(
 
   // Fallback: derive events from the request itself
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('status, notes, created_at, updated_at, requested_qty')
+    .select('status, notes, created_at, updated_at, requested_qty, accepted_at, in_transit_at, delivered_at')
     .eq('id', id)
     .single()
 
@@ -37,17 +37,18 @@ export async function GET(
     },
   ]
 
+  if (req.accepted_at || req.status === 'accepted' || req.status === 'in_transit' || req.status === 'delivered' || req.status === 'fulfilled' || req.status === 'confirmed' || req.status === 'partial') {
+    derived.push({ status: 'accepted', notes: 'Приета от администратор', created_at: req.accepted_at || req.updated_at })
+  }
+  if (req.in_transit_at || req.status === 'in_transit' || req.status === 'delivered' || req.status === 'fulfilled' || req.status === 'confirmed' || req.status === 'partial') {
+    derived.push({ status: 'in_transit', notes: 'Изпратена към магазина', created_at: req.in_transit_at || req.updated_at })
+  }
+  if (req.delivered_at || req.status === 'delivered' || req.status === 'fulfilled' || req.status === 'confirmed' || req.status === 'partial') {
+    derived.push({ status: 'delivered', notes: 'Доставена в магазина', created_at: req.delivered_at || req.updated_at })
+  }
   if (req.status === 'fulfilled' || req.status === 'confirmed' || req.status === 'partial') {
     derived.push({
-      status: 'fulfilled',
-      notes: 'Заявката е изпълнена',
-      created_at: req.updated_at || req.created_at,
-    })
-  }
-
-  if (req.status === 'confirmed' || req.status === 'partial') {
-    derived.push({
-      status: req.status,
+      status: req.status === 'partial' ? 'partial' : 'confirmed',
       notes: req.status === 'partial' ? 'Потвърдено частично получаване' : 'Потвърдено получаване',
       created_at: req.updated_at || req.created_at,
     })

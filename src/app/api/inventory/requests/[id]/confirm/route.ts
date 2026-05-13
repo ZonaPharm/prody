@@ -21,8 +21,8 @@ export async function POST(
     .single()
 
   if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (req.status !== 'fulfilled') {
-    return NextResponse.json({ error: 'Заявката не е изпълнена все още' }, { status: 400 })
+  if (req.status !== 'fulfilled' && req.status !== 'delivered') {
+    return NextResponse.json({ error: 'Заявката не е доставена все още' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -70,6 +70,6 @@ export async function POST(
     })
   } catch { /* table doesn't exist yet */ }
 
-  await logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` }, supabase)
+  await logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` }, admin)
   return NextResponse.json({ success: true, status, received_qty: actualQty })
 }
