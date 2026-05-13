@@ -119,8 +119,8 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
 
   return (
     <>
-      {/* Collapsed bar — sticky to bottom */}
-      <div className="sticky bottom-0 border-t bg-white p-3 flex items-center gap-3 shadow-lg z-30">
+      {/* Collapsed bar */}
+      <div className="border-t bg-white p-3 flex items-center gap-3 shadow-lg">
         <button
           type="button"
           className="flex items-center gap-2 flex-1 min-w-0"

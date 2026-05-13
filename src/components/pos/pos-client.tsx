@@ -143,7 +143,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div className="lg:hidden flex flex-col min-h-full">
+      <div className="lg:hidden pb-16">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-bold">Запиши продажба</h1>
           {stores.length > 1 && (
@@ -166,15 +166,16 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           onAddToCart={handleAddToCart}
           outOfStock={outOfStock}
         />
-        <div className="flex-1" />
-        <CartBottomBar
-          items={cart.items}
-          onAdd={handleAdd}
-          onRemove={handleRemove}
-          onSetQty={handleSetQty}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
+        <div className="fixed bottom-0 left-0 right-0 z-30">
+          <CartBottomBar
+            items={cart.items}
+            onAdd={handleAdd}
+            onRemove={handleRemove}
+            onSetQty={handleSetQty}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+          />
+        </div>
       </div>
 
       {/* Payment method popup */}
