@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2, PlusCircle, Search, X, Send } from 'lucide-react'
 
 interface Request {
   id: string
@@ -98,9 +98,11 @@ interface Batch {
   productCount: number
 }
 
-export function RequestsClient({ requests: initialRequests }: { requests: Request[] }) {
+export function RequestsClient({ requests: initialRequests, stores: initialStores, allProducts: initialProducts }: { requests: Request[], stores: any[], allProducts: any[] }) {
   const router = useRouter()
   const [requests, setRequests] = useState(initialRequests)
+  const stores = initialStores || []
+  const allProducts = initialProducts || []
 
   // Sync state when server props change (after router.refresh)
   useEffect(() => {
@@ -117,6 +119,53 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
   const [detailReq, setDetailReq] = useState<Request | null>(null)
   const [requestEvents, setRequestEvents] = useState<any[]>([])
   const [loadingEvents, setLoadingEvents] = useState(false)
+
+  // Create request dialog state
+  const [showCreate, setShowCreate] = useState(false)
+  const [createStoreId, setCreateStoreId] = useState('')
+  const [createSearch, setCreateSearch] = useState('')
+  const [createBasket, setCreateBasket] = useState<{ product: any; qty: number }[]>([])
+  const [createLoading, setCreateLoading] = useState(false)
+
+  const nonWarehouseStores = stores.filter((s: any) => !s.is_warehouse)
+
+  const filteredCreateProducts = allProducts.filter((p: any) =>
+    !createSearch || p.name.toLowerCase().includes(createSearch.toLowerCase())
+  ).slice(0, 50)
+
+  const addCreateItem = (product: any) => {
+    setCreateBasket(prev => {
+      const existing = prev.find(i => i.product.id === product.id)
+      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
+      return [...prev, { product, qty: 1 }]
+    })
+  }
+
+  const submitCreateRequest = async () => {
+    if (createBasket.length === 0 || !createStoreId) return
+    setCreateLoading(true)
+    try {
+      const res = await fetch('/api/inventory/request-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: createStoreId,
+          items: createBasket.map(i => ({ product_id: i.product.id, quantity: i.qty })),
+        }),
+      })
+      if (res.ok) {
+        setShowCreate(false)
+        setCreateBasket([])
+        setCreateStoreId('')
+        setCreateSearch('')
+        router.refresh()
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Грешка')
+      }
+    } catch { alert('Грешка при създаване') }
+    setCreateLoading(false)
+  }
 
   const toggleBatch = (key: string) => {
     setExpandedBatches(prev => {
@@ -252,11 +301,16 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Заявки за зареждане</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {pendingCount} чакащи · {inProgressCount} в процес · {doneCount} приключени
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Заявки за зареждане</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {pendingCount} чакащи · {inProgressCount} в процес · {doneCount} приключени
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setShowCreate(true)}>
+          <PlusCircle className="mr-1.5 h-4 w-4" /> Нова заявка
+        </Button>
       </div>
 
       {batches.length === 0 && historyBatches.length === 0 ? (
@@ -504,6 +558,74 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                 <Button onClick={executeFulfill} disabled={fulfilling}>
                   {fulfilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Прехвърли и изпрати
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Create Request Dialog */}
+      {showCreate && (
+        <Dialog open={showCreate} onOpenChange={() => { setShowCreate(false); setCreateBasket([]); setCreateSearch('') }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Нова заявка</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block">Магазин</label>
+                <select value={createStoreId} onChange={e => setCreateStoreId(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm">
+                  <option value="">Изберете магазин</option>
+                  {nonWarehouseStores.map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Търсене на продукт..." value={createSearch}
+                  onChange={e => setCreateSearch(e.target.value)} className="pl-9" />
+              </div>
+              {createSearch && (
+                <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                  {filteredCreateProducts.map((p: any) => (
+                    <div key={p.id} className="p-2 flex items-center justify-between hover:bg-slate-50">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.quantity_on_hand} бр.</p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => addCreateItem(p)}>
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {createBasket.length > 0 && (
+                <div className="border rounded-lg p-3 space-y-2">
+                  {createBasket.map(item => (
+                    <div key={item.product.id} className="flex items-center gap-2 text-sm">
+                      <span className="flex-1 truncate">{item.product.name}</span>
+                      <Button variant="outline" size="icon" className="h-6 w-6"
+                        onClick={() => setCreateBasket(prev => prev.map(i => i.product.id === item.product.id ? { ...i, qty: Math.max(1, i.qty - 1) } : i))}>−</Button>
+                      <span className="w-6 text-center tabular-nums">{item.qty}</span>
+                      <Button variant="outline" size="icon" className="h-6 w-6"
+                        onClick={() => setCreateBasket(prev => prev.map(i => i.product.id === item.product.id ? { ...i, qty: i.qty + 1 } : i))}>+</Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500"
+                        onClick={() => setCreateBasket(prev => prev.filter(i => i.product.id !== item.product.id))}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={() => { setShowCreate(false); setCreateBasket([]); setCreateSearch('') }}>Отказ</Button>
+                <Button onClick={submitCreateRequest} disabled={createLoading || createBasket.length === 0 || !createStoreId}>
+                  {createLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  Създай заявка
                 </Button>
               </div>
             </div>
