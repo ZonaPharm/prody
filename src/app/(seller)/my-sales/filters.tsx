@@ -12,14 +12,11 @@ interface MySalesFiltersProps {
 export function MySalesFilters({ from, to }: MySalesFiltersProps) {
   const router = useRouter()
 
-  const applyDates = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = new FormData(e.currentTarget)
-    const newFrom = form.get('from') as string
-    const newTo = form.get('to') as string
-    const params = new URLSearchParams()
-    if (newFrom) params.set('from', newFrom)
-    if (newTo) params.set('to', newTo)
+  const navigate = (key: string, value: string) => {
+    const params = new URLSearchParams(window.location.search)
+    if (value) params.set(key, value)
+    else params.delete(key)
+    params.delete('page')
     router.push(`/my-sales?${params.toString()}`)
   }
 
@@ -46,21 +43,20 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
   }
 
   return (
-    <form onSubmit={applyDates} className="flex flex-wrap items-end gap-2">
+    <div className="flex flex-wrap items-end gap-2">
       <div>
         <label className="text-xs text-muted-foreground">От</label>
-        <Input name="from" type="date" defaultValue={from} className="w-[140px] h-9 text-sm" />
+        <Input type="date" defaultValue={from} onChange={e => navigate('from', e.target.value)} className="w-[140px] h-9 text-sm" />
       </div>
       <div>
         <label className="text-xs text-muted-foreground">До</label>
-        <Input name="to" type="date" defaultValue={to} className="w-[140px] h-9 text-sm" />
+        <Input type="date" defaultValue={to} onChange={e => navigate('to', e.target.value)} className="w-[140px] h-9 text-sm" />
       </div>
-      <Button type="submit" variant="outline" size="sm" className="h-9">Покажи</Button>
       <div className="flex gap-1 ml-1">
         <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setToday}>Днес</Button>
         <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setThisWeek}>Седмица</Button>
         <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setThisMonth}>Месец</Button>
       </div>
-    </form>
+    </div>
   )
 }

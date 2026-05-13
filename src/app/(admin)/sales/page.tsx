@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Download } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
+import { SalesFilters } from './filters'
 
 interface PageProps {
   searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string }>
@@ -109,51 +110,16 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         </a>
       </div>
 
-      {/* Date + store filter */}
-      <form className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">От</label>
-          <input type="date" name="from" defaultValue={fromDate} className="border rounded px-3 py-2 text-sm w-[140px]" />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">До</label>
-          <input type="date" name="to" defaultValue={toDate} className="border rounded px-3 py-2 text-sm w-[140px]" />
-        </div>
-        {stores && stores.length > 0 && (
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1">Обект</label>
-            <select name="store" defaultValue={sp.store || ''} className="border rounded px-3 py-2 text-sm max-w-[180px]">
-              <option value="">Всички обекти</option>
-              {stores.map((s: any) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {categories && categories.length > 0 && (
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1">Категория</label>
-            <select name="category" defaultValue={sp.category || ''} className="border rounded px-3 py-2 text-sm max-w-[180px]">
-              <option value="">Всички категории</option>
-              {categories.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {products && products.length > 0 && (
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1">Продукт</label>
-            <select name="product" defaultValue={sp.product || ''} className="border rounded px-3 py-2 text-sm max-w-[220px]">
-              <option value="">Всички продукти</option>
-              {products.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Филтрирай</button>
-      </form>
+      <SalesFilters
+        fromDate={fromDate}
+        toDate={toDate}
+        store={sp.store}
+        product={sp.product}
+        category={sp.category}
+        stores={(stores || []) as { id: string; name: string }[]}
+        categories={(categories || []) as { id: string; name: string }[]}
+        products={(products || []) as { id: string; name: string }[]}
+      />
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
