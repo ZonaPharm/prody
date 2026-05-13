@@ -101,6 +101,11 @@ interface Batch {
 export function RequestsClient({ requests: initialRequests }: { requests: Request[] }) {
   const router = useRouter()
   const [requests, setRequests] = useState(initialRequests)
+
+  // Sync state when server props change (after router.refresh)
+  useEffect(() => {
+    setRequests(initialRequests)
+  }, [initialRequests])
   const [loading, setLoading] = useState<string | null>(null)
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
   const [activeTab, setActiveTab] = useState('pending')
@@ -172,17 +177,23 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
   }
 
   const handleAction = async (batch: Batch, action: string) => {
+    let ok = true
     for (const entry of batch.entries) {
       setLoading(entry.id)
-      await fetch(`/api/inventory/requests/${entry.id}/${action}`, { method: 'POST' })
+      const res = await fetch(`/api/inventory/requests/${entry.id}/${action}`, { method: 'POST' })
+      if (!res.ok) ok = false
     }
-    const newStatus = action === 'accept' ? 'accepted' : action === 'deliver' ? 'delivered' : 'rejected'
-    setRequests(prev => prev.map(r =>
-      batch.entries.some(e => e.id === r.id) ? { ...r, status: newStatus } : r
-    ))
-    setSelectedBatch(null)
     setLoading(null)
-    router.refresh()
+    if (ok) {
+      const newStatus = action === 'accept' ? 'accepted' : action === 'deliver' ? 'delivered' : 'rejected'
+      setRequests(prev => prev.map(r =>
+        batch.entries.some(e => e.id === r.id) ? { ...r, status: newStatus } : r
+      ))
+      setSelectedBatch(null)
+      router.refresh()
+    } else {
+      alert('Грешка при изпълнение на действието')
+    }
   }
 
   const batches: Batch[] = useMemo(() => {
