@@ -1,3 +1,4 @@
+import React from 'react'
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Package2 } from 'lucide-react'
@@ -11,6 +12,7 @@ type SaleRow = {
   quantity: number
   sale_price: number
   sale_date: string
+  created_at: string
   product_name: string
   store_name: string
   sale_group_id: string | null
@@ -48,11 +50,12 @@ export default async function MySalesPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('sales')
-    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, product:products(name), store:stores(name)', { count: 'exact' })
+    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, created_at, product:products(name), store:stores(name)', { count: 'exact' })
     .eq('sold_by', user.id)
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
+    .order('sale_group_id')
     .range(offset, offset + MY_PAGE_SIZE - 1)
 
   // Only filter by store for real sellers (not admin impersonating)
@@ -94,6 +97,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     quantity: s.quantity,
     sale_price: s.sale_price,
     sale_date: s.sale_date,
+    created_at: s.created_at,
     sale_group_id: s.sale_group_id,
     voided: s.voided || false,
     product_name: Array.isArray(s.product) ? (s.product[0]?.name ?? '—') : (s.product?.name ?? '—'),
@@ -102,6 +106,17 @@ export default async function MySalesPage({ searchParams }: PageProps) {
 
   const groupCounts: Record<string, number> = {}
   rows.forEach(r => { if (r.sale_group_id) groupCounts[r.sale_group_id] = (groupCounts[r.sale_group_id] || 0) + 1 })
+
+  const groupColors = ['border-l-blue-200 bg-blue-50/30', 'border-l-purple-200 bg-purple-50/30', 'border-l-teal-200 bg-teal-50/30', 'border-l-amber-200 bg-amber-50/30']
+  let groupColorIdx = 0
+  const groupMeta: Record<string, { color: string }> = {}
+  rows.forEach(r => {
+    if (r.sale_group_id && groupCounts[r.sale_group_id] > 1 && !groupMeta[r.sale_group_id]) {
+      groupMeta[r.sale_group_id] = { color: groupColors[groupColorIdx % groupColors.length] }
+      groupColorIdx++
+    }
+  })
+  let lastGroupId: string | null = null
 
   return (
     <div className="space-y-6">
@@ -175,13 +190,29 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                   <th className="text-right px-4 py-3 font-medium">Цена</th>
                   <th className="text-right px-4 py-3 font-medium">Сума</th>
                   <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Обект</th>
-                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Дата</th>
+                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Дата / Час</th>
                   <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
-                {rows.map(row => (
-                  <tr key={row.id} className={`border-b last:border-0 hover:bg-slate-50/50 ${row.voided ? 'opacity-50' : ''}`}>
+                {rows.map(row => {
+                  const isGroup = row.sale_group_id && groupCounts[row.sale_group_id] > 1
+                  const groupChanged = isGroup && row.sale_group_id !== lastGroupId
+                  if (groupChanged) lastGroupId = row.sale_group_id
+                  if (!isGroup) lastGroupId = null
+                  const gid = row.sale_group_id!
+                  const meta = isGroup ? groupMeta[gid] : null
+
+                  return (
+                    <React.Fragment key={row.id}>
+                      {groupChanged && meta && (
+                        <tr className="border-t-2 border-blue-200">
+                          <td colSpan={7} className="px-4 py-1 text-[10px] text-blue-500 font-medium uppercase tracking-wider">
+                            Група &middot; {groupCounts[gid]} артикула
+                          </td>
+                        </tr>
+                      )}
+                  <tr className={`border-b last:border-0 hover:bg-slate-50/50 border-l-4 ${row.voided ? 'opacity-50' : ''} ${meta?.color || 'border-l-transparent'}`}>
                     <td className="px-4 py-3">
                       <span className={`font-medium ${row.voided ? 'line-through' : ''}`}>{row.product_name}</span>
                       {row.voided && (
@@ -201,14 +232,16 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                       {(row.quantity * row.sale_price).toFixed(2)} €
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums">
-                      {new Date(row.sale_date).toLocaleDateString('bg-BG')}
+                    <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums text-xs">
+                      {new Date(row.sale_date).toLocaleDateString('bg-BG')}<br />
+                      {new Date(row.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-2 py-3">
                       {!row.voided && <VoidSaleButton saleId={row.id} />}
                     </td>
                   </tr>
-                ))}
+                  </React.Fragment>
+                )})}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-50 font-semibold">

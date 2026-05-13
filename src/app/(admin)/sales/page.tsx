@@ -44,6 +44,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .order('created_at', { ascending: false })
+    .order('sale_group_id')
     .range(offset, offset + PAGE_SIZE - 1)
 
   if (sp.store) query = query.eq('store_id', sp.store)
@@ -71,11 +72,26 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const cardTotal = (allActiveSales || []).filter((s: any) => s.payment_method === 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const cashTotal = (allActiveSales || []).filter((s: any) => s.payment_method !== 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
 
-  // Compute group counts so we only show "група" for 2+ items
+  // Compute group info: count, short ID, and color index per group
   const groupCounts: Record<string, number> = {}
+  const groupMeta: Record<string, { shortId: string; color: string }> = {}
+  const groupColors = ['border-l-blue-200 bg-blue-50/30', 'border-l-purple-200 bg-purple-50/30', 'border-l-teal-200 bg-teal-50/30', 'border-l-amber-200 bg-amber-50/30']
+  let groupColorIdx = 0
   ;(sales || []).forEach((s: any) => {
-    if (s.sale_group_id) groupCounts[s.sale_group_id] = (groupCounts[s.sale_group_id] || 0) + 1
+    if (s.sale_group_id) {
+      groupCounts[s.sale_group_id] = (groupCounts[s.sale_group_id] || 0) + 1
+      if (!groupMeta[s.sale_group_id]) {
+        groupMeta[s.sale_group_id] = {
+          shortId: s.sale_group_id.replace(/-/g, '').substring(0, 4),
+          color: groupColors[groupColorIdx % groupColors.length],
+        }
+        groupColorIdx++
+      }
+    }
   })
+
+  // Track consecutive groups for visual grouping
+  let lastGroupId: string | null = null
   const exportParams = new URLSearchParams({ from: fromDate, to: toDate })
   if (sp.store) exportParams.set('store', sp.store)
   const exportUrl = `/api/sales/export?${exportParams.toString()}`
@@ -156,40 +172,59 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       </div>
 
       {/* Sales list */}
-      <div className="space-y-2">
-        {(sales || []).map((s: any) => (
-          <div key={s.id} className={`flex items-center justify-between py-3 px-4 bg-white rounded border hover:border-slate-300 transition-colors ${s.voided ? 'opacity-60' : ''}`}>
-            <div className="min-w-0">
-              <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
-              <span className="text-slate-400 mx-1">&times;{s.quantity}</span>
-              <span className="text-sm text-muted-foreground">
-                &mdash; {s.store?.name} от {s.seller?.display_name}
-              </span>
-              {s.voided && (
-                <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                  сторнирана
-                </span>
+      <div>
+        {(sales || []).map((s: any, i: number) => {
+          // Detect group start/change for visual grouping
+          const isGroup = s.sale_group_id && groupCounts[s.sale_group_id] > 1
+          const groupChanged = isGroup && s.sale_group_id !== lastGroupId
+          if (groupChanged) lastGroupId = s.sale_group_id
+          if (!isGroup) lastGroupId = null
+
+          const time = new Date(s.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })
+          const dateStr = new Date(s.sale_date).toLocaleDateString('bg-BG')
+          const meta = isGroup ? groupMeta[s.sale_group_id] : null
+
+          return (
+            <div key={s.id}>
+              {groupChanged && meta && (
+                <div className="text-[10px] text-blue-500 font-medium uppercase tracking-wider pt-2 pb-1 border-t border-blue-100 mt-1">
+                  Група #{meta.shortId} &middot; {groupCounts[s.sale_group_id]} артикула
+                </div>
               )}
-              {s.sale_group_id && groupCounts[s.sale_group_id] > 1 && (
-                <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
-                  група
-                </span>
-              )}
-              {s.payment_method && (
-                <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
-                  {s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : 'Превод'}
-                </span>
-              )}
-            </div>
-            <div className="text-right shrink-0 ml-4 flex items-center gap-2">
-              {!s.voided && <VoidSaleButton saleId={s.id} />}
-              <div>
-                <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
-                <p className="text-xs text-muted-foreground">{new Date(s.sale_date).toLocaleDateString('bg-BG')}</p>
+              <div className={`flex items-center justify-between py-3 px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
+                <div className="min-w-0">
+                  <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
+                  <span className="text-slate-400 mx-1">&times;{s.quantity}</span>
+                  <span className="text-sm text-muted-foreground">
+                    &mdash; {s.store?.name} от {s.seller?.display_name}
+                  </span>
+                  {s.voided && (
+                    <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
+                      сторнирана
+                    </span>
+                  )}
+                  {isGroup && (
+                    <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+                      група
+                    </span>
+                  )}
+                  {s.payment_method && (
+                    <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                      {s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : 'Превод'}
+                    </span>
+                  )}
+                </div>
+                <div className="text-right shrink-0 ml-4 flex items-center gap-2">
+                  {!s.voided && <VoidSaleButton saleId={s.id} />}
+                  <div>
+                    <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
+                    <p className="text-xs text-muted-foreground">{dateStr} {time}</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
         {(!sales || sales.length === 0) && (
           <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
         )}
