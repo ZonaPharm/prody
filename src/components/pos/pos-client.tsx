@@ -143,31 +143,30 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div className="lg:hidden grid h-[calc(100vh-4rem)]" style={{ gridTemplateRows: '1fr auto' }}>
-        <div className="overflow-y-auto p-4 min-h-0">
-          <div className="mb-3 flex items-center justify-between">
-            <h1 className="text-lg font-bold">Запиши продажба</h1>
-            {stores.length > 1 && (
-              <Select value={selectedStoreId} onValueChange={handleStoreChange}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map(store => (
-                    <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          <ProductGrid
-            products={products}
-            categories={categories}
-            frequentlySold={frequentlySold}
-            onAddToCart={handleAddToCart}
-            outOfStock={outOfStock}
-          />
+      <div className="lg:hidden flex flex-col min-h-full">
+        <div className="mb-3 flex items-center justify-between">
+          <h1 className="text-lg font-bold">Запиши продажба</h1>
+          {stores.length > 1 && (
+            <Select value={selectedStoreId} onValueChange={handleStoreChange}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stores.map(store => (
+                  <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
+        <ProductGrid
+          products={products}
+          categories={categories}
+          frequentlySold={frequentlySold}
+          onAddToCart={handleAddToCart}
+          outOfStock={outOfStock}
+        />
+        <div className="flex-1" />
         <CartBottomBar
           items={cart.items}
           onAdd={handleAdd}
