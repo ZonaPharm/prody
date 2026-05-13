@@ -1,25 +1,36 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { SellerRequestsClient } from './client'
+import { MyRequestsClient } from './client'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SellerRequestsPage({
+export default async function MyRequestsPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>
 }) {
   const user = await requireAuth()
-  await getEffectiveRole(user)
+  const effectiveRole = await getEffectiveRole(user)
   const supabase = await createServerSupabaseClient()
   const sp = await searchParams
   const activeTab = sp.tab || 'request'
 
+  // Resolve store_id (admins impersonating sellers may not have one)
+  let storeId = user.store_id
+  if (!storeId && user.role === 'admin' && effectiveRole === 'seller') {
+    const { data: stores } = await (supabase.from('stores') as any)
+      .select('id, is_warehouse').eq('is_active', true).order('name')
+    const store = (stores || []).find((s: any) => !s.is_warehouse) || (stores || [])[0]
+    if (store) storeId = store.id
+  }
+
+  // Products for request form
   const { data: products } = await (supabase.from('products') as any)
     .select('id, name, price, quantity_on_hand')
     .eq('status', 'active')
     .order('name')
 
+  // My requests
   let myRequests: any[] = []
   if (activeTab === 'my') {
     const { data } = await (supabase.from('stock_requests') as any)
@@ -40,11 +51,52 @@ export default async function SellerRequestsPage({
     }))
   }
 
+  // Low stock data
+  let lowStockItems: any[] = []
+  let lowStockAllProducts: any[] = []
+  let lowStockImageMap: Record<string, string> = {}
+  if (activeTab === 'low') {
+    if (storeId) {
+      const { data: batches } = await (supabase.from('stock_batches') as any)
+        .select('product_id, quantity_remaining').eq('store_id', storeId)
+      const productQtys: Record<string, number> = {}
+      ;(batches || []).forEach((b: any) => { productQtys[b.product_id] = (productQtys[b.product_id] || 0) + b.quantity_remaining })
+
+      const productIds = Object.keys(productQtys)
+      const { data: lowProducts } = productIds.length > 0
+        ? await (supabase.from('products') as any).select('id, name, price, min_quantity, category:categories(name)').in('id', productIds).order('name')
+        : { data: [] }
+
+      lowStockItems = (lowProducts || []).map((p: any) => ({
+        id: p.id, name: p.name, price: p.price,
+        category: Array.isArray(p.category) ? p.category[0]?.name : p.category?.name,
+        min_quantity: p.min_quantity || 5,
+        current_qty: productQtys[p.id] || 0,
+      })).filter((p: any) => p.current_qty <= p.min_quantity).sort((a: any, b: any) => a.current_qty - b.current_qty)
+
+      // All products for request form
+      const { data: allProds } = await (supabase.from('products') as any)
+        .select('id, name, price, min_quantity, category:categories(name)').eq('status', 'active').order('name')
+      lowStockAllProducts = allProds || []
+
+      // Product images
+      const allIds = [...lowStockItems.map((i: any) => i.id), ...(allProds || []).map((p: any) => p.id)]
+      const { data: images } = allIds.length > 0
+        ? await (supabase.from('product_images') as any).select('product_id, url').in('product_id', allIds).eq('is_primary', true)
+        : { data: [] }
+      ;(images || []).forEach((img: any) => { if (!lowStockImageMap[img.product_id]) lowStockImageMap[img.product_id] = img.url })
+    }
+  }
+
   return (
-    <SellerRequestsClient
+    <MyRequestsClient
       products={(products || []) as any[]}
       myRequests={myRequests}
       activeTab={activeTab}
+      storeId={storeId}
+      lowStockItems={lowStockItems}
+      lowStockAllProducts={lowStockAllProducts}
+      lowStockImageMap={lowStockImageMap}
     />
   )
 }

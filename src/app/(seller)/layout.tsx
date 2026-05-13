@@ -9,7 +9,6 @@ const navItems = [
   { href: '/record-sale', label: 'Запиши продажба' },
   { href: '/my-sales', label: 'Моите продажби' },
   { href: '/my-requests', label: 'Заявки' },
-  { href: '/low-stock', label: 'Ниски наличности' },
 ]
 
 export default async function SellerLayout({ children }: { children: React.ReactNode }) {

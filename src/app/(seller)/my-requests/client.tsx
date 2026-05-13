@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Plus, X, Send, CheckCircle2, Loader2 } from 'lucide-react'
+import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface Product {
@@ -18,10 +18,19 @@ interface MyRequest {
   accepted_at?: string; in_transit_at?: string; delivered_at?: string
 }
 
+interface LowStockItem {
+  id: string; name: string; price: number | null
+  category: string | null; min_quantity: number; current_qty: number
+}
+
 interface Props {
   products: Product[]
   myRequests: MyRequest[]
   activeTab: string
+  storeId: string | null | undefined
+  lowStockItems: LowStockItem[]
+  lowStockAllProducts: any[]
+  lowStockImageMap: Record<string, string>
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -37,7 +46,13 @@ const STATUS_COLOR: Record<string, string> = {
   partial: 'bg-orange-100 text-orange-800', rejected: 'bg-red-100 text-red-800',
 }
 
-export function SellerRequestsClient({ products, myRequests, activeTab }: Props) {
+const TABS = [
+  { key: 'request', label: 'Заяви' },
+  { key: 'my', label: 'Моите заявки' },
+  { key: 'low', label: 'Ниски наличности' },
+]
+
+export function MyRequestsClient({ products, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap }: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const [tab, setTab] = useState(activeTab)
@@ -73,12 +88,14 @@ export function SellerRequestsClient({ products, myRequests, activeTab }: Props)
 
   const sendRequest = async () => {
     if (basket.length === 0) return
+    if (!storeId) { toast({ title: 'Нямате зададен магазин', variant: 'destructive' }); return }
     setSending(true)
     try {
       const res = await fetch('/api/inventory/request-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          store_id: storeId,
           items: basket.map(i => ({ product_id: i.product.id, quantity: i.qty })),
         }),
       })
@@ -114,26 +131,32 @@ export function SellerRequestsClient({ products, myRequests, activeTab }: Props)
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Заявки</h1>
 
+      {/* Tabs */}
       <div className="flex gap-2 border-b pb-2">
-        <button onClick={() => switchTab('request')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'request' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}>
-          Заяви
-        </button>
-        <button onClick={() => switchTab('my')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            tab === 'my' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}>
-          Моите заявки
-          {myRequests.length > 0 && (
-            <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
-          )}
-        </button>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => switchTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+              tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}>
+            {t.label}
+            {t.key === 'my' && myRequests.length > 0 && (
+              <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
+            )}
+            {t.key === 'low' && lowStockItems.length > 0 && (
+              <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">{lowStockItems.length}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {tab === 'request' ? (
+      {/* Tab: Request */}
+      {tab === 'request' && (
         <div className="space-y-4">
+          {!storeId && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+              Нямате зададен магазин. Свържете се с администратор.
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Търсене на продукт..." value={search}
@@ -150,7 +173,7 @@ export function SellerRequestsClient({ products, myRequests, activeTab }: Props)
                       {p.quantity_on_hand} бр. · {p.price != null ? `${p.price.toFixed(2)} €` : '—'}
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => addToBasket(p)}>
+                  <Button size="sm" variant="ghost" onClick={() => addToBasket(p)} disabled={!storeId}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -164,38 +187,35 @@ export function SellerRequestsClient({ products, myRequests, activeTab }: Props)
           {basket.length > 0 && (
             <div className="border rounded-xl p-4 space-y-3">
               <h3 className="text-sm font-medium">Заявка ({basket.length})</h3>
-              {basket.map(item => {
-                const lineTotal = item.qty * (item.product.price ?? 0)
-                return (
-                  <div key={item.product.id} className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {lineTotal > 0 ? `${lineTotal.toFixed(2)} €` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="outline" size="icon" className="h-7 w-7"
-                        onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
-                      <span className="w-8 text-center text-sm tabular-nums">{item.qty}</span>
-                      <Button variant="outline" size="icon" className="h-7 w-7"
-                        onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                      onClick={() => removeFromBasket(item.product.id)}>
-                      <X className="h-3 w-3" />
-                    </Button>
+              {basket.map(item => (
+                <div key={item.product.id} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{item.product.name}</p>
                   </div>
-                )
-              })}
-              <Button className="w-full" onClick={sendRequest} disabled={sending}>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-7 w-7"
+                      onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
+                    <span className="w-8 text-center text-sm tabular-nums">{item.qty}</span>
+                    <Button variant="outline" size="icon" className="h-7 w-7"
+                      onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                    onClick={() => removeFromBasket(item.product.id)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button className="w-full" onClick={sendRequest} disabled={sending || !storeId}>
                 {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 {sending ? 'Изпращане...' : 'Изпрати заявка'}
               </Button>
             </div>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* Tab: My Requests */}
+      {tab === 'my' && (
         <div className="space-y-2">
           {myRequests.length === 0 ? (
             <div className="text-muted-foreground text-center py-12">Нямате заявки</div>
@@ -221,6 +241,47 @@ export function SellerRequestsClient({ products, myRequests, activeTab }: Props)
                 </div>
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* Tab: Low Stock */}
+      {tab === 'low' && (
+        <div className="space-y-4">
+          {lowStockItems.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Package className="mx-auto h-12 w-12 text-slate-200 mb-3" />
+              <p>Всички продукти са с достатъчни наличности</p>
+            </div>
+          ) : (
+            <div className="border rounded-xl divide-y">
+              {lowStockItems.map((p: LowStockItem) => (
+                <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {lowStockImageMap[p.id] && (
+                      <img src={lowStockImageMap[p.id]} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm' : 'text-amber-600 font-bold text-sm'}>
+                      {p.current_qty} бр.
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setBasket([{ product: { id: p.id, name: p.name, price: p.price, quantity_on_hand: p.current_qty }, qty: p.min_quantity || 5 }])
+                      switchTab('request')
+                    }}>
+                      Заяви
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
