@@ -5,12 +5,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
 import { RoleBanner } from '@/components/seller/role-banner'
-import { X, ShoppingBag, BarChart3, AlertTriangle } from 'lucide-react'
+import { X, ShoppingBag, BarChart3, AlertTriangle, Bell } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/record-sale': ShoppingBag,
   '/my-sales': BarChart3,
+  '/requests': Bell,
   '/low-stock': AlertTriangle,
 }
 

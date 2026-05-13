@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,31 +14,47 @@ interface Request {
   product_name: string
   store_id: string
   store_name: string
+  requested_by?: string
   quantity: number
   status: string
   notes: string | null
   created_at: string
+  accepted_at?: string
+  in_transit_at?: string
+  delivered_at?: string
 }
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Чакаща',
-  fulfilled: 'Изпратена',
+  accepted: 'Приета',
+  in_transit: 'На път',
+  delivered: 'Доставена',
+  fulfilled: 'Изпълнена',
   confirmed: 'Потвърдена',
   partial: 'Частична',
+  rejected: 'Отказана',
 }
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800 border-amber-200',
+  accepted: 'bg-sky-100 text-sky-800 border-sky-200',
+  in_transit: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  delivered: 'bg-teal-100 text-teal-800 border-teal-200',
   fulfilled: 'bg-blue-100 text-blue-800 border-blue-200',
   confirmed: 'bg-green-100 text-green-800 border-green-200',
   partial: 'bg-orange-100 text-orange-800 border-orange-200',
+  rejected: 'bg-red-100 text-red-800 border-red-200',
 }
 
 const STATUS_DOT: Record<string, string> = {
   pending: 'bg-amber-500',
+  accepted: 'bg-sky-500',
+  in_transit: 'bg-indigo-500',
+  delivered: 'bg-teal-500',
   fulfilled: 'bg-blue-500',
   confirmed: 'bg-green-500',
   partial: 'bg-orange-500',
+  rejected: 'bg-red-500',
 }
 
 function relativeTime(dateStr: string): string {
@@ -52,37 +68,42 @@ function relativeTime(dateStr: string): string {
   return `преди ${days} д`
 }
 
-// Parse notes: extract comment (before first " | " with status info) and received qty
 function parseNotes(notes: string | null): { comment: string; received: number | null; timeline: string[] } {
   if (!notes) return { comment: '', received: null, timeline: [] }
-  // Extract received marker: {{received:N}}
   const recvMatch = notes.match(/\{\{received:(\d+)\}\}/)
   const received = recvMatch ? parseInt(recvMatch[1]) : null
   const clean = notes.replace(/\{\{received:\d+\}\}/, '').trim()
-
-  // Split by " | " to get timeline entries
   const parts = clean.split(' | ').map(s => s.trim()).filter(Boolean)
-
-  // First part is the original comment (if it doesn't contain status words)
-  const statusWords = ['Изпълнена', 'Потвърдено', 'Получени', 'Заявката']
+  const statusWords = ['Изпълнена', 'Потвърдено', 'Получени', 'Заявката', 'Приета', 'Пратена', 'Доставена']
   const commentParts: string[] = []
   const timeline: string[] = []
-
   for (const p of parts) {
-    if (statusWords.some(w => p.includes(w))) {
-      timeline.push(p)
-    } else {
-      commentParts.push(p)
-    }
+    if (statusWords.some(w => p.includes(w))) { timeline.push(p) }
+    else { commentParts.push(p) }
   }
-
   return { comment: commentParts.join(' | '), received, timeline }
+}
+
+interface BatchEntry extends Request {}
+
+interface Batch {
+  key: string
+  store_id: string
+  store_name: string
+  status: string
+  comment: string
+  created_at: string
+  entries: BatchEntry[]
+  totalQty: number
+  productCount: number
 }
 
 export function RequestsClient({ requests: initialRequests }: { requests: Request[] }) {
   const router = useRouter()
   const [requests, setRequests] = useState(initialRequests)
   const [loading, setLoading] = useState<string | null>(null)
+  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
+  const [activeTab, setActiveTab] = useState('pending')
   const [fulfillStore, setFulfillStore] = useState<{ store_id: string; store_name: string; entries: Request[] } | null>(null)
   const [stockData, setStockData] = useState<Record<string, any[]>>({})
   const [transferQtys, setTransferQtys] = useState<Record<string, Record<string, number>>>({})
@@ -139,10 +160,10 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
             body: JSON.stringify({ product_id: entry.product_id, from_store_id: fromId, to_store_id: fulfillStore.store_id, quantity: qty }),
           })
         }
-        await fetch(`/api/inventory/requests/${entry.id}/fulfill`, { method: 'POST' })
+        await fetch(`/api/inventory/requests/${entry.id}/ship`, { method: 'POST' })
       }
       setRequests(prev => prev.map(r =>
-        fulfillStore.entries.some(e => e.id === r.id) ? { ...r, status: 'fulfilled' } : r
+        fulfillStore.entries.some(e => e.id === r.id) ? { ...r, status: 'in_transit' } : r
       ))
       setFulfillStore(null)
     } catch { /* ignore */ }
@@ -150,15 +171,21 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
     router.refresh()
   }
 
-  const fulfillSingle = async (id: string) => {
-    setLoading(id)
-    await fetch(`/api/inventory/requests/${id}/fulfill`, { method: 'POST' })
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'fulfilled' } : r))
+  const handleAction = async (batch: Batch, action: string) => {
+    for (const entry of batch.entries) {
+      setLoading(entry.id)
+      await fetch(`/api/inventory/requests/${entry.id}/${action}`, { method: 'POST' })
+    }
+    const newStatus = action === 'accept' ? 'accepted' : action === 'deliver' ? 'delivered' : 'rejected'
+    setRequests(prev => prev.map(r =>
+      batch.entries.some(e => e.id === r.id) ? { ...r, status: newStatus } : r
+    ))
+    setSelectedBatch(null)
     setLoading(null)
     router.refresh()
   }
 
-  const batches = useMemo(() => {
+  const batches: Batch[] = useMemo(() => {
     const map: Record<string, Request[]> = {}
     requests.filter(r => r.status === 'pending').forEach(r => {
       const key = `${r.store_id}|${r.created_at?.substring(0, 19) || ''}|${r.notes || ''}`
@@ -168,21 +195,13 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
     return Object.entries(map).map(([key, entries]) => {
       const [storeId] = key.split('|')
       const { comment } = parseNotes(entries[0].notes)
-      return {
-        key,
-        store_id: storeId,
-        store_name: entries[0].store_name,
-        status: entries[0].status,
-        comment,
-        created_at: entries[0].created_at,
-        entries,
-        totalQty: entries.reduce((s, e) => s + e.quantity, 0),
-        productCount: entries.length,
-      }
+      return { key, store_id: storeId, store_name: entries[0].store_name, status: entries[0].status,
+        comment, created_at: entries[0].created_at, entries, totalQty: entries.reduce((s, e) => s + e.quantity, 0),
+        productCount: entries.length }
     }).sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [requests])
 
-  const historyBatches = useMemo(() => {
+  const historyBatches: Batch[] = useMemo(() => {
     const map: Record<string, Request[]> = {}
     requests.filter(r => r.status !== 'pending').forEach(r => {
       const key = `${r.store_id}|${r.created_at?.substring(0, 19) || ''}|${r.notes || ''}`
@@ -190,25 +209,28 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
       map[key].push(r)
     })
     return Object.entries(map).map(([key, entries]) => ({
-      key,
-      store_name: entries[0].store_name,
-      status: entries[0].status,
-      comment: parseNotes(entries[0].notes).comment,
-      created_at: entries[0].created_at,
-      entries,
-      totalQty: entries.reduce((s, e) => s + e.quantity, 0),
+      key, store_id: entries[0].store_id, store_name: entries[0].store_name, status: entries[0].status,
+      comment: parseNotes(entries[0].notes).comment, created_at: entries[0].created_at, entries,
+      totalQty: entries.reduce((s, e) => s + e.quantity, 0), productCount: entries.length,
     })).sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [requests])
+
+  const filteredBatches = useMemo(() => {
+    if (activeTab === 'pending') return batches
+    if (activeTab === 'in_progress') return [...batches, ...historyBatches].filter(b =>
+      !['pending', 'confirmed', 'partial', 'rejected', 'fulfilled'].includes(b.status))
+    return historyBatches
+  }, [activeTab, batches, historyBatches])
 
   const pendingCount = requests.filter(r => r.status === 'pending').length
   const doneCount = requests.filter(r => r.status !== 'pending').length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Заявки за зареждане</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {batches.length} чакащи · {historyBatches.length} обработени
+          {pendingCount} чакащи · {doneCount} обработени
         </p>
       </div>
 
@@ -216,171 +238,147 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
         <div className="rounded-xl border bg-white p-16 text-center">
           <Package className="mx-auto h-12 w-12 text-slate-200 mb-4" />
           <p className="text-muted-foreground text-lg">Няма заявки</p>
-          <p className="text-muted-foreground text-sm mt-1">Когато продавачи направят заявки, те ще се появят тук</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {/* Pending */}
-          {batches.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1.5 h-5 bg-amber-400 rounded-full" />
-                <h2 className="text-lg font-bold">Чакащи</h2>
-                <Badge variant="secondary" className="bg-amber-100 text-amber-800 text-xs">{pendingCount} артикула</Badge>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {batches.map(b => {
-                  const isExpanded = expandedBatches.has(b.key)
-                  return (
-                    <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all ${isExpanded ? 'ring-2 ring-amber-200 border-amber-300' : 'hover:shadow-md'}`}>
-                      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
-                        onClick={() => toggleBatch(b.key)}>
-                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md">
-                          {isExpanded ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
-                        </button>
-                        <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                          <Store className="h-4 w-4 text-slate-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm">{b.store_name}</span>
-                            <div className={`w-2 h-2 rounded-full ${STATUS_DOT.pending}`} />
-                            <span className="text-xs text-muted-foreground">{relativeTime(b.created_at)}</span>
-                          </div>
-                          {b.comment && (
-                            <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{b.comment}</span>
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-0.5">{b.productCount} продукта · {b.totalQty} бр.</p>
-                        </div>
-                        <Button size="sm" className="shrink-0 rounded-lg"
-                          onClick={e => { e.stopPropagation(); openFulfill(b.store_id, b.store_name, b.entries) }}>
-                          <ArrowRightLeft className="mr-1.5 h-4 w-4" />
-                          Прехвърли
-                        </Button>
-                      </div>
-                      {isExpanded && (
-                        <div className="border-t border-amber-100 bg-amber-50/30 rounded-b-xl">
-                          <div className="divide-y divide-amber-100/50">
-                            {b.entries.map(e => (
-                              <div key={e.id} className="px-4 py-2.5 pl-12 flex items-center justify-between text-sm">
-                                <span className="font-medium truncate">{e.product_name}</span>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <span className="tabular-nums font-bold">{e.quantity} бр.</span>
-                                  <Button size="sm" variant="ghost" className="text-green-600 h-7 w-7 p-0 rounded-full"
-                                    onClick={() => fulfillSingle(e.id)} disabled={loading === e.id}>
-                                    {loading === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+        <div className="flex gap-4 h-[calc(100vh-12rem)]">
+          {/* Left Panel — Batch List */}
+          <div className="w-1/3 min-w-[300px] overflow-y-auto space-y-3 pr-2">
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1 sticky top-0 z-10">
+              {(['pending', 'in_progress', 'done'] as const).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+                    activeTab === tab ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {{ pending: 'Чакащи', in_progress: 'В процес', done: 'Приключени' }[tab]}
+                  {tab === 'pending' && pendingCount > 0 && (
+                    <span className="ml-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+                  )}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* History */}
-          {historyBatches.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1.5 h-5 bg-slate-300 rounded-full" />
-                <h2 className="text-lg font-bold text-muted-foreground">Обработени</h2>
-                <span className="text-xs text-muted-foreground">{doneCount} артикула</span>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {historyBatches.map(b => {
-                  const isExpanded = expandedBatches.has(b.key)
-                  const isPartial = b.status === 'partial'
-                  const borderColor = isPartial ? 'border-orange-200' : ''
-                  return (
-                    <div key={b.key} className={`rounded-xl border bg-white shadow-sm transition-all opacity-85 hover:opacity-100 ${borderColor} ${isExpanded ? 'ring-2 ring-slate-200' : 'hover:shadow-md'}`}>
-                      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
-                        onClick={() => toggleBatch(b.key)}>
-                        <button className="shrink-0 p-1 hover:bg-slate-100 rounded-md">
-                          {isExpanded ? <ChevronDown className="h-5 w-5 text-slate-400" /> : <ChevronRight className="h-5 w-5 text-slate-400" />}
-                        </button>
-                        <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                          <Store className="h-4 w-4 text-slate-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm">{b.store_name}</span>
-                            <div className={`w-2 h-2 rounded-full ${STATUS_DOT[b.status] || 'bg-slate-400'}`} />
-                            <Badge variant="outline" className={`text-[10px] font-medium ${STATUS_COLOR[b.status] || ''}`}>
-                              {STATUS_LABEL[b.status] || b.status}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">{relativeTime(b.created_at)}</span>
+            {filteredBatches.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">Няма заявки</p>
+            ) : (
+              filteredBatches.map(b => (
+                <button key={b.key}
+                  onClick={() => setSelectedBatch(b)}
+                  className={`w-full text-left rounded-xl border p-4 transition-all ${
+                    selectedBatch?.key === b.key
+                      ? 'ring-2 ring-blue-400 border-blue-300 bg-blue-50/50'
+                      : 'bg-white hover:shadow-md border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Store className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span className="font-bold text-sm truncate">{b.store_name}</span>
+                    <div className={`w-2 h-2 rounded-full ${STATUS_DOT[b.status]}`} />
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge variant="outline" className={`text-[10px] ${STATUS_COLOR[b.status]}`}>
+                      {STATUS_LABEL[b.status]}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{relativeTime(b.created_at)}</span>
+                  </div>
+                  {b.comment && (
+                    <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3 text-slate-400 shrink-0" />
+                      <span className="truncate">{b.comment}</span>
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">{b.productCount} продукта · {b.totalQty} бр.</p>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Right Panel — Detail */}
+          <div className="flex-1 overflow-y-auto min-w-0">
+            {selectedBatch ? (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold">{selectedBatch.store_name}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedBatch.productCount} продукта · {selectedBatch.totalQty} бр. · {relativeTime(selectedBatch.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedBatch.status === 'pending' && (
+                      <>
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleAction(selectedBatch, 'reject')}>
+                          Откажи
+                        </Button>
+                        <Button size="sm" onClick={() => handleAction(selectedBatch, 'accept')}>
+                          <Check className="mr-1 h-4 w-4" /> Приеми
+                        </Button>
+                      </>
+                    )}
+                    {selectedBatch.status === 'accepted' && (
+                      <Button size="sm"
+                        onClick={() => openFulfill(selectedBatch.store_id, selectedBatch.store_name, selectedBatch.entries)}>
+                        <ArrowRightLeft className="mr-1 h-4 w-4" /> Прехвърли и изпрати
+                      </Button>
+                    )}
+                    {selectedBatch.status === 'in_transit' && (
+                      <Button size="sm" onClick={() => handleAction(selectedBatch, 'deliver')}>
+                        <CheckCircle2 className="mr-1 h-4 w-4" /> Маркирай като доставена
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Products */}
+                <div className="border rounded-xl divide-y">
+                  {selectedBatch.entries.map(e => {
+                    const { received, timeline } = parseNotes(e.notes)
+                    const hasPartial = received !== null && received < e.quantity
+                    return (
+                      <div key={e.id} className="p-3 flex items-center justify-between hover:bg-slate-50/50 cursor-pointer"
+                        onClick={() => openDetail(e)}>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate">{e.product_name}</span>
+                            {hasPartial ? (
+                              <span className="text-xs font-bold text-orange-600 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                {received}/{e.quantity} бр.
+                              </span>
+                            ) : e.status === 'confirmed' || e.status === 'fulfilled' ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            ) : null}
                           </div>
-                          {b.comment && (
-                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{b.comment}</span>
-                            </p>
+                          {timeline.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {timeline.map((t, i) => (
+                                <span key={i} className="text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {t.length > 40 ? t.substring(0, 40) + '…' : t}
+                                </span>
+                              ))}
+                            </div>
                           )}
-                          <p className="text-xs text-muted-foreground mt-0.5">{b.entries.length} продукта · {b.totalQty} бр.</p>
                         </div>
+                        <span className="text-sm font-bold tabular-nums shrink-0 ml-4">{e.quantity} бр.</span>
                       </div>
-                      {isExpanded && (
-                        <div className="border-t bg-slate-50/30 rounded-b-xl">
-                          <div className="divide-y">
-                            {b.entries.map(e => {
-                              const { received, timeline } = parseNotes(e.notes)
-                              const hasPartial = received !== null && received < e.quantity
-                              return (
-                                <div key={e.id} className="px-4 py-2.5 pl-12 flex items-center justify-between text-sm cursor-pointer hover:bg-slate-100/50"
-                                  onClick={() => openDetail(e)}>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium truncate">{e.product_name}</span>
-                                    </div>
-                                    {timeline.length > 0 && (
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {timeline.map((t, i) => (
-                                          <span key={i} className="text-[10px] text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded">
-                                            {t.length > 40 ? t.substring(0, 40) + '…' : t}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {hasPartial ? (
-                                      <span className="text-xs font-bold text-orange-600 flex items-center gap-1">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        {received}/{e.quantity} бр.
-                                      </span>
-                                    ) : e.status === 'confirmed' ? (
-                                      <span className="text-xs font-bold text-green-600 flex items-center gap-1">
-                                        <CheckCircle2 className="h-3 w-3" />
-                                        {e.quantity} бр.
-                                      </span>
-                                    ) : (
-                                      <span className="tabular-nums font-medium text-xs">{e.quantity} бр.</span>
-                                    )}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
+
+                {/* RequestNotes */}
+                <RequestNotes requestId={selectedBatch.entries[0]?.id} />
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                Изберете заявка от списъка
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog (events timeline) */}
       {detailReq && (
         <Dialog open={!!detailReq} onOpenChange={() => { setDetailReq(null); setRequestEvents([]) }}>
           <DialogContent className="sm:max-w-[450px]">
@@ -402,23 +400,24 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                         <span className="text-sm text-orange-700">Получени {received} от {detailReq.quantity} бр.</span>
                       </div>
                     )}
-                    {timeline.length > 0 && (
+                    {requestEvents.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-sm font-medium">История</p>
                         <div className="space-y-0 relative pl-4 border-l-2 border-slate-200">
-                          <div className="relative pb-2">
-                            <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white bg-amber-400" />
-                            <p className="text-xs text-muted-foreground">{new Date(detailReq.created_at).toLocaleString('bg-BG')}</p>
-                            <p className="text-xs">Създадена · {detailReq.quantity} бр.</p>
-                          </div>
-                          {timeline.map((t, i) => {
-                            const isFulfill = t.includes('Изпълнена')
-                            const isConfirm = t.includes('Потвърдено') || t.includes('Получени')
-                            const dotColor = isFulfill ? 'bg-blue-500' : isConfirm ? t.includes('Получени') ? 'bg-orange-500' : 'bg-green-500' : 'bg-slate-400'
+                          {requestEvents.map((evt: any, i: number) => {
+                            const dotColor =
+                              evt.status === 'pending' ? 'bg-amber-400' :
+                              evt.status === 'accepted' ? 'bg-sky-400' :
+                              evt.status === 'in_transit' ? 'bg-indigo-400' :
+                              evt.status === 'delivered' ? 'bg-teal-400' :
+                              evt.status === 'rejected' ? 'bg-red-400' :
+                              evt.status === 'fulfilled' || evt.status === 'confirmed' ? 'bg-green-400' :
+                              evt.status === 'partial' ? 'bg-orange-400' : 'bg-slate-400'
                             return (
                               <div key={i} className="relative pb-2">
                                 <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${dotColor}`} />
-                                <p className="text-xs">{t}</p>
+                                <p className="text-xs text-muted-foreground">{new Date(evt.created_at).toLocaleString('bg-BG')}</p>
+                                <p className="text-xs">{evt.notes}</p>
                               </div>
                             )
                           })}
@@ -479,13 +478,75 @@ export function RequestsClient({ requests: initialRequests }: { requests: Reques
                 <Button variant="ghost" onClick={() => setFulfillStore(null)}>Отказ</Button>
                 <Button onClick={executeFulfill} disabled={fulfilling}>
                   {fulfilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Прехвърли
+                  Прехвърли и изпрати
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  )
+}
+
+// Inline RequestNotes component
+function RequestNotes({ requestId }: { requestId: string }) {
+  const [notes, setNotes] = useState<any[]>([])
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    if (!requestId) return
+    fetch(`/api/inventory/requests/${requestId}/notes`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setNotes(d) })
+      .catch(() => {})
+  }, [requestId])
+
+  const send = async () => {
+    if (!text.trim()) return
+    setSending(true)
+    try {
+      const res = await fetch(`/api/inventory/requests/${requestId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: text }),
+      })
+      if (res.ok) {
+        const note = await res.json()
+        setNotes(prev => [...prev, note])
+        setText('')
+      }
+    } catch { /* ignore */ }
+    setSending(false)
+  }
+
+  return (
+    <div className="border rounded-xl p-4">
+      <h3 className="text-sm font-medium mb-3">Коментари</h3>
+      {notes.length === 0 ? (
+        <p className="text-xs text-muted-foreground mb-3">Няма коментари</p>
+      ) : (
+        <div className="space-y-2 mb-3 max-h-60 overflow-y-auto">
+          {notes.map((n: any) => (
+            <div key={n.id} className="text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-xs">{n.user_name || '—'}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(n.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <p className="mt-0.5 text-sm">{n.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Input value={text} onChange={e => setText(e.target.value)}
+          placeholder="Напишете коментар..." className="h-8 text-sm"
+          onKeyDown={e => { if (e.key === 'Enter') send() }} />
+        <Button size="sm" onClick={send} disabled={sending || !text.trim()}>Изпрати</Button>
+      </div>
     </div>
   )
 }
