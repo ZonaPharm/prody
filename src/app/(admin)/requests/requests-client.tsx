@@ -322,7 +322,7 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
         </Button>
       </div>
 
-      {batches.length === 0 && historyBatches.length === 0 ? (
+      {batches.length === 0 && inProgressBatches.length === 0 && historyBatches.length === 0 ? (
         <div className="rounded-xl border bg-white p-16 text-center">
           <Package className="mx-auto h-12 w-12 text-slate-200 mb-4" />
           <p className="text-muted-foreground text-lg">Няма заявки</p>
