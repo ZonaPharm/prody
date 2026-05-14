@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Download, RefreshCw, Database } from 'lucide-react'
+import { sofiaDateTime } from '@/lib/date-utils'
 
 interface Backup {
   name: string
@@ -85,7 +86,7 @@ export function BackupSettings() {
   }
 
   function formatDate(date: string) {
-    return new Date(date).toLocaleString('bg-BG')
+    return sofiaDateTime(date)
   }
 
   return (

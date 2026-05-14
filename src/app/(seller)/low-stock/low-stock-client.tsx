@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2, MessageSquare, AlertOctagon } from 'lucide-react'
 import { RejectRequestButton } from '@/components/inventory/reject-request-button'
+import { sofiaDate, sofiaDateTime } from '@/lib/date-utils'
 
 interface ProductItem {
   id: string
@@ -361,7 +362,7 @@ export function LowStockClient({
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell">
-                      {new Date(h.created_at).toLocaleDateString('bg-BG')}
+                      {sofiaDate(h.created_at)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {h.status === 'fulfilled' && (
@@ -425,7 +426,7 @@ export function LowStockClient({
                         <p className="text-xs font-medium">{STATUS_LABEL[evt.status] || evt.status}</p>
                         <p className="text-xs text-muted-foreground">{evt.notes}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {new Date(evt.created_at).toLocaleString('bg-BG')}
+                          {sofiaDateTime(evt.created_at)}
                         </p>
                       </div>
                     ))}

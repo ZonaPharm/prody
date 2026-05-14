@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import { sofiaDate } from '@/lib/date-utils'
 
 function autoFilterAndFormat(ws: XLSX.WorkSheet, cols: number) {
   ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 999, c: cols - 1 } }) }
@@ -67,7 +68,7 @@ export async function buildExportWorkbook(
     formatSheet(wb, 'По продукти', ['Продукт', 'Категория', 'Продадени бр.', 'Оборот (€)', 'Обекти'], rows, [30, 18, 14, 14, 10])
   } else {
     const rows = sales.map((s: any) => [
-      new Date(s.sale_date).toLocaleDateString('bg-BG'),
+      sofiaDate(s.sale_date),
       s.store_name || '—',
       s.product_name || '—',
       s.category_name || '—',

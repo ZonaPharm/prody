@@ -6,7 +6,7 @@ import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
 export const dynamic = 'force-dynamic'
 import { MySalesFilters } from './filters'
-import { sofiaToday } from '@/lib/date-utils'
+import { sofiaToday, sofiaTime, sofiaDate } from '@/lib/date-utils'
 
 type SaleRow = {
   id: string
@@ -234,8 +234,8 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums text-xs">
-                      {new Date(row.sale_date).toLocaleDateString('bg-BG')}<br />
-                      {new Date(row.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })}
+                      {sofiaDate(row.sale_date)}<br />
+                      {sofiaTime(row.created_at)}
                     </td>
                     <td className="px-2 py-3">
                       {!row.voided && <VoidSaleButton saleId={row.id} />}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { sofiaToday } from '@/lib/date-utils'
+import { sofiaToday, sofiaDate } from '@/lib/date-utils'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     const store = Array.isArray(s.store) ? (s.store[0]?.name || '—') : (s.store?.name || '—')
     const seller = Array.isArray(s.seller) ? (s.seller[0]?.display_name || '—') : (s.seller?.display_name || '—')
     const total = (s.quantity * Number(s.sale_price)).toFixed(2)
-    const date = new Date(s.sale_date).toLocaleDateString('bg-BG')
+    const date = sofiaDate(s.sale_date)
     const payment = s.payment_method === 'card' ? 'Карта' : s.payment_method === 'transfer' ? 'Превод' : 'Кеш'
     const isGroup = s.sale_group_id && groupCounts[s.sale_group_id] > 1
     const group = isGroup ? 'Да' : 'Не'

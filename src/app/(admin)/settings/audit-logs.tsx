@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { sofiaDateTime } from '@/lib/date-utils'
 
 const ACTION_LABELS: Record<string, string> = {
   create_product: '📦 Създаден продукт', update_product: '✏️ Редактиран продукт', delete_product: '🗑️ Изтрит продукт',
@@ -109,7 +110,7 @@ export function AuditLogs() {
               <tbody>
                 {logs.map(l => (
                   <tr key={l.id} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{new Date(l.created_at).toLocaleString('bg-BG')}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{sofiaDateTime(l.created_at)}</td>
                     <td className="px-4 py-2 text-xs">{l.user_name || '—'}</td>
                     <td className="px-4 py-2 text-xs">{ACTION_LABELS[l.action] || l.action}</td>
                     <td className="px-4 py-2 text-xs text-muted-foreground">{l.details || l.entity_type || '—'}</td>
@@ -133,7 +134,7 @@ export function AuditLogs() {
               <tbody>
                 {logs.map(l => (
                   <tr key={l.id} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{new Date(l.created_at).toLocaleString('bg-BG')}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{sofiaDateTime(l.created_at)}</td>
                     <td className="px-4 py-2 text-xs">{l.user_name || l.details || '—'}</td>
                     <td className="px-4 py-2 text-xs">{ACTION_LABELS[l.action] || l.action}</td>
                     <td className="px-4 py-2 text-xs">

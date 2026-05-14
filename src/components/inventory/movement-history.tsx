@@ -1,6 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
+import { sofiaDate } from '@/lib/date-utils'
 
 interface Movement {
   id: string
@@ -43,7 +44,7 @@ export function MovementHistory({ data }: { data: Movement[] }) {
             return (
               <tr key={m.id} className="border-b last:border-0 hover:bg-slate-50/50">
                 <td className="px-3 py-2 text-muted-foreground">
-                  {new Date(m.created_at).toLocaleDateString('bg-BG')}
+                  {sofiaDate(m.created_at)}
                 </td>
                 <td className="px-3 py-2">
                   <Badge variant="secondary" className={`text-[10px] ${badge.className} border`}>{badge.label}</Badge>

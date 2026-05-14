@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Download } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
 import { SalesFilters } from './filters'
-import { sofiaToday } from '@/lib/date-utils'
+import { sofiaToday, sofiaTime, sofiaDate } from '@/lib/date-utils'
 
 interface PageProps {
   searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string }>
@@ -149,8 +149,8 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
           if (groupChanged) lastGroupId = s.sale_group_id
           if (!isGroup) lastGroupId = null
 
-          const time = new Date(s.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })
-          const dateStr = new Date(s.sale_date).toLocaleDateString('bg-BG')
+          const time = sofiaTime(s.created_at)
+          const dateStr = sofiaDate(s.sale_date)
           const meta = isGroup ? groupMeta[s.sale_group_id] : null
 
           return (

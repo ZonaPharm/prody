@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2, PlusCircle, Search, X, Send } from 'lucide-react'
+import { sofiaTime, sofiaDateTime } from '@/lib/date-utils'
 
 interface Request {
   id: string
@@ -510,7 +511,7 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
                             return (
                               <div key={i} className="relative pb-2">
                                 <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${dotColor}`} />
-                                <p className="text-xs text-muted-foreground">{new Date(evt.created_at).toLocaleString('bg-BG')}</p>
+                                <p className="text-xs text-muted-foreground">{sofiaDateTime(evt.created_at)}</p>
                                 <p className="text-xs">{evt.notes}</p>
                               </div>
                             )
@@ -695,7 +696,7 @@ function RequestNotes({ requestId }: { requestId: string }) {
               <div className="flex items-center gap-2">
                 <span className="font-medium text-xs">{n.user_name || '—'}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  {new Date(n.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })}
+                  {sofiaTime(n.created_at)}
                 </span>
               </div>
               <p className="mt-0.5 text-sm">{n.body}</p>

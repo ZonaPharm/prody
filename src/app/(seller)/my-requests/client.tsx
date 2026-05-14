@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 
 interface Product {
   id: string; name: string; price: number | null; quantity_on_hand: number
@@ -225,8 +226,8 @@ export function MyRequestsClient({ products, myRequests, activeTab, storeId, low
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{r.product_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {r.quantity} бр. · {new Date(r.created_at).toLocaleDateString('bg-BG')}{' '}
-                    {new Date(r.created_at).toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' })}
+                    {r.quantity} бр. · {sofiaDate(r.created_at)}{' '}
+                    {sofiaTime(r.created_at)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
