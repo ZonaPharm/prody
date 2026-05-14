@@ -119,13 +119,15 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                         <Package className="h-8 w-8 text-slate-300" />
                       )}
                     </div>
-                    <p className="text-sm font-medium truncate">{product.name}</p>
-                    <p className="text-sm font-semibold tabular-nums">
-                      {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {product.quantity_on_hand} бр.
-                    </p>
+                    <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em]">{product.name}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-sm font-semibold tabular-nums">
+                        {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {product.quantity_on_hand} бр.
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -149,11 +151,13 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                           <Package className="h-8 w-8 text-slate-300" />
                         )}
                       </div>
-                      <p className="text-sm font-medium truncate text-slate-500">{product.name}</p>
-                      <p className="text-sm font-semibold tabular-nums text-slate-400">
-                        {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
-                      </p>
-                      <p className="text-xs text-red-500 font-medium">Изчерпан</p>
+                      <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em] text-slate-500">{product.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-sm font-semibold tabular-nums text-slate-400">
+                          {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
+                        </span>
+                        <span className="text-xs text-red-500 font-medium">Изчерпан</span>
+                      </div>
                     </div>
                   ))}
                 </div>
