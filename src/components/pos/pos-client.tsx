@@ -100,8 +100,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
   return (
     <>
       {/* Desktop layout: 60/40 split */}
-      <div className="hidden lg:flex gap-6 h-[calc(100vh-8rem)]">
-        <div className="flex-1 min-w-0 overflow-auto">
+      <div className="hidden lg:flex gap-6">
+        <div className="flex-1 min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">Запиши продажба</h1>
@@ -128,17 +128,19 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             outOfStock={outOfStock}
           />
         </div>
-        <div className="w-[380px] shrink-0 sticky top-4 self-start" style={{maxHeight: 'calc(100vh - 10rem)'}}>
-          <CartSidebar
-            items={cart.items}
-            onAdd={handleAdd}
-            onRemove={handleRemove}
-            onSetQty={handleSetQty}
-            onSubmit={handleSubmit}
-            submitting={submitting}
-            paymentMethod={paymentMethod}
-            onPaymentMethodChange={setPaymentMethod}
-          />
+        <div className="w-[380px] shrink-0">
+          <div className="sticky top-4" style={{maxHeight: 'calc(100vh - 10rem)'}}>
+            <CartSidebar
+              items={cart.items}
+              onAdd={handleAdd}
+              onRemove={handleRemove}
+              onSetQty={handleSetQty}
+              onSubmit={handleSubmit}
+              submitting={submitting}
+              paymentMethod={paymentMethod}
+              onPaymentMethodChange={setPaymentMethod}
+            />
+          </div>
         </div>
       </div>
 
