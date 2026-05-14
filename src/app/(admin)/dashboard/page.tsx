@@ -5,12 +5,13 @@ import { Package2, ShoppingBag, AlertTriangle, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { SalesChart, TopProductsChart } from './charts'
 import { StoreSalesSection } from './store-sales-section'
+import { sofiaToday } from '@/lib/date-utils'
 
 export default async function DashboardPage() {
   await requireAdmin()
   const supabase = await createServerSupabaseClient()
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = sofiaToday()
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { sofiaToday } from '@/lib/date-utils'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)

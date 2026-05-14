@@ -6,6 +6,7 @@ import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
 export const dynamic = 'force-dynamic'
 import { MySalesFilters } from './filters'
+import { sofiaToday } from '@/lib/date-utils'
 
 type SaleRow = {
   id: string
@@ -42,7 +43,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const storeId = user.store_id
   const supabase = await createServerSupabaseClient()
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = sofiaToday()
   const fromDate = params.from || today
   const toDate = params.to || today
   const page = Math.max(1, parseInt(params.page || '1') || 1)

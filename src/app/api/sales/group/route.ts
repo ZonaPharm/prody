@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { executeSaleFIFO } from '@/lib/inventory'
 import { logAction } from '@/lib/audit'
+import { sofiaToday } from '@/lib/date-utils'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     sold_by: user.id,
     quantity: item.quantity,
     sale_price: item.unit_price,
-    sale_date: new Date().toISOString().split('T')[0],
+    sale_date: sofiaToday(),
     sale_group_id: saleGroupId,
     payment_method: payment_method || 'cash',
   }))

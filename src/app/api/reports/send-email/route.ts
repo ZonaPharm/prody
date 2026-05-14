@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWeeklyReport } from '@/lib/email'
+import { sofiaToday } from '@/lib/date-utils'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}))
   const weekAgo = body.from || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
-  const today = body.to || new Date().toISOString().split('T')[0]
+  const today = body.to || sofiaToday()
 
   const { data: sales } = await (admin.from('sales') as any)
     .select('quantity, sale_price, product:products(name)')

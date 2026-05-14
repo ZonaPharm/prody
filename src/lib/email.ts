@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import { buildExportWorkbook } from '@/lib/export-reports'
+import { sofiaToday } from '@/lib/date-utils'
 
 interface EmailSettings {
   smtp_host: string
@@ -68,7 +69,7 @@ export async function sendWeeklyReport(
   const html = buildHtml(reportData, settings.report_sections || ['summary'])
 
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
-  const today = new Date().toISOString().split('T')[0]
+  const today = sofiaToday()
   const excelBuffer = await buildExportWorkbook(
     { type: 'detail', from: weekAgo, to: today },
     fetchSalesForExport

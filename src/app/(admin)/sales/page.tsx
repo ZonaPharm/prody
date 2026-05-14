@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Download } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
 import { SalesFilters } from './filters'
+import { sofiaToday } from '@/lib/date-utils'
 
 interface PageProps {
   searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string }>
@@ -26,7 +27,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const supabase = await createServerSupabaseClient()
   const sp = await searchParams
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = sofiaToday()
   const fromDate = sp.from || today
   const toDate = sp.to || today
   const page = Math.max(1, parseInt(sp.page || '1') || 1)

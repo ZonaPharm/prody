@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWeeklyReport } from '@/lib/email'
+import { sofiaToday } from '@/lib/date-utils'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
   }
 
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
-  const today = new Date().toISOString().split('T')[0]
+  const today = sofiaToday()
 
   const { data: sales } = await (admin.from('sales') as any)
     .select('quantity, sale_price, product:products(name)')

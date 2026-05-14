@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { sofiaToday } from '@/lib/date-utils'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -7,8 +8,8 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const from = searchParams.get('from') || new Date().toISOString().split('T')[0]
-  const to = searchParams.get('to') || new Date().toISOString().split('T')[0]
+  const from = searchParams.get('from') || sofiaToday()
+  const to = searchParams.get('to') || sofiaToday()
   const store = searchParams.get('store')
   const product = searchParams.get('product')
   const category = searchParams.get('category')
