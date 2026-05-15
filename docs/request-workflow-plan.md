@@ -1,165 +1,83 @@
-# План: Система за заявки (Request Workflow) — Prody
+# Система за заявки (Request Workflow) — Prody
+
+**Последно обновяване:** 2026-05-15
 
 ## Общ преглед
 
-Системата позволява на продавачи да заявяват продукти към склад/админ и да проследяват изпълнението им.
+Продавачи заявяват продукти към админ/склад. Админът преглежда, прехвърля склад, изпраща. Продавачът потвърждава получаване. Двупосочни коментари.
 
 ---
 
-## 1. Таблици в базата
+## Статуси
+
+```
+pending → accepted → in_transit → delivered → confirmed ✅
+pending → rejected ❌
+```
+
+| Статус | Кой | Значение |
+|---|---|---|
+| `pending` | Продавач/Админ | Чака преглед |
+| `accepted` | Админ | Приета, подготвя се |
+| `in_transit` | Админ | Склад прехвърлен, на път |
+| `delivered` | Админ | Пристигнала в магазина |
+| `confirmed` | Продавач | Проверена и потвърдена |
+| `rejected` | Всеки | Отказана |
+
+## Таблици
 
 ### `stock_requests`
-| Поле | Тип | Описание |
-|---|---|---|
-| `id` | uuid | Първичен ключ |
-| `product_id` | uuid → products | Продукт |
-| `store_id` | uuid → stores | Магазин (който заявява) |
-| `requested_by` | uuid → users | Продавач (който създава) |
-| `requested_qty` | int | Заявено количество |
-| `status` | text | pending / fulfilled / confirmed / partial / rejected |
-| `notes` | text | Бележки + timeline (`\|` разделени) + `{{received:N}}` маркер |
-| `fulfilled_by` | uuid → users | Админ, изпълнил заявката |
-| `fulfilled_at` | timestamptz | Кога е изпълнена |
-| `received_qty` | int | Реално получено количество (може да липсва) |
-| `created_at` | timestamptz | Кога е създадена |
-| `updated_at` | timestamptz | Последна промяна |
+Основни полета: `id`, `product_id`, `store_id`, `requested_by`, `requested_qty`, `status`, `notes`
+Допълнителни: `accepted_at`, `in_transit_at`, `delivered_at`, `fulfilled_at`, `fulfilled_by`, `received_qty`
 
-### `request_events`
-| Поле | Тип | Описание |
-|---|---|---|
-| `id` | uuid | ПК |
-| `request_id` | uuid → stock_requests | Към заявка |
-| `status` | text | Статус в момента на събитието |
-| `user_id` | uuid → users | Кой е действал |
-| `notes` | text | Описание на действието |
-| `meta` | jsonb | Метаданни (количества, etc) |
-| `created_at` | timestamptz | Кога |
+### `request_notes` (нова)
+Коментари между админ и продавач: `id`, `request_id`, `user_id`, `body`, `created_at`
 
-> **ВАЖНО:** `request_events` таблицата може да НЕ съществува. Всички INSERT-и в нея са с `try/catch`. Има fallback логика в events endpoint-а.
+### `request_events` (нова)
+Автоматичен лог на статус промени: `id`, `request_id`, `status`, `user_id`, `notes`, `meta`, `created_at`
 
----
+## API Endpoints
 
-## 2. Статуси и преходи
+| Endpoint | Метод | Роля | Действие |
+|---|---|---|---|
+| `/api/inventory/request-batch` | POST | Продавач/Админ | Групова заявка |
+| `/api/inventory/request` | POST | Продавач | Единична заявка |
+| `/api/inventory/requests` | GET | Админ | Списък (филтър `?status=`) |
+| `/api/inventory/requests/count` | GET | Админ | Брой чакащи (badge) |
+| `/api/inventory/requests/[id]/accept` | POST | Админ | pending → accepted |
+| `/api/inventory/requests/[id]/ship` | POST | Админ | accepted → in_transit |
+| `/api/inventory/requests/[id]/deliver` | POST | Админ | in_transit → delivered |
+| `/api/inventory/requests/[id]/fulfill` | POST | Админ | (legacy) директен fulfill |
+| `/api/inventory/requests/[id]/reject` | POST | Админ/Продавач | → rejected |
+| `/api/inventory/requests/[id]/confirm` | POST | Продавач | delivered → confirmed/partial |
+| `/api/inventory/requests/[id]/notes` | GET/POST | Двамата | Коментари |
+| `/api/inventory/requests/[id]/events` | GET | Двамата | История на статусите |
+| `/api/inventory/requests/[id]/stock` | GET | Админ | Наличности за трансфер |
 
-```
-            ┌──────────┐
-            │  PENDING │  ← Продавачът създава заявка
-            └────┬─────┘
-                 │
-        ┌────────┼────────┐
-        ▼        ▼        ▼
-   ┌─────────┐ ┌──────────┐ ┌──────────┐
-   │FULFILLED│ │REJECTED  │ │ (бъдеще) │
-   └────┬────┘ └──────────┘ └──────────┘
-        │
-   ┌────┼────┐
-   ▼         ▼
-┌────────┐ ┌─────────┐
-│CONFIRMED│ │PARTIAL  │  ← Продавачът потвърждава получаване
-└────────┘ └─────────┘
-```
+## UI
 
-**Правила за преходи:**
-- `pending → fulfilled`: само админ (чрез fulfill endpoint)
-- `pending → rejected`: админ ИЛИ продавачът създал заявката (чрез reject endpoint)
-- `fulfilled → confirmed`: продавачът (при пълно получаване, `received_qty >= requested_qty`)
-- `fulfilled → partial`: продавачът (при частично получаване, `received_qty < requested_qty`)
-- `rejected`: краен статус (не може да се променя)
-- `confirmed`: краен статус (не може да се променя)
-- `partial`: краен статус (не може да се променя)
+### Админ — `/requests`
+- **Split panel:** ляво = списък с batch-ове, дясно = детайли + коментари
+- **3 таба:** Чакащи / В процес / Приключени
+- **Бързи бутони:** Приеми, Откажи, Прехвърли и изпрати, Маркирай като доставена
+- **Нова заявка** — бутон за админ с избор на магазин и търсене на продукти
+
+### Продавач — `/my-requests`
+- **3 таба:** Заяви (търсене + кошница) / Моите заявки (статус + потвърждение) / Ниски наличности
 
 ---
 
-## 3. API Endpoints
+## Часова зона
 
-### Продавач (Seller)
+Всички времена и дати се показват в **Europe/Sofia** (UTC+2/+3).
+- `sofiaToday()`, `sofiaTime()`, `sofiaDate()`, `sofiaDateTime()` в `src/lib/date-utils.ts`
+- `sale_date` се записва в Sofia часова зона
 
-| Endpoint | Метод | Действие |
-|---|---|---|
-| `/api/inventory/request` | POST | Единична заявка |
-| `/api/inventory/request-batch` | POST | Групова заявка (споделя `created_at` за batch-ване) |
-| `/api/inventory/requests/[id]/confirm` | POST | Потвърждава получаване (пълно/частично) |
-| `/api/inventory/requests/[id]/reject` | POST | Отказва собствена заявка (само pending) |
+## Други ключови промени (May 2026)
 
-### Админ (Admin)
-
-| Endpoint | Метод | Действие |
-|---|---|---|
-| `/api/inventory/requests` | GET | Списък заявки (филтър по `?status=`) |
-| `/api/inventory/requests/count` | GET | Брой чакащи заявки (за badge в sidebar) |
-| `/api/inventory/requests/[id]/fulfill` | POST | Маркира като изпълнена |
-| `/api/inventory/requests/[id]/reject` | POST | Отказва заявка (всяка, не само своя) |
-| `/api/inventory/requests/[id]/stock` | GET | Наличност на продукт по магазини (за transfer диалог) |
-| `/api/inventory/requests/[id]/events` | GET | История на заявката (от `request_events` или fallback) |
-| `/api/inventory/transfer` | POST | Прехвърляне на склад между магазини |
-
----
-
-## 4. Потребителски интерфейс
-
-### Админ — Страница "Заявки" (`/requests`)
-
-**Чакащи (Pending):**
-- Групирани по `store_id × created_at.substring(0,19) × notes` (batch-ове)
-- Всеки batch показва: магазин, време, коментар, брой продукти, общо количество
-- Разгъване: показва всеки продукт с бутон ✓ (бърз fulfill)
-- Бутон "Прехвърли" → диалог за трансфер на склад + fulfill
-  - Показва наличности във всички магазини (без този, който заявява)
-  - Позволява въвеждане на количества за трансфер
-  - Изпълнява трансфер + fulfill за всеки продукт
-
-**Обработени (History):**
-- Групирани по същия начин
-- Показват статус (Изпратена/Потвърдена/Частична)
-- Timeline в бележките (parsed от ` | ` разделител)
-- Клик върху продукт → детайлен диалог с пълна история
-
-**Детайлен диалог:**
-- Продукт, количество, магазин
-- Timeline визуализация с цветни точки (кехлибар=създадена, синьо=изпълнена, зелено=потвърдена, оранжево=частична)
-- Предупреждение при частично получаване
-
-### Продавач — Ниско-наличен склад (`/low-stock`)
-
-*(Да се провери какво показва на продавачите)*
-
----
-
-## 5. Проблеми и нужни поправки
-
-### Критични
-1. **[ ] `rejected` статус не се визуализира** — липсва в `STATUS_LABEL`, `STATUS_COLOR`, `STATUS_DOT`, и в history секцията
-2. **[ ] `request_events` таблица липсва** — всички INSERT-и са в try/catch. Трябва миграция или да се създаде таблицата
-3. **[ ] `reject` endpoint ползва user client** — RLS може да блокира update от не-админ. Трябва admin client
-4. **[ ] `confirmed/partial` статуси нямат timestamp** — няма `confirmed_at` поле, разчита се на `updated_at`
-5. **[ ] Прехвърлянето не добавя stock в целевия магазин** — transfer само мести, но fulfill не създава нов stock в магазина-получател
-
-### Средни
-6. **[ ] Batch групирането по `created_at.substring(0,19)` е крехко** — ако двама продавачи направят заявки в същата секунда, ще се слеят
-7. **[ ] Няма нотификация при reject** — админът не вижда кой е отказал заявка
-8. **[ ] Няма `requested_by` в списъка** — не се вижда кой продавач е направил заявката
-9. **[ ] `rejected` заявки не са в историята** — филтрират се само `status !== 'pending'`, което включва rejected, но няма визуализация
-
-### Ниски
-10. **[ ] Няма страница за продавача** — продавачът не вижда статуса на заявките си (само `/low-stock`)
-11. **[ ] Няма нотификации** — админът не получава известие за нова заявка (освен badge в sidebar)
-12. **[ ] `fulfilled_by` колоната може да не съществува** — кодът е в try/catch
-
----
-
-## 6. Препоръки за работещ процес
-
-### Фаза 1 — Критични поправки (днес)
-1. Създаване на `request_events` таблица (миграция)
-2. Визуализация на `rejected` статус
-3. Fix на `reject` endpoint (admin client)
-4. Проверка на transfer → stock movement при fulfill
-
-### Фаза 2 — Подобрения (тази седмица)
-5. Batch групиране по `request_batch_id` вместо `created_at`
-6. Добавяне на `requested_by` име в списъка
-7. Страница за продавача да вижда заявките си и статусите им
-
-### Фаза 3 — Финализиране
-8. Нотификации при нова заявка
-9. Подобрена визуализация на историята
+- **Voided филтър:** Всички тотали, KPI-та и експорти изключват сторнирани продажби
+- **Групови маркери:** Продажбите в група са визуално оцветени
+- **Пагинация:** Admin sales и My sales по 50 реда на страница
+- **Автоматични филтри:** Без бутон "Филтрирай" — сменят се автоматично
+- **Мобилно:** Фиксирана лента с safe-area, единичен скрол
+- **Desktop POS:** Без двоен scrollbar, количката е sticky

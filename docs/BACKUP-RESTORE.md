@@ -6,9 +6,9 @@ Daily backup at 3:00 AM UTC via Vercel cron → Supabase Storage `db-backups` bu
 
 ## Backup Contents
 
-Each backup (.json.gz) contains ALL data from all 13 tables:
+Each backup (.json.gz) contains ALL data from all 14 tables:
 products, product_images, categories, labels, stores, stock_batches, stock_movements,
-stock_requests, request_events, sales, users, email_settings, audit_logs
+stock_requests, request_events, request_notes, sales, users, email_settings, audit_logs
 
 ## Where Backups Are Stored
 
