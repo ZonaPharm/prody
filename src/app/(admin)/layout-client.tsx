@@ -67,7 +67,7 @@ export function AdminLayoutClient({
           </div>
         )}
 
-        <main className="flex-1 bg-slate-50 p-4 lg:p-8 overflow-auto">{children}</main>
+        <main className="flex-1 bg-slate-50 p-4 overflow-auto">{children}</main>
       </div>
     </div>
   )
