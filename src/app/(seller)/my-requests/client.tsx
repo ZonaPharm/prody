@@ -134,8 +134,8 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Заявки</h1>
+    <div className="flex flex-col flex-1 min-h-0">
+      <h1 className="text-2xl font-bold shrink-0">Заявки</h1>
 
       {/* Tabs — button style */}
       <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
@@ -155,10 +155,10 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
         ))}
       </div>
 
-      {/* Tab: Request — split layout, products scroll, basket stays put */}
+      {/* Tab: Request — split layout, header scrolls away, basket stays */}
       {tab === 'request' && (
-        <div className="flex gap-4" style={{ height: 'calc(100vh - 12rem)' }}>
-          {/* Left: product grid — scrolls */}
+        <div className="flex gap-4 flex-1 min-h-0">
+          {/* Left: product grid — scrolls (includes categories + search + products) */}
           <div className="flex-1 min-w-0 overflow-y-auto">
             {!storeId && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">

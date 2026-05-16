@@ -73,7 +73,7 @@ export function SellerLayoutClient({
           </div>
         )}
 
-        <main className="flex-1 min-h-0 bg-slate-50 p-4 overflow-auto">{children}</main>
+        <main className="flex-1 min-h-0 bg-slate-50 p-4 overflow-auto flex flex-col">{children}</main>
       </div>
     </div>
   )
