@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 
 interface Product {
-  id: string; name: string; price: number | null; quantity_on_hand: number
+  id: string; name: string; price: number | null; quantity_on_hand: number; category_id?: string | null
 }
 
 interface MyRequest {
