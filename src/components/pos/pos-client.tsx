@@ -99,9 +99,9 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
 
   return (
     <>
-      {/* Desktop layout: products flow naturally, cart sticky on right */}
-      <div className="hidden lg:flex gap-4 items-start">
-        <div className="flex-1 min-w-0">
+      {/* Desktop layout: products flow naturally, cart fixed on right */}
+      <div className="hidden lg:block">
+        <div className="mr-[412px]">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">Запиши продажба</h1>
@@ -128,7 +128,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             outOfStock={outOfStock}
           />
         </div>
-        <div className="w-[380px] shrink-0 sticky top-4" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+        <div className="hidden lg:block fixed right-8 top-16 w-[380px]" style={{ maxHeight: 'calc(100vh - 5rem)', bottom: '1rem' }}>
           <CartSidebar
             items={cart.items}
             onAdd={handleAdd}
