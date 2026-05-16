@@ -241,9 +241,9 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
             )}
           </div>
 
-          {/* Right: Request basket — fixed height, always visible */}
-          <div className="w-[350px] shrink-0 flex flex-col">
-            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col h-full">
+          {/* Right: Request basket — scrolls internally, always visible */}
+          <div className="w-[350px] shrink-0 flex flex-col min-h-0">
+            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col min-h-0 overflow-hidden">
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl shrink-0">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
                   <Send className="h-5 w-5" />
