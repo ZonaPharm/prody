@@ -155,116 +155,152 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
         ))}
       </div>
 
-      {/* Tab: Request — product grid layout */}
+      {/* Tab: Request — split layout like POS, blue theme */}
       {tab === 'request' && (
-        <div className="space-y-4">
-          {!storeId && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-              Нямате зададен магазин. Свържете се с администратор.
-            </div>
-          )}
+        <div className="flex gap-4 items-start">
+          {/* Left: product grid */}
+          <div className="flex-1 min-w-0">
+            {!storeId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
+                Нямате зададен магазин. Свържете се с администратор.
+              </div>
+            )}
 
-          {/* Category pills */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <Button
-              variant={selectedCategory === null ? 'default' : 'outline'}
-              size="sm" className="shrink-0 rounded-full"
-              onClick={() => setSelectedCategory(null)}
-            >
-              Всички
-            </Button>
-            {categories.map(cat => (
-              <Button key={cat.id}
-                variant={selectedCategory === cat.id ? 'default' : 'outline'}
+            {/* Category pills */}
+            <div className="flex gap-2 overflow-x-auto pb-1 mb-3">
+              <Button
+                variant={selectedCategory === null ? 'default' : 'outline'}
                 size="sm" className="shrink-0 rounded-full"
-                onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                onClick={() => setSelectedCategory(null)}
               >
-                {cat.name}
+                Всички
               </Button>
-            ))}
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Търсене на продукт..." value={search}
-              onChange={e => setSearch(e.target.value)} className="pl-9" />
-          </div>
-
-          {/* Product grid */}
-          {filteredProducts.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">
-              {search ? `Няма съвпадения за "${search}"` : 'Няма продукти'}
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {filteredProducts.map(p => {
-                const inBasket = basket.find(i => i.product.id === p.id)
-                return (
-                  <button
-                    key={p.id}
-                    className={`rounded-lg border p-3 text-left transition-all ${
-                      inBasket
-                        ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200 shadow-sm'
-                        : 'bg-white hover:shadow-md hover:border-slate-300'
-                    }`}
-                    onClick={() => inBasket ? updateQty(p.id, inBasket.qty + 1) : addToBasket(p)}
-                    disabled={!storeId}
-                  >
-                    <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
-                      {imageMap[p.id] ? (
-                        <img src={imageMap[p.id]} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <Package className="h-8 w-8 text-slate-300" />
-                      )}
-                    </div>
-                    <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em]">{p.name}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-sm font-semibold tabular-nums">
-                        {p.price != null ? `${p.price.toFixed(2)} €` : '—'}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {p.quantity_on_hand} бр.
-                      </span>
-                    </div>
-                    {inBasket && (
-                      <div className="mt-2 flex items-center justify-between bg-blue-100 -mx-3 -mb-3 px-3 py-1.5 rounded-b-lg">
-                        <span className="text-xs font-medium text-blue-700">В заявката: {inBasket.qty}</span>
-                        <span className="text-[10px] text-blue-500">Кликни за +1</span>
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Basket */}
-          {basket.length > 0 && (
-            <div className="sticky bottom-0 border-t bg-white p-4 shadow-lg rounded-t-xl space-y-3 z-20">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Заявка ({basket.reduce((s, i) => s + i.qty, 0)} бр.)</h3>
-                <Button variant="ghost" size="sm" onClick={() => setBasket([])}>
-                  <X className="mr-1 h-3 w-3" /> Изчисти
+              {categories.map(cat => (
+                <Button key={cat.id}
+                  variant={selectedCategory === cat.id ? 'default' : 'outline'}
+                  size="sm" className="shrink-0 rounded-full"
+                  onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                >
+                  {cat.name}
                 </Button>
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-                {basket.map(item => (
-                  <div key={item.product.id} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 text-sm">
-                    <span className="max-w-[120px] truncate">{item.product.name}</span>
-                    <span className="font-medium tabular-nums">×{item.qty}</span>
-                    <button onClick={() => removeFromBasket(item.product.id)} className="text-blue-400 hover:text-red-500">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <Button className="w-full" onClick={sendRequest} disabled={sending || !storeId}>
-                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                {sending ? 'Изпращане...' : `Изпрати заявка (${basket.reduce((s, i) => s + i.qty, 0)} бр.)`}
-              </Button>
+              ))}
             </div>
-          )}
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Търсене на продукт..." value={search}
+                onChange={e => setSearch(e.target.value)} className="pl-9" />
+            </div>
+
+            {/* Product grid */}
+            {filteredProducts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-12">
+                {search ? `Няма съвпадения за "${search}"` : 'Няма продукти'}
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                {filteredProducts.map(p => {
+                  const inBasket = basket.find(i => i.product.id === p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      className={`rounded-lg border p-3 text-left transition-all ${
+                        inBasket
+                          ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200'
+                          : 'bg-white hover:shadow-md hover:border-slate-300'
+                      }`}
+                      onClick={() => inBasket ? updateQty(p.id, inBasket.qty + 1) : addToBasket(p)}
+                      disabled={!storeId}
+                    >
+                      <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                        {imageMap[p.id] ? (
+                          <img src={imageMap[p.id]} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="h-8 w-8 text-slate-300" />
+                        )}
+                      </div>
+                      <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em]">{p.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-sm font-semibold tabular-nums">
+                          {p.price != null ? `${p.price.toFixed(2)} €` : '—'}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {p.quantity_on_hand} бр.
+                        </span>
+                      </div>
+                      {inBasket && (
+                        <div className="mt-2 text-xs font-medium text-blue-600 bg-blue-100 -mx-3 -mb-3 px-3 py-1.5 rounded-b-lg text-center">
+                          В заявката: {inBasket.qty} бр.
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Request basket — sticky */}
+          <div className="w-[350px] shrink-0 sticky top-4">
+            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm">
+              <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl">
+                <h2 className="font-semibold text-blue-800 flex items-center gap-2">
+                  <Send className="h-5 w-5" />
+                  Заявка
+                  {basket.length > 0 && (
+                    <span className="text-sm font-normal text-blue-600">
+                      ({basket.reduce((s, i) => s + i.qty, 0)} бр.)
+                    </span>
+                  )}
+                </h2>
+              </div>
+
+              {basket.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  <Package className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+                  <p>Добавете продукти<br />от мрежата в ляво</p>
+                </div>
+              ) : (
+                <>
+                  <div className="p-3 space-y-2 max-h-[50vh] overflow-y-auto">
+                    {basket.map(item => (
+                      <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border border-blue-100 bg-blue-50/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="icon" className="h-7 w-7"
+                            onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
+                          <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
+                          <Button variant="outline" size="icon" className="h-7 w-7"
+                            onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600"
+                          onClick={() => removeFromBasket(item.product.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-4 border-t border-blue-100 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Общо артикули</span>
+                      <span className="font-bold tabular-nums">{basket.reduce((s, i) => s + i.qty, 0)} бр.</span>
+                    </div>
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700" size="lg"
+                      onClick={sendRequest} disabled={sending || !storeId}>
+                      {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      {sending ? 'Изпращане...' : 'Изпрати заявка'}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
