@@ -62,7 +62,6 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   let productQuery = (supabase.from('products') as any)
     .select('id, name, price, quantity_on_hand, category_id')
     .eq('status', 'active')
-    .order('name')
 
   if (storeProductIds.size > 0) {
     productQuery = productQuery.in('id', Array.from(storeProductIds))
@@ -71,6 +70,25 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   }
 
   const { data: products } = await productQuery
+
+  // Sort by sales frequency for this store (most sold first, unsold alphabetical)
+  const { data: storeSalesCounts } = await (supabase.from('sales') as any)
+    .select('product_id')
+    .eq('store_id', defaultStoreId)
+    .eq('voided', false)
+    .gte('sale_date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0])
+
+  const salesCountMap: Record<string, number> = {}
+  ;(storeSalesCounts || []).forEach((s: any) => {
+    salesCountMap[s.product_id] = (salesCountMap[s.product_id] || 0) + 1
+  })
+
+  const sortedProducts = (products || []).sort((a: any, b: any) => {
+    const aCount = salesCountMap[a.id] || 0
+    const bCount = salesCountMap[b.id] || 0
+    if (aCount !== bCount) return bCount - aCount
+    return (a.name || '').localeCompare(b.name || '')
+  })
 
   // Fetch out-of-stock products (had stock in this store but now at 0)
   const { data: zeroBatches } = await (supabase.from('stock_batches') as any)
@@ -105,7 +123,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     .order('name')
 
   // Fetch primary images for all products (in-stock + out-of-stock)
-  const productIds = (products || []).map((p: any) => p.id)
+  const productIds = (sortedProducts || []).map((p: any) => p.id)
   const allIds = [...productIds, ...outOfStockProducts.map((p: any) => p.id)]
   const { data: images } = allIds.length > 0
     ? await (supabase.from('product_images') as any)
@@ -125,7 +143,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     image_url: imageMap[p.id] || null,
   }))
 
-  const productsWithImages: Product[] = (products || []).map((p: any) => ({
+  const productsWithImages: Product[] = (sortedProducts || []).map((p: any) => ({
     id: p.id,
     name: p.name,
     price: p.price,
