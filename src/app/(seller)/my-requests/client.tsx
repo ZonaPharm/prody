@@ -157,9 +157,9 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
 
       {/* Tab: Request — split layout like POS, blue theme */}
       {tab === 'request' && (
-        <div className="flex gap-4">
+        <div className="block">
           {/* Left: product grid */}
-          <div className="flex-1 min-w-0 lg:pr-[366px]">
+          <div className="mr-[382px]">
             {!storeId && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
                 Нямате зададен магазин. Свържете се с администратор.
@@ -241,8 +241,8 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
             )}
           </div>
 
-          {/* Right: Request basket — fixed */}
-          <div className="hidden lg:block fixed w-[350px]" style={{ right: '2rem', top: '6rem', maxHeight: 'calc(100vh - 7rem)' }}>
+          {/* Right: Request basket — fixed, same position as POS cart */}
+          <div className="hidden lg:block fixed right-8 top-16 w-[350px]" style={{ maxHeight: 'calc(100vh - 5rem)', bottom: '1rem' }}>
             <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm h-full flex flex-col">
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
