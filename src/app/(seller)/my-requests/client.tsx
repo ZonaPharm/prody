@@ -137,19 +137,19 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Заявки</h1>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b pb-2">
+      {/* Tabs — button style */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
         {TABS.map(t => (
           <button key={t.key} onClick={() => switchTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-              tab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+              tab === t.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}>
             {t.label}
             {t.key === 'my' && myRequests.length > 0 && (
-              <span className="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
+              <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
             )}
             {t.key === 'low' && lowStockItems.length > 0 && (
-              <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">{lowStockItems.length}</span>
+              <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full">{lowStockItems.length}</span>
             )}
           </button>
         ))}
@@ -157,9 +157,9 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
 
       {/* Tab: Request — split layout like POS, blue theme */}
       {tab === 'request' && (
-        <div className="block">
+        <div className="flex gap-4 items-start">
           {/* Left: product grid */}
-          <div className="mr-[382px]">
+          <div className="flex-1 min-w-0">
             {!storeId && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
                 Нямате зададен магазин. Свържете се с администратор.
@@ -241,9 +241,9 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
             )}
           </div>
 
-          {/* Right: Request basket — fixed, same position as POS cart */}
-          <div className="hidden lg:block fixed right-8 w-[350px]" style={{ top: '11rem', maxHeight: 'calc(100vh - 12rem)' }}>
-            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm h-full flex flex-col">
+          {/* Right: Request basket — sticky */}
+          <div className="w-[350px] shrink-0">
+            <div className="sticky top-4 border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
                   <Send className="h-5 w-5" />
