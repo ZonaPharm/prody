@@ -63,6 +63,39 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [basket, setBasket] = useState<{ product: Product; qty: number }[]>([])
   const [sending, setSending] = useState(false)
+  const [detail, setDetail] = useState<MyRequest | null>(null)
+  const [events, setEvents] = useState<any[]>([])
+  const [notes, setNotes] = useState<any[]>([])
+  const [noteText, setNoteText] = useState('')
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  const openDetail = async (req: MyRequest) => {
+    setDetail(req)
+    setLoadingDetail(true)
+    try {
+      const [evRes, ntRes] = await Promise.all([
+        fetch(`/api/inventory/requests/${req.id}/events`),
+        fetch(`/api/inventory/requests/${req.id}/notes`),
+      ])
+      setEvents((await evRes.json()) || [])
+      setNotes((await ntRes.json()) || [])
+    } catch { setEvents([]); setNotes([]) }
+    setLoadingDetail(false)
+  }
+
+  const sendNote = async () => {
+    if (!noteText.trim() || !detail) return
+    const res = await fetch(`/api/inventory/requests/${detail.id}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: noteText }),
+    })
+    if (res.ok) {
+      const n = await res.json()
+      setNotes(prev => [...prev, n])
+      setNoteText('')
+    }
+  }
 
   const switchTab = (t: string) => {
     setTab(t)
@@ -313,7 +346,10 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
             <div className="text-muted-foreground text-center py-12">Нямате заявки</div>
           ) : (
             myRequests.map(r => (
-              <div key={r.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+              <div key={r.id}
+                className="flex items-center justify-between p-3 border rounded-lg bg-white cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all"
+                onClick={() => openDetail(r)}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{r.product_name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -325,11 +361,6 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                   <Badge className={`text-[10px] ${STATUS_COLOR[r.status]}`}>
                     {STATUS_LABEL[r.status]}
                   </Badge>
-                  {r.status === 'delivered' && (
-                    <Button size="sm" onClick={() => confirmReceipt(r.id, r.quantity)}>
-                      <CheckCircle2 className="mr-1 h-3 w-3" /> Потвърди
-                    </Button>
-                  )}
                 </div>
               </div>
             ))
@@ -375,6 +406,99 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
               ))}
             </div>
           )}
+        </div>
+      )}
+      {/* Detail Dialog */}
+      {detail && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setDetail(null); setEvents([]); setNotes([]) }} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col mx-4">
+            <div className="p-4 border-b flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-lg">{detail.product_name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {detail.quantity} бр. · {sofiaDate(detail.created_at)} {sofiaTime(detail.created_at)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className={STATUS_COLOR[detail.status]}>{STATUS_LABEL[detail.status]}</Badge>
+                {detail.status === 'delivered' && (
+                  <Button size="sm" onClick={() => { confirmReceipt(detail.id, detail.quantity); setDetail(null) }}>
+                    <CheckCircle2 className="mr-1 h-3 w-3" /> Потвърди
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {loadingDetail ? (
+              <div className="p-6 text-center"><Loader2 className="animate-spin mx-auto h-6 w-6 text-muted-foreground" /></div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Events timeline */}
+                {events.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">История на статусите</p>
+                    <div className="space-y-0 pl-4 border-l-2 border-slate-200">
+                      {events.map((evt: any, i: number) => {
+                        const dotColor =
+                          evt.status === 'pending' ? 'bg-amber-400' :
+                          evt.status === 'accepted' ? 'bg-sky-400' :
+                          evt.status === 'in_transit' ? 'bg-indigo-400' :
+                          evt.status === 'delivered' ? 'bg-teal-400' :
+                          evt.status === 'rejected' ? 'bg-red-400' :
+                          evt.status === 'confirmed' ? 'bg-green-400' :
+                          evt.status === 'partial' ? 'bg-orange-400' : 'bg-slate-400'
+                        return (
+                          <div key={i} className="relative pb-2">
+                            <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${dotColor}`} />
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(evt.created_at).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}
+                            </p>
+                            <p className="text-xs">{evt.notes}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Comments */}
+                <div>
+                  <p className="text-sm font-medium mb-2">Коментари</p>
+                  {notes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Няма коментари</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {notes.map((n: any) => (
+                        <div key={n.id} className="bg-slate-50 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium">{n.user_name || '—'}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(n.created_at).toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' })}
+                            </span>
+                          </div>
+                          <p className="text-sm">{n.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2 mt-3">
+                    <Input value={noteText} onChange={e => setNoteText(e.target.value)}
+                      placeholder="Напишете коментар..." className="h-8 text-sm"
+                      onKeyDown={e => { if (e.key === 'Enter') sendNote() }} />
+                    <Button size="sm" onClick={sendNote} disabled={!noteText.trim()}>Изпрати</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="p-4 border-t shrink-0">
+              <Button variant="ghost" className="w-full"
+                onClick={() => { setDetail(null); setEvents([]); setNotes([]) }}>
+                Затвори
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
