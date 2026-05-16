@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
-import { RoleBanner } from '@/components/seller/role-banner'
+
 import { X, ShoppingBag, BarChart3, Bell } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
@@ -37,8 +37,6 @@ export function SellerLayoutClient({
   return (
     <div className="flex min-h-screen flex-col">
       <Header onMenuClick={() => setSidebarOpen(true)} />
-
-      {isAdminImpersonating && <RoleBanner />}
 
       <div className="flex flex-1">
         {/* Desktop sidebar — sticky, doesn't scroll */}
