@@ -24,11 +24,15 @@ export default async function MyRequestsPage({
     if (store) storeId = store.id
   }
 
-  // Products for request form
-  const { data: products } = await (supabase.from('products') as any)
-    .select('id, name, price, quantity_on_hand')
-    .eq('status', 'active')
-    .order('name')
+  // Products for request form (with images + categories for grid view)
+  const [{ data: products }, { data: categories }, { data: images }] = await Promise.all([
+    (supabase.from('products') as any).select('id, name, price, quantity_on_hand, category_id').eq('status', 'active').order('name'),
+    (supabase.from('categories') as any).select('id, name').order('name'),
+    (supabase.from('product_images') as any).select('product_id, url').eq('is_primary', true),
+  ])
+
+  const imageMap: Record<string, string> = {}
+  ;(images || []).forEach((img: any) => { if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url })
 
   // My requests
   let myRequests: any[] = []
@@ -91,6 +95,8 @@ export default async function MyRequestsPage({
   return (
     <MyRequestsClient
       products={(products || []) as any[]}
+      categories={(categories || []) as any[]}
+      imageMap={imageMap}
       myRequests={myRequests}
       activeTab={activeTab}
       storeId={storeId}
