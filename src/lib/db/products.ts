@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 export async function getProducts(filters?: {
   search?: string
   categoryId?: string
+  storeId?: string
   status?: string
   sort?: string
   hasImages?: string
@@ -17,6 +18,20 @@ export async function getProducts(filters?: {
   }
   if (filters?.categoryId) {
     query = query.eq('category_id', filters.categoryId)
+  }
+  if (filters?.storeId) {
+    // Filter products that have stock in the selected store
+    const { data: storeProductIds } = await supabase
+      .from('stock_batches')
+      .select('product_id')
+      .eq('store_id', filters.storeId)
+      .gt('quantity_remaining', 0)
+    const ids = [...new Set((storeProductIds || []).map((b: any) => b.product_id))]
+    if (ids.length > 0) {
+      query = query.in('id', ids)
+    } else {
+      return []
+    }
   }
   if (filters?.status) {
     query = query.eq('status', filters.status)
