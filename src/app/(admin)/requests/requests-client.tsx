@@ -391,7 +391,7 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
           {/* Right Panel — Detail */}
           <div className="flex-1 overflow-y-auto min-w-0">
             {selectedBatch ? (
-              <div className="space-y-4">
+              <div className="space-y-4 bg-white rounded-xl border p-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-lg font-bold">{selectedBatch.store_name}</h2>
