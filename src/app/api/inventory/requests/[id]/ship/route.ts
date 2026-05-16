@@ -40,6 +40,12 @@ export async function POST(
     })
   } catch { /* table may not exist */ }
 
+  try {
+    await (admin.from('request_notes') as any).insert({
+      request_id: id, user_id: user.id,
+      body: '📦 Заявката е изпратена към магазина',
+    })
+  } catch {}
   await logAction({ action: 'request_ship', userId: user.id, entityType: 'stock_request', entityId: id }, admin)
   return NextResponse.json({ success: true })
 }

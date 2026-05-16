@@ -70,6 +70,12 @@ export async function POST(
     })
   } catch { /* table doesn't exist yet */ }
 
+  try {
+    await (admin.from('request_notes') as any).insert({
+      request_id: id, user_id: user.id,
+      body: isPartial ? `⚠️ Потвърдено частично получаване (${actualQty} от ${req.requested_qty} бр.)` : '✅ Потвърдено получаване — заявката е завършена',
+    })
+  } catch {}
   await logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` }, admin)
   return NextResponse.json({ success: true, status, received_qty: actualQty })
 }

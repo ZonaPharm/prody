@@ -40,6 +40,13 @@ export async function POST(
     })
   } catch { /* table may not exist */ }
 
+  // Auto-note
+  try {
+    await (admin.from('request_notes') as any).insert({
+      request_id: id, user_id: user.id,
+      body: '🟢 Заявката е приета — в процес на подготовка',
+    })
+  } catch {}
   await logAction({ action: 'request_accept', userId: user.id, entityType: 'stock_request', entityId: id }, admin)
   return NextResponse.json({ success: true })
 }

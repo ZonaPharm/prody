@@ -24,11 +24,13 @@ export function SellerLayoutClient({
   displayName,
   isAdminImpersonating,
   children,
+  requestBadge,
 }: {
   navItems: NavItem[]
   displayName: string
   isAdminImpersonating: boolean
   children: React.ReactNode
+  requestBadge?: number
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
@@ -41,7 +43,7 @@ export function SellerLayoutClient({
       <div className="flex flex-1 min-h-0">
         {/* Desktop sidebar — sticky, doesn't scroll */}
         <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
-          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} />
+          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} requestBadge={requestBadge} />
         </aside>
 
         {/* Mobile overlay */}
@@ -66,7 +68,7 @@ export function SellerLayoutClient({
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} router={router} />
+              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} router={router} requestBadge={requestBadge} />
             </aside>
           </div>
         )}
@@ -84,6 +86,7 @@ function SidebarContent({
   isAdminImpersonating,
   onNavClick,
   router,
+  requestBadge,
 }: {
   navItems: NavItem[]
   pathname: string
@@ -91,6 +94,7 @@ function SidebarContent({
   isAdminImpersonating: boolean
   onNavClick?: () => void
   router: ReturnType<typeof useRouter>
+  requestBadge?: number
 }) {
   return (
     <>
@@ -116,6 +120,9 @@ function SidebarContent({
             >
               {Icon && <Icon className="mr-2 h-4 w-4" />}
               {item.label}
+              {item.href === '/my-requests' && requestBadge ? (
+                <span className="ml-auto bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{requestBadge}</span>
+              ) : null}
             </Button>
           )
         })}
