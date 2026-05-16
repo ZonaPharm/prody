@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -63,6 +63,27 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [basket, setBasket] = useState<{ product: Product; qty: number }[]>([])
   const [sending, setSending] = useState(false)
+  const [basketStyle, setBasketStyle] = useState<React.CSSProperties>({})
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Measure container position for fixed basket
+  useEffect(() => {
+    const update = () => {
+      if (!containerRef.current) return
+      const r = containerRef.current.getBoundingClientRect()
+      setBasketStyle({
+        position: 'fixed',
+        right: `${window.innerWidth - r.right}px`,
+        top: `${r.top}px`,
+        width: `${Math.min(350, r.width * 0.35)}px`,
+        maxHeight: `${window.innerHeight - r.top - 16}px`,
+      })
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => { window.removeEventListener('scroll', update); window.removeEventListener('resize', update) }
+  }, [tab])
 
   const switchTab = (t: string) => {
     setTab(t)
@@ -134,8 +155,8 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <h1 className="text-2xl font-bold shrink-0">Заявки</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Заявки</h1>
 
       {/* Tabs — button style */}
       <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
@@ -155,11 +176,11 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
         ))}
       </div>
 
-      {/* Tab: Request — split layout, header scrolls away, basket stays */}
+      {/* Tab: Request — split layout */}
       {tab === 'request' && (
-        <div className="flex gap-4 flex-1 min-h-0">
-          {/* Left: product grid — scrolls (includes categories + search + products) */}
-          <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="flex gap-4">
+          {/* Left: product grid */}
+          <div className="flex-1 min-w-0" ref={containerRef}>
             {!storeId && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
                 Нямате зададен магазин. Свържете се с администратор.
@@ -241,9 +262,9 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
             )}
           </div>
 
-          {/* Right: Request basket — scrolls internally, always visible */}
-          <div className="w-[350px] shrink-0 flex flex-col min-h-0">
-            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col min-h-0 overflow-hidden">
+          {/* Right: Request basket — fixed position, follows container */}
+          <div className="hidden lg:flex flex-col" style={basketStyle}>
+            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col overflow-hidden flex-1 min-h-0">
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl shrink-0">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
                   <Send className="h-5 w-5" />
