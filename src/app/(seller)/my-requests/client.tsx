@@ -242,7 +242,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           </div>
 
           {/* Right: Request basket — fixed, same position as POS cart */}
-          <div className="hidden lg:block fixed right-8 top-16 w-[350px]" style={{ maxHeight: 'calc(100vh - 5rem)', bottom: '1rem' }}>
+          <div className="hidden lg:block fixed right-8 w-[350px]" style={{ top: '11rem', maxHeight: 'calc(100vh - 12rem)' }}>
             <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm h-full flex flex-col">
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
