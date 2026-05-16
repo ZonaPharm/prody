@@ -155,11 +155,11 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
         ))}
       </div>
 
-      {/* Tab: Request — split layout like POS, blue theme */}
+      {/* Tab: Request — split layout, products scroll, basket stays put */}
       {tab === 'request' && (
-        <div className="flex gap-4 items-start">
-          {/* Left: product grid */}
-          <div className="flex-1 min-w-0">
+        <div className="flex gap-4" style={{ height: 'calc(100vh - 12rem)' }}>
+          {/* Left: product grid — scrolls */}
+          <div className="flex-1 min-w-0 overflow-y-auto">
             {!storeId && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
                 Нямате зададен магазин. Свържете се с администратор.
@@ -241,10 +241,10 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
             )}
           </div>
 
-          {/* Right: Request basket — sticky */}
-          <div className="w-[350px] shrink-0">
-            <div className="sticky top-4 border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
-              <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl">
+          {/* Right: Request basket — fixed height, always visible */}
+          <div className="w-[350px] shrink-0 flex flex-col">
+            <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col h-full">
+              <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl shrink-0">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
                   <Send className="h-5 w-5" />
                   Заявка
