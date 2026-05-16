@@ -11,15 +11,23 @@ export async function GET(
 
   const { id } = await params
   const { data } = await (supabase.from('request_notes') as any)
-    .select('id, body, user_id, created_at, user:users(display_name)')
+    .select('id, body, user_id, created_at')
     .eq('request_id', id)
     .order('created_at', { ascending: true })
+
+  // Fetch user names separately (FK to auth.users can't be joined via PostgREST)
+  const userIds = [...new Set((data || []).map((n: any) => n.user_id))]
+  const { data: profiles } = userIds.length > 0
+    ? await (supabase.from('users') as any).select('id, display_name').in('id', userIds)
+    : { data: [] }
+  const nameMap: Record<string, string> = {}
+  ;(profiles || []).forEach((p: any) => { nameMap[p.id] = p.display_name })
 
   return NextResponse.json((data || []).map((n: any) => ({
     id: n.id,
     body: n.body,
     user_id: n.user_id,
-    user_name: Array.isArray(n.user) ? n.user[0]?.display_name : n.user?.display_name,
+    user_name: nameMap[n.user_id] || '—',
     created_at: n.created_at,
   })))
 }
