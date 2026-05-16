@@ -38,7 +38,7 @@ export function SellerLayoutClient({
     <div className="flex min-h-screen flex-col">
       <Header onMenuClick={() => setSidebarOpen(true)} />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0">
         {/* Desktop sidebar — sticky, doesn't scroll */}
         <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
           <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} />
