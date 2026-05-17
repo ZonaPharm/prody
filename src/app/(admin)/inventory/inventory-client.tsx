@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,19 +69,21 @@ export function InventoryClient({ stores }: { stores: Store[] }) {
   // History
   const [corrections, setCorrections] = useState<CorrectionRow[]>([])
 
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Search products
-  useEffect(() => {
-    if (productSearch.length < 2) { setProducts([]); return }
-    const timer = setTimeout(async () => {
+  const doSearch = useCallback((q: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (q.length < 2) { setProducts([]); return }
+    searchTimerRef.current = setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await fetch(`/api/products/search?q=${encodeURIComponent(productSearch)}&limit=10`)
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=10`)
         if (res.ok) setProducts(await res.json())
       } catch { /* ignore */ }
       setSearching(false)
     }, 300)
-    return () => clearTimeout(timer)
-  }, [productSearch])
+  }, [])
 
   // Load system stock when product+store selected
   const loadStock = useCallback(async (productId: string, sid: string) => {
@@ -217,7 +219,7 @@ export function InventoryClient({ stores }: { stores: Store[] }) {
                     className="pl-10"
                     placeholder="Търсене по име или баркод..."
                     value={productSearch}
-                    onChange={e => { setProductSearch(e.target.value); setSelectedProduct(null) }}
+                    onChange={e => { const v = e.target.value; setProductSearch(v); setSelectedProduct(null); doSearch(v) }}
                   />
                 </div>
                 {products.length > 0 && !selectedProduct && (
