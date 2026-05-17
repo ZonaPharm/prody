@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   const { data } = await (supabase.from('products') as any)
     .select('id, name, barcode')
-    .or(`name.ilike.%${q}%,barcode.ilike.%${q}%`)
+    .or(`name.ilike.*${q}*,barcode.ilike.*${q}*`)
     .eq('is_active', true)
     .order('name')
     .limit(limit)
