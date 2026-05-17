@@ -8,6 +8,7 @@ const navItems = [
   { href: '/catalog', label: 'Каталог' },
   { href: '/sales', label: 'Продажби' },
   { href: '/reports', label: 'Отчети' },
+  { href: '/inventory', label: 'Инвентаризация' },
   { href: '/requests', label: 'Заявки' },
   { href: '/settings', label: 'Настройки' },
 ]

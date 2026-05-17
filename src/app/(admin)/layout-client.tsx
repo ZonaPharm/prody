@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
-import { X, LayoutDashboard, Package2, ShoppingBag, BarChart3, Settings, Bell } from 'lucide-react'
+import { X, LayoutDashboard, Package2, ShoppingBag, BarChart3, Settings, Bell, ClipboardList } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 import { RequestsBadge } from '@/components/admin/requests-badge'
 
@@ -13,6 +13,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/catalog': Package2,
   '/sales': ShoppingBag,
   '/reports': BarChart3,
+  '/inventory': ClipboardList,
   '/requests': Bell,
   '/settings': Settings,
 }
