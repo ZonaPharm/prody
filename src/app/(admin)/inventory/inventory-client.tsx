@@ -79,8 +79,16 @@ export function InventoryClient({ stores }: { stores: Store[] }) {
       setSearching(true)
       try {
         const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=10`)
-        if (res.ok) setProducts(await res.json())
-      } catch { /* ignore */ }
+        if (res.ok) {
+          const data = await res.json()
+          setProducts(data)
+        } else {
+          const err = await res.json().catch(() => ({ error: res.statusText }))
+          toast({ title: err.error || 'Грешка при търсене', variant: 'destructive' })
+        }
+      } catch (e: any) {
+        toast({ title: e.message || 'Грешка при търсене', variant: 'destructive' })
+      }
       setSearching(false)
     }, 300)
   }, [])
