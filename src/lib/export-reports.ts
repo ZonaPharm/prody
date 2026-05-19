@@ -60,10 +60,11 @@ export async function buildExportWorkbook(
       map[name].qty += s.quantity
       map[name].revenue += s.quantity * Number(s.sale_price)
     })
-    const rows = Object.values(map).sort((a, b) => b.qty - a.qty).map(r => [
-      r.name, r.qty, Math.round(r.revenue * 100) / 100,
-    ])
-    formatSheet(wb, 'По продукти', ['Продукт', 'Продадени бр.', 'Оборот (€)'], rows, [40, 14, 14])
+    const rows = Object.values(map).sort((a, b) => b.qty - a.qty).map(r => {
+      const avgPrice = r.qty > 0 ? Math.round((r.revenue / r.qty) * 100) / 100 : 0
+      return [r.name, r.qty, avgPrice, Math.round(r.revenue * 100) / 100]
+    })
+    formatSheet(wb, 'По продукти', ['Продукт', 'Продадени бр.', 'Ед. цена (€)', 'Оборот (€)'], rows, [40, 14, 14, 14])
   } else {
     const rows = sales.map((s: any) => [
       sofiaDate(s.sale_date),
