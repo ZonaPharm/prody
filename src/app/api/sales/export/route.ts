@@ -33,26 +33,14 @@ export async function GET(request: NextRequest) {
     if (s.sale_group_id) groupCounts[s.sale_group_id] = (groupCounts[s.sale_group_id] || 0) + 1
   })
 
-  // Fetch category names
-  const catIds = [...new Set((sales || []).map((s: any) => {
-    const prod = Array.isArray(s.product) ? s.product[0] : s.product
-    return prod?.category_id
-  }).filter(Boolean))]
-  const catMap: Record<string, string> = {}
-  if (catIds.length > 0) {
-    const { data: cats } = await (supabase.from('categories') as any).select('id, name').in('id', catIds as string[])
-    ;(cats || []).forEach((c: any) => { catMap[c.id] = c.name })
-  }
-
   // Build CSV with BOM for Excel Bulgarian charset
   const BOM = '﻿'
-  const header = 'Продукт;Категория;Количество;Цена (€);Сума (€);Обект;Продавач;Дата;Плащане;Група\n'
+  const header = 'Продукт;Количество;Ед. цена (€);Сума (€);Продавач;Дата;Плащане;Група\n'
   const rows = (sales || []).map((s: any) => {
     const prod = Array.isArray(s.product) ? s.product[0] : s.product
     const name = prod?.name || '—'
-    const catName = catMap[prod?.category_id] || '—'
-    const store = Array.isArray(s.store) ? (s.store[0]?.name || '—') : (s.store?.name || '—')
     const seller = Array.isArray(s.seller) ? (s.seller[0]?.display_name || '—') : (s.seller?.display_name || '—')
+    const unitPrice = Number(s.sale_price).toFixed(2)
     const total = (s.quantity * Number(s.sale_price)).toFixed(2)
     const date = sofiaDate(s.sale_date)
     const payment = s.payment_method === 'card' ? 'Карта' : s.payment_method === 'transfer' ? 'Превод' : 'Кеш'
@@ -60,11 +48,9 @@ export async function GET(request: NextRequest) {
     const group = isGroup ? 'Да' : 'Не'
     return [
       `"${name.replace(/"/g, '""')}"`,
-      `"${catName.replace(/"/g, '""')}"`,
       s.quantity,
-      Number(s.sale_price).toFixed(2),
+      unitPrice,
       total,
-      `"${store.replace(/"/g, '""')}"`,
       `"${seller.replace(/"/g, '""')}"`,
       date,
       payment,
