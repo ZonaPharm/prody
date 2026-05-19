@@ -53,14 +53,26 @@ export async function buildExportWorkbook(
     ])
     formatSheet(wb, 'По обекти', ['Обект', 'Брой продажби', 'Оборот (€)', 'Кеш (€)', 'Карта (€)'], rows, [20, 14, 14, 14, 14])
   } else if (req.type === 'product') {
-    const map: Record<string, { name: string; qty: number; revenue: number }> = {}
+    const CATEGORY_ORDER = [
+      'Зонафарм', 'Панацея', 'Медицински изделия', 'Витамаг', 'Чай', 'Арома',
+    ]
+    const catRank: Record<string, number> = {}
+    CATEGORY_ORDER.forEach((c, i) => { catRank[c] = i })
+
+    const map: Record<string, { name: string; category: string; qty: number; revenue: number }> = {}
     sales.forEach((s: any) => {
       const name = s.product_name || '—'
-      if (!map[name]) map[name] = { name, qty: 0, revenue: 0 }
+      const cat = s.category_name || '—'
+      if (!map[name]) map[name] = { name, category: cat, qty: 0, revenue: 0 }
       map[name].qty += s.quantity
       map[name].revenue += s.quantity * Number(s.sale_price)
     })
-    const rows = Object.values(map).sort((a, b) => b.qty - a.qty).map(r => {
+    const rows = Object.values(map).sort((a, b) => {
+      const aRank = catRank[a.category] ?? 999
+      const bRank = catRank[b.category] ?? 999
+      if (aRank !== bRank) return aRank - bRank
+      return b.qty - a.qty
+    }).map(r => {
       const avgPrice = r.qty > 0 ? Math.round((r.revenue / r.qty) * 100) / 100 : 0
       return [r.name, r.qty, avgPrice, Math.round(r.revenue * 100) / 100]
     })
