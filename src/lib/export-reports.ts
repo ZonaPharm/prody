@@ -53,19 +53,17 @@ export async function buildExportWorkbook(
     ])
     formatSheet(wb, 'По обекти', ['Обект', 'Брой продажби', 'Оборот (€)', 'Кеш (€)', 'Карта (€)'], rows, [20, 14, 14, 14, 14])
   } else if (req.type === 'product') {
-    const map: Record<string, { name: string; category: string; qty: number; revenue: number; stores: Set<string> }> = {}
+    const map: Record<string, { name: string; qty: number; revenue: number }> = {}
     sales.forEach((s: any) => {
       const name = s.product_name || '—'
-      const cat = s.category_name || '—'
-      if (!map[name]) map[name] = { name, category: cat, qty: 0, revenue: 0, stores: new Set() }
+      if (!map[name]) map[name] = { name, qty: 0, revenue: 0 }
       map[name].qty += s.quantity
       map[name].revenue += s.quantity * Number(s.sale_price)
-      map[name].stores.add(s.store_name || '—')
     })
     const rows = Object.values(map).sort((a, b) => b.qty - a.qty).map(r => [
-      r.name, r.category, r.qty, Math.round(r.revenue * 100) / 100, r.stores.size,
+      r.name, r.qty, Math.round(r.revenue * 100) / 100,
     ])
-    formatSheet(wb, 'По продукти', ['Продукт', 'Категория', 'Продадени бр.', 'Оборот (€)', 'Обекти'], rows, [30, 18, 14, 14, 10])
+    formatSheet(wb, 'По продукти', ['Продукт', 'Продадени бр.', 'Оборот (€)'], rows, [40, 14, 14])
   } else {
     const rows = sales.map((s: any) => [
       sofiaDate(s.sale_date),
