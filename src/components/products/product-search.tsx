@@ -51,12 +51,6 @@ export default function ProductSearch({ categories, stores }: Props) {
   const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
   const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
 
-  const [search, setSearch] = useState(spSearch || saved.search || '')
-  const [status, setStatus] = useState(spStatus !== 'all' ? spStatus : saved.status || 'all')
-  const [hasImages, setHasImages] = useState(spHasImages !== 'all' ? spHasImages : saved.hasImages || 'all')
-  const [categoryId, setCategoryId] = useState(spCategory !== 'all' ? spCategory : saved.category || 'all')
-  const [storeId, setStoreId] = useState(spStore !== 'all' ? spStore : saved.store || 'all')
-
   const updateParams = useCallback(
     (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
       const params = new URLSearchParams()
