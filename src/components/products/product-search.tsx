@@ -97,14 +97,15 @@ export default function ProductSearch({ categories, stores }: Props) {
     [router, search, status, hasImages, categoryId, storeId]
   )
 
-  // Skip first run (mount) — state was initialized from URL, no sync needed
-  const mountedRef = useRef(false)
+  // Debounce search: skip if URL already matches (avoids flash on mount)
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true
-      return
-    }
-    const timer = setTimeout(() => updateParams({ search, replace: true }), 300)
+    const timer = setTimeout(() => {
+      try {
+        const urlSearch = new URLSearchParams(window.location.search).get('search') || ''
+        if (search === urlSearch) return
+      } catch {}
+      updateParams({ search, replace: true })
+    }, 300)
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
