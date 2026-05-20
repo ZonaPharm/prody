@@ -71,28 +71,36 @@ export default function ProductSearch({ categories, stores }: Props) {
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll restoration
-  const scrollRestored = useRef(false)
+  // Scroll restoration — wait for content to be tall enough
+  const scrollPending = useRef<string | null>(null)
   useEffect(() => {
     const saved = sessionStorage.getItem(SCROLL_KEY)
-    if (!saved) return
-    scrollRestored.current = false
-    let attempts = 0
-    const tryRestore = () => {
-      if (scrollRestored.current) return
-      attempts++
-      if (parseInt(saved) > 0) {
-        window.scrollTo(0, parseInt(saved))
-        if (window.scrollY > 0) scrollRestored.current = true
-      }
-      if (!scrollRestored.current && attempts < 10) {
-        requestAnimationFrame(tryRestore)
-      }
+    if (saved && parseInt(saved) > 0) {
+      scrollPending.current = saved
     }
-    requestAnimationFrame(tryRestore)
     const handler = () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
     window.addEventListener('scroll', handler, { passive: true })
     return () => window.removeEventListener('scroll', handler)
+  }, [])
+
+  // Second effect: keep trying to restore until content height is enough
+  useEffect(() => {
+    if (!scrollPending.current) return
+    const savedY = parseInt(scrollPending.current)
+    let attempts = 0
+    const tryRestore = () => {
+      attempts++
+      if (document.body.scrollHeight > savedY) {
+        window.scrollTo(0, savedY)
+        scrollPending.current = null
+      } else if (attempts < 30) {
+        setTimeout(tryRestore, 100)
+      } else {
+        scrollPending.current = null
+      }
+    }
+    tryRestore()
+    return () => { scrollPending.current = null }
   }, [])
 
   return (
