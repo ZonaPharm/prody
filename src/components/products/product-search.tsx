@@ -23,24 +23,28 @@ interface Props {
   stores: { id: string; name: string }[]
 }
 
+const FILTER_KEY = 'catalog-filters'
+const SCROLL_KEY = 'catalog-scroll'
+
+function readFilters(): Record<string, string> {
+  try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
+}
+
+function writeFilters(f: Record<string, string>) {
+  try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(f)) } catch {}
+}
+
 export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [search, setSearch] = useState(searchParams.get('search') || '')
-  const [status, setStatus] = useState(searchParams.get('status') || 'all')
-  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || 'all')
-  const [categoryId, setCategoryId] = useState(searchParams.get('category') || 'all')
-  const [storeId, setStoreId] = useState(searchParams.get('store') || 'all')
-
-  // Sync state from URL when navigating back/forward
-  useEffect(() => {
-    setSearch(searchParams.get('search') || '')
-    setStatus(searchParams.get('status') || 'all')
-    setHasImages(searchParams.get('hasImages') || 'all')
-    setCategoryId(searchParams.get('category') || 'all')
-    setStoreId(searchParams.get('store') || 'all')
-  }, [searchParams])
+  // Restore from URL first, fall back to sessionStorage
+  const saved = readFilters()
+  const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
+  const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
+  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
+  const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
+  const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
 
   const updateParams = useCallback(
     (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
@@ -55,7 +59,9 @@ export default function ProductSearch({ categories, stores }: Props) {
       if (hi && hi !== 'all') params.set('hasImages', hi)
       if (cat && cat !== 'all') params.set('category', cat)
       if (store && store !== 'all') params.set('store', store)
-      router.push(`/catalog?${params.toString()}`)
+      // Save to sessionStorage
+      writeFilters({ search: s, status: st, hasImages: hi, category: cat, store })
+      router.replace(`/catalog?${params.toString()}`)
     },
     [router, search, status, hasImages, categoryId, storeId]
   )
@@ -65,11 +71,10 @@ export default function ProductSearch({ categories, stores }: Props) {
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll restoration — retry until content loads
+  // Scroll restoration
   const scrollRestored = useRef(false)
   useEffect(() => {
-    const key = 'catalog-scroll'
-    const saved = sessionStorage.getItem(key)
+    const saved = sessionStorage.getItem(SCROLL_KEY)
     if (!saved) return
     scrollRestored.current = false
     let attempts = 0
@@ -85,7 +90,7 @@ export default function ProductSearch({ categories, stores }: Props) {
       }
     }
     requestAnimationFrame(tryRestore)
-    const handler = () => sessionStorage.setItem(key, String(window.scrollY))
+    const handler = () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
     window.addEventListener('scroll', handler, { passive: true })
     return () => window.removeEventListener('scroll', handler)
   }, [])
