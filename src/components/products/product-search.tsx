@@ -97,7 +97,13 @@ export default function ProductSearch({ categories, stores }: Props) {
     [router, search, status, hasImages, categoryId, storeId]
   )
 
+  // Skip first run (mount) — state was initialized from URL, no sync needed
+  const mountedRef = useRef(false)
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true
+      return
+    }
     const timer = setTimeout(() => updateParams({ search, replace: true }), 300)
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
