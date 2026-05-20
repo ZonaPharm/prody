@@ -30,15 +30,20 @@ export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // On mount: read real browser URL (authoritative) over stale RSC-cached searchParams
+  // On mount: real browser URL is authoritative over stale RSC-cached searchParams
+  // sessionStorage is tab-scoped — naturally empty on genuine fresh visits (new tab)
+  // so no explicit clearing is needed
   const initRef = useRef(false)
   const urlInitial = useRef<Record<string, string>>({})
+  const savedRef = useRef<Record<string, string>>({})
 
   if (!initRef.current) {
     initRef.current = true
     if (typeof window !== 'undefined') {
+      // Read saved filters from previous tab session
+      try { savedRef.current = JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch {}
+      // Back/forward navigation — real URL params are authoritative
       if (window.location.search) {
-        // Back/forward navigation — real URL params are authoritative
         const p = new URLSearchParams(window.location.search)
         urlInitial.current = {
           search: p.get('search') || '',
@@ -47,34 +52,25 @@ export default function ProductSearch({ categories, stores }: Props) {
           category: p.get('category') || '',
           store: p.get('store') || '',
         }
-      } else {
-        // Fresh visit — clear saved filters and scroll
-        try { sessionStorage.removeItem(FILTER_KEY) } catch {}
-        try { sessionStorage.removeItem(SCROLL_KEY) } catch {}
       }
     }
   }
 
-  // Read sessionStorage as last-resort fallback
-  const saved = (() => {
-    try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
-  })()
-
   // Priority: real browser URL → searchParams (SSR) → sessionStorage → defaults
   const [search, setSearch] = useState(
-    urlInitial.current.search || searchParams.get('search') || saved.search || ''
+    urlInitial.current.search || searchParams.get('search') || savedRef.current.search || ''
   )
   const [status, setStatus] = useState(
-    urlInitial.current.status || searchParams.get('status') || saved.status || 'all'
+    urlInitial.current.status || searchParams.get('status') || savedRef.current.status || 'all'
   )
   const [hasImages, setHasImages] = useState(
-    urlInitial.current.hasImages || searchParams.get('hasImages') || saved.hasImages || 'all'
+    urlInitial.current.hasImages || searchParams.get('hasImages') || savedRef.current.hasImages || 'all'
   )
   const [categoryId, setCategoryId] = useState(
-    urlInitial.current.category || searchParams.get('category') || saved.category || 'all'
+    urlInitial.current.category || searchParams.get('category') || savedRef.current.category || 'all'
   )
   const [storeId, setStoreId] = useState(
-    urlInitial.current.store || searchParams.get('store') || saved.store || 'all'
+    urlInitial.current.store || searchParams.get('store') || savedRef.current.store || 'all'
   )
 
   const updateParams = useCallback(
