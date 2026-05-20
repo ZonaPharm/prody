@@ -33,6 +33,15 @@ export default function ProductSearch({ categories, stores }: Props) {
   const [categoryId, setCategoryId] = useState(searchParams.get('category') || 'all')
   const [storeId, setStoreId] = useState(searchParams.get('store') || 'all')
 
+  // Sync state from URL when navigating back/forward
+  useEffect(() => {
+    setSearch(searchParams.get('search') || '')
+    setStatus(searchParams.get('status') || 'all')
+    setHasImages(searchParams.get('hasImages') || 'all')
+    setCategoryId(searchParams.get('category') || 'all')
+    setStoreId(searchParams.get('store') || 'all')
+  }, [searchParams])
+
   const updateParams = useCallback(
     (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
       const params = new URLSearchParams()
@@ -56,16 +65,26 @@ export default function ProductSearch({ categories, stores }: Props) {
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll restoration
-  const scrollRef = useRef<HTMLDivElement>(null)
+  // Scroll restoration — retry until content loads
+  const scrollRestored = useRef(false)
   useEffect(() => {
     const key = 'catalog-scroll'
     const saved = sessionStorage.getItem(key)
-    if (saved && scrollRef.current) {
-      requestAnimationFrame(() => {
+    if (!saved) return
+    scrollRestored.current = false
+    let attempts = 0
+    const tryRestore = () => {
+      if (scrollRestored.current) return
+      attempts++
+      if (parseInt(saved) > 0) {
         window.scrollTo(0, parseInt(saved))
-      })
+        if (window.scrollY > 0) scrollRestored.current = true
+      }
+      if (!scrollRestored.current && attempts < 10) {
+        requestAnimationFrame(tryRestore)
+      }
     }
+    requestAnimationFrame(tryRestore)
     const handler = () => sessionStorage.setItem(key, String(window.scrollY))
     window.addEventListener('scroll', handler, { passive: true })
     return () => window.removeEventListener('scroll', handler)
