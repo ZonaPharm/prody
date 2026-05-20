@@ -30,11 +30,17 @@ export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [search, setSearch] = useState(searchParams.get('search') || '')
-  const [status, setStatus] = useState(searchParams.get('status') || 'all')
-  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || 'all')
-  const [categoryId, setCategoryId] = useState(searchParams.get('category') || 'all')
-  const [storeId, setStoreId] = useState(searchParams.get('store') || 'all')
+  function readFilters(): Record<string, string> {
+    try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
+  }
+
+  const saved = readFilters()
+
+  const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
+  const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
+  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
+  const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
+  const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
 
   // On mount: if URL has no params, this is a fresh visit — clear saved filters
   useEffect(() => {
