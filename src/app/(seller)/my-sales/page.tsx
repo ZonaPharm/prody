@@ -18,6 +18,7 @@ type SaleRow = {
   store_name: string
   sale_group_id: string | null
   voided: boolean
+  payment_method: string
 }
 
 interface PageProps {
@@ -51,7 +52,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('sales')
-    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, created_at, product:products(name), store:stores(name)', { count: 'exact' })
+    .select('id, quantity, sale_price, sale_date, sale_group_id, voided, created_at, payment_method, product:products(name), store:stores(name)', { count: 'exact' })
     .eq('sold_by', user.id)
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
@@ -103,6 +104,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
     voided: s.voided || false,
     product_name: Array.isArray(s.product) ? (s.product[0]?.name ?? '—') : (s.product?.name ?? '—'),
     store_name: Array.isArray(s.store) ? (s.store[0]?.name ?? '—') : (s.store?.name ?? '—'),
+    payment_method: s.payment_method || 'cash',
   }))
 
   const groupCounts: Record<string, number> = {}
@@ -190,6 +192,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                   <th className="text-center px-4 py-3 font-medium">Кол.</th>
                   <th className="text-right px-4 py-3 font-medium">Цена</th>
                   <th className="text-right px-4 py-3 font-medium">Сума</th>
+                  <th className="text-center px-4 py-3 font-medium hidden sm:table-cell">Плащане</th>
                   <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Обект</th>
                   <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Дата / Час</th>
                   <th className="w-10" />
@@ -208,7 +211,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                     <React.Fragment key={row.id}>
                       {groupChanged && meta && (
                         <tr className="border-t-2 border-blue-200">
-                          <td colSpan={7} className="px-4 py-1 text-[10px] text-blue-500 font-medium uppercase tracking-wider">
+                          <td colSpan={8} className="px-4 py-1 text-[10px] text-blue-500 font-medium uppercase tracking-wider">
                             Група &middot; {groupCounts[gid]} артикула
                           </td>
                         </tr>
@@ -232,6 +235,9 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3 text-right font-medium tabular-nums">
                       {(row.quantity * row.sale_price).toFixed(2)} €
                     </td>
+                    <td className="px-4 py-3 text-center hidden sm:table-cell">
+                      {row.payment_method === 'card' ? 'Карта' : 'В брой'}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums text-xs">
                       {sofiaDate(row.sale_date)}<br />
@@ -248,6 +254,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                 <tr className="bg-slate-50 font-semibold">
                   <td colSpan={3} className="px-4 py-3 text-right">Общо:</td>
                   <td className="px-4 py-3 text-right tabular-nums">{total.toFixed(2)} €</td>
+                  <td className="hidden sm:table-cell" />
                   <td className="hidden md:table-cell" />
                   <td className="hidden sm:table-cell" />
                 </tr>
