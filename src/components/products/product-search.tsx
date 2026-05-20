@@ -57,7 +57,7 @@ export default function ProductSearch({ categories, stores }: Props) {
       if (cat && cat !== 'all') params.set('category', cat)
       if (store && store !== 'all') params.set('store', store)
       try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, store })) } catch {}
-      router.replace(`/catalog?${params.toString()}`)
+      router.push(`/catalog?${params.toString()}`, { scroll: false })
     },
     [router, search, status, hasImages, categoryId, storeId]
   )
