@@ -29,7 +29,6 @@ interface Props {
 export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const pathname = usePathname()
 
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [status, setStatus] = useState(searchParams.get('status') || 'all')
