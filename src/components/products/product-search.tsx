@@ -18,33 +18,31 @@ const IMAGE_OPTIONS = [
   { value: 'no', label: 'Без снимки' },
 ]
 
+const SCROLL_KEY = 'catalog-scroll'
+const FILTER_KEY = 'catalog-filters'
+
 interface Props {
   categories: { id: string; name: string }[]
   stores: { id: string; name: string }[]
 }
 
-const FILTER_KEY = 'catalog-filters'
-const SCROLL_KEY = 'catalog-scroll'
-
-function readFilters(): Record<string, string> {
-  try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
-}
-
-function writeFilters(f: Record<string, string>) {
-  try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(f)) } catch {}
-}
-
 export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
 
-  // Restore from URL first, fall back to sessionStorage
-  const saved = readFilters()
-  const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
-  const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
-  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
-  const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
-  const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
+  const [search, setSearch] = useState(searchParams.get('search') || '')
+  const [status, setStatus] = useState(searchParams.get('status') || 'all')
+  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || 'all')
+  const [categoryId, setCategoryId] = useState(searchParams.get('category') || 'all')
+  const [storeId, setStoreId] = useState(searchParams.get('store') || 'all')
+
+  // On mount: if URL has no params, this is a fresh visit — clear saved filters
+  useEffect(() => {
+    if (!searchParams.toString()) {
+      try { sessionStorage.removeItem(FILTER_KEY) } catch {}
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateParams = useCallback(
     (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
@@ -59,8 +57,7 @@ export default function ProductSearch({ categories, stores }: Props) {
       if (hi && hi !== 'all') params.set('hasImages', hi)
       if (cat && cat !== 'all') params.set('category', cat)
       if (store && store !== 'all') params.set('store', store)
-      // Save to sessionStorage
-      writeFilters({ search: s, status: st, hasImages: hi, category: cat, store })
+      try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, store })) } catch {}
       router.replace(`/catalog?${params.toString()}`)
     },
     [router, search, status, hasImages, categoryId, storeId]
@@ -71,7 +68,7 @@ export default function ProductSearch({ categories, stores }: Props) {
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll restoration — wait for content to be tall enough
+  // Scroll restoration — only when coming back from a product detail page
   const scrollPending = useRef<string | null>(null)
   useEffect(() => {
     const saved = sessionStorage.getItem(SCROLL_KEY)
@@ -80,10 +77,12 @@ export default function ProductSearch({ categories, stores }: Props) {
     }
     const handler = () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
     window.addEventListener('scroll', handler, { passive: true })
-    return () => window.removeEventListener('scroll', handler)
+    return () => {
+      window.removeEventListener('scroll', handler)
+      scrollPending.current = null
+    }
   }, [])
 
-  // Second effect: keep trying to restore until content height is enough
   useEffect(() => {
     if (!scrollPending.current) return
     const savedY = parseInt(scrollPending.current)
