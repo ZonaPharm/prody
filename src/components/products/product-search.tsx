@@ -30,21 +30,32 @@ export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Clear saved filters if URL has no params (fresh visit, not back-navigation)
-  // Must run BEFORE useState to avoid reading stale sessionStorage
-  if (!searchParams.toString()) {
-    try { sessionStorage.removeItem(FILTER_KEY) } catch {}
-  }
-
+  // Read sessionStorage (for back-navigation fallback)
   const saved = (() => {
     try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
   })()
 
-  const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
-  const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
-  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
-  const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
-  const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
+  // On mount: if URL has no params, this is a new visit — clear saved filters
+  const initRef = useRef(false)
+  if (!initRef.current) {
+    initRef.current = true
+    if (!searchParams.toString()) {
+      try { sessionStorage.removeItem(FILTER_KEY) } catch {}
+    }
+  }
+
+  // URL params are source of truth, sessionStorage is fallback
+  const spSearch = searchParams.get('search') || ''
+  const spStatus = searchParams.get('status') || 'all'
+  const spHasImages = searchParams.get('hasImages') || 'all'
+  const spCategory = searchParams.get('category') || 'all'
+  const spStore = searchParams.get('store') || 'all'
+
+  const [search, setSearch] = useState(spSearch || saved.search || '')
+  const [status, setStatus] = useState(spStatus !== 'all' ? spStatus : saved.status || 'all')
+  const [hasImages, setHasImages] = useState(spHasImages !== 'all' ? spHasImages : saved.hasImages || 'all')
+  const [categoryId, setCategoryId] = useState(spCategory !== 'all' ? spCategory : saved.category || 'all')
+  const [storeId, setStoreId] = useState(spStore !== 'all' ? spStore : saved.store || 'all')
 
   const updateParams = useCallback(
     (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
@@ -70,7 +81,7 @@ export default function ProductSearch({ categories, stores }: Props) {
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll restoration — only when coming back from a product detail page
+  // Scroll restoration
   const scrollPending = useRef<string | null>(null)
   useEffect(() => {
     const saved = sessionStorage.getItem(SCROLL_KEY)
@@ -79,10 +90,7 @@ export default function ProductSearch({ categories, stores }: Props) {
     }
     const handler = () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY))
     window.addEventListener('scroll', handler, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handler)
-      scrollPending.current = null
-    }
+    return () => window.removeEventListener('scroll', handler)
   }, [])
 
   useEffect(() => {
@@ -100,8 +108,10 @@ export default function ProductSearch({ categories, stores }: Props) {
         scrollPending.current = null
       }
     }
-    tryRestore()
-    return () => { scrollPending.current = null }
+    const timer = setTimeout(tryRestore, 50)
+    return () => {
+      clearTimeout(timer)
+    }
   }, [])
 
   return (
