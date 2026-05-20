@@ -30,26 +30,26 @@ export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Read sessionStorage (for back-navigation fallback)
-  const saved = (() => {
-    try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
-  })()
-
-  // On mount: if URL has no params, this is a new visit — clear saved filters
+  // On mount: check real browser URL (not searchParams which may be stale from RSC cache)
   const initRef = useRef(false)
   if (!initRef.current) {
     initRef.current = true
-    if (!searchParams.toString()) {
+    if (typeof window !== 'undefined' && !window.location.search) {
+      // Fresh visit — clear saved filters
       try { sessionStorage.removeItem(FILTER_KEY) } catch {}
     }
   }
 
-  // URL params are source of truth, sessionStorage is fallback
-  const spSearch = searchParams.get('search') || ''
-  const spStatus = searchParams.get('status') || 'all'
-  const spHasImages = searchParams.get('hasImages') || 'all'
-  const spCategory = searchParams.get('category') || 'all'
-  const spStore = searchParams.get('store') || 'all'
+  // Read sessionStorage AFTER potential clearing
+  const saved = (() => {
+    try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
+  })()
+
+  const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
+  const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
+  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
+  const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
+  const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
 
   const [search, setSearch] = useState(spSearch || saved.search || '')
   const [status, setStatus] = useState(spStatus !== 'all' ? spStatus : saved.status || 'all')
