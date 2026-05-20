@@ -30,29 +30,55 @@ export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // On mount: check real browser URL (not searchParams which may be stale from RSC cache)
+  // On mount: read real browser URL (authoritative) over stale RSC-cached searchParams
   const initRef = useRef(false)
+  const urlInitial = useRef<Record<string, string>>({})
+
   if (!initRef.current) {
     initRef.current = true
-    if (typeof window !== 'undefined' && !window.location.search) {
-      // Fresh visit — clear saved filters
-      try { sessionStorage.removeItem(FILTER_KEY) } catch {}
+    if (typeof window !== 'undefined') {
+      if (window.location.search) {
+        // Back/forward navigation — real URL params are authoritative
+        const p = new URLSearchParams(window.location.search)
+        urlInitial.current = {
+          search: p.get('search') || '',
+          status: p.get('status') || '',
+          hasImages: p.get('hasImages') || '',
+          category: p.get('category') || '',
+          store: p.get('store') || '',
+        }
+      } else {
+        // Fresh visit — clear saved filters and scroll
+        try { sessionStorage.removeItem(FILTER_KEY) } catch {}
+        try { sessionStorage.removeItem(SCROLL_KEY) } catch {}
+      }
     }
   }
 
-  // Read sessionStorage AFTER potential clearing
+  // Read sessionStorage as last-resort fallback
   const saved = (() => {
     try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
   })()
 
-  const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
-  const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
-  const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
-  const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
-  const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
+  // Priority: real browser URL → searchParams (SSR) → sessionStorage → defaults
+  const [search, setSearch] = useState(
+    urlInitial.current.search || searchParams.get('search') || saved.search || ''
+  )
+  const [status, setStatus] = useState(
+    urlInitial.current.status || searchParams.get('status') || saved.status || 'all'
+  )
+  const [hasImages, setHasImages] = useState(
+    urlInitial.current.hasImages || searchParams.get('hasImages') || saved.hasImages || 'all'
+  )
+  const [categoryId, setCategoryId] = useState(
+    urlInitial.current.category || searchParams.get('category') || saved.category || 'all'
+  )
+  const [storeId, setStoreId] = useState(
+    urlInitial.current.store || searchParams.get('store') || saved.store || 'all'
+  )
 
   const updateParams = useCallback(
-    (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
+    (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string; replace?: boolean }) => {
       const params = new URLSearchParams()
       const s = opts.search ?? search
       const st = opts.status ?? status
@@ -65,13 +91,18 @@ export default function ProductSearch({ categories, stores }: Props) {
       if (cat && cat !== 'all') params.set('category', cat)
       if (store && store !== 'all') params.set('store', store)
       try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, store })) } catch {}
-      router.push(`/catalog?${params.toString()}`, { scroll: false })
+      const url = `/catalog?${params.toString()}`
+      if (opts.replace) {
+        router.replace(url, { scroll: false })
+      } else {
+        router.push(url, { scroll: false })
+      }
     },
     [router, search, status, hasImages, categoryId, storeId]
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => updateParams({ search }), 300)
+    const timer = setTimeout(() => updateParams({ search, replace: true }), 300)
     return () => clearTimeout(timer)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
