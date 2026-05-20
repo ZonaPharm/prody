@@ -30,24 +30,21 @@ export default function ProductSearch({ categories, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  function readFilters(): Record<string, string> {
-    try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
+  // Clear saved filters if URL has no params (fresh visit, not back-navigation)
+  // Must run BEFORE useState to avoid reading stale sessionStorage
+  if (!searchParams.toString()) {
+    try { sessionStorage.removeItem(FILTER_KEY) } catch {}
   }
 
-  const saved = readFilters()
+  const saved = (() => {
+    try { return JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } catch { return {} }
+  })()
 
   const [search, setSearch] = useState(searchParams.get('search') || saved.search || '')
   const [status, setStatus] = useState(searchParams.get('status') || saved.status || 'all')
   const [hasImages, setHasImages] = useState(searchParams.get('hasImages') || saved.hasImages || 'all')
   const [categoryId, setCategoryId] = useState(searchParams.get('category') || saved.category || 'all')
   const [storeId, setStoreId] = useState(searchParams.get('store') || saved.store || 'all')
-
-  // On mount: if URL has no params, this is a fresh visit — clear saved filters
-  useEffect(() => {
-    if (!searchParams.toString()) {
-      try { sessionStorage.removeItem(FILTER_KEY) } catch {}
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateParams = useCallback(
     (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string }) => {
