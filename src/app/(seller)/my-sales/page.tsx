@@ -236,7 +236,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                       {(row.quantity * row.sale_price).toFixed(2)} €
                     </td>
                     <td className="px-4 py-3 text-center hidden sm:table-cell">
-                      {row.payment_method === 'card' ? 'Карта' : 'В брой'}
+                      {row.payment_method === 'card' ? 'Карта' : row.payment_method === 'transfer' ? 'Превод' : 'В брой'}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums text-xs">
