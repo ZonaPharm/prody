@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { executeSaleFIFO } from '@/lib/inventory'
+import { executeSaleFIFO, getFIFOBatches } from '@/lib/inventory'
 import { logAction } from '@/lib/audit'
 import { sofiaToday } from '@/lib/date-utils'
 
@@ -47,17 +47,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Нямате достъп до този магазин' }, { status: 403 })
   }
 
-  // Verify all products have stock
+  // Verify all products exist and have stock IN THIS SPECIFIC STORE
+  // Uses admin client to bypass RLS and get real batch-level inventory
+  const admin = createAdminClient()
   for (const item of items) {
-    const { data: prod } = await (supabase.from('products') as any)
-      .select('quantity_on_hand, name')
+    const { data: prod } = await (admin.from('products') as any)
+      .select('name')
       .eq('id', item.product_id)
       .single()
     if (!prod) {
       return NextResponse.json({ error: 'Продуктът не съществува' }, { status: 400 })
     }
-    if (prod.quantity_on_hand < item.quantity) {
-      return NextResponse.json({ error: `Недостатъчна наличност за "${prod.name}": ${prod.quantity_on_hand} бр.` }, { status: 400 })
+    // Check actual FIFO batch stock in the seller's store
+    const { total } = await getFIFOBatches(item.product_id, store_id, item.quantity)
+    if (total < item.quantity) {
+      return NextResponse.json({ error: `Недостатъчна наличност за "${prod.name}": ${total} бр. в този обект` }, { status: 400 })
     }
   }
 
@@ -81,8 +85,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Грешка при записване' }, { status: 500 })
   }
 
-  // Decrement stock using admin client (bypasses RLS)
-  const admin = createAdminClient()
+  // Decrement stock using admin client (already created above)
   for (const item of items) {
     try {
       const { data: prod } = await (admin.from('products') as any)
