@@ -223,7 +223,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-2">{product.name}</p>
+                  <p className="text-sm font-medium line-clamp-2" title={product.name}>{product.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {product.price ? `${product.price.toFixed(2)} лв` : 'Без цена'} &middot; Наличност: {product.quantity_on_hand}
                   </p>

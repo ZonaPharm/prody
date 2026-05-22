@@ -119,7 +119,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                         <Package className="h-8 w-8 text-slate-300" />
                       )}
                     </div>
-                    <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em]">{product.name}</p>
+                    <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em]" title={product.name}>{product.name}</p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-sm font-semibold tabular-nums">
                         {product.price != null ? `${product.price.toFixed(2)} €` : '—'}

@@ -46,7 +46,7 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
                 className="flex items-center gap-2 p-3 rounded-md border bg-slate-50/50"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
+                  <p className="text-sm font-medium line-clamp-2" title={item.product.name}>{item.product.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
                   </p>
@@ -158,7 +158,7 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
               {items.map(item => (
                 <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border bg-slate-50/50">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
+                    <p className="text-sm font-medium line-clamp-2" title={item.product.name}>{item.product.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
                     </p>
