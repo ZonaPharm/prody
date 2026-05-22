@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ProductCard from './product-card'
 
 interface Props {
@@ -15,45 +15,65 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
   const [loading, setLoading] = useState(false)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return
-    setLoading(true)
+  // Use refs to avoid stale closures in IntersectionObserver callback
+  const loadingRef = useRef(false)
+  const hasMoreRef = useRef(initialHasMore)
+  const filtersRef = useRef(filters)
+  const offsetRef = useRef(initialProducts.length)
 
-    const params = new URLSearchParams({ offset: String(products.length), limit: '50' })
-    if (filters.search) params.set('search', filters.search)
-    if (filters.status) params.set('status', filters.status)
-    if (filters.sort) params.set('sort', filters.sort)
-    if (filters.category) params.set('category', filters.category)
-    if (filters.store) params.set('store', filters.store)
+  useEffect(() => { hasMoreRef.current = initialHasMore }, [initialHasMore])
+  useEffect(() => { filtersRef.current = filters }, [filters])
 
-    try {
-      const res = await fetch(`/api/products/load-more?${params}`)
-      const data = await res.json()
-      setProducts(prev => [...prev, ...(data.products || [])])
-      setHasMore(data.hasMore)
-    } catch {
-      // retry on next scroll
-    } finally {
-      setLoading(false)
-    }
-  }, [products.length, hasMore, loading, filters])
+  // Reset when filters change
+  useEffect(() => {
+    setProducts(initialProducts)
+    setHasMore(initialHasMore)
+    offsetRef.current = initialProducts.length
+    loadingRef.current = false
+    setLoading(false)
+  }, [initialProducts, initialHasMore])
 
   useEffect(() => {
     const el = sentinelRef.current
     if (!el) return
+
     const ob = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) loadMore() },
+      async ([entry]) => {
+        if (!entry.isIntersecting) return
+        if (loadingRef.current || !hasMoreRef.current) return
+
+        loadingRef.current = true
+        setLoading(true)
+
+        const f = filtersRef.current
+        const params = new URLSearchParams({ offset: String(offsetRef.current), limit: '50' })
+        if (f.search) params.set('search', f.search)
+        if (f.status) params.set('status', f.status)
+        if (f.sort) params.set('sort', f.sort)
+        if (f.category) params.set('category', f.category)
+        if (f.store) params.set('store', f.store)
+
+        try {
+          const res = await fetch(`/api/products/load-more?${params}`)
+          const data = await res.json()
+          setProducts(prev => {
+            offsetRef.current = initialProducts.length + prev.length + (data.products || []).length
+            return [...prev, ...(data.products || [])]
+          })
+          setHasMore(data.hasMore)
+          hasMoreRef.current = data.hasMore
+        } catch {
+          // retry on next scroll
+        } finally {
+          loadingRef.current = false
+          setLoading(false)
+        }
+      },
       { rootMargin: '200px' }
     )
     ob.observe(el)
     return () => ob.disconnect()
-  }, [loadMore])
-
-  // Reset when filters change (initial products are new)
-  useEffect(() => {
-    setProducts(initialProducts)
-    setHasMore(initialHasMore)
-  }, [initialProducts, initialHasMore])
+  }, [initialProducts.length]) // stable dependency — only remounts when page resets
 
   return (
     <>
@@ -63,7 +83,6 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
         ))}
       </div>
 
-      {/* Sentinel element for intersection observer */}
       <div ref={sentinelRef} className="h-10 flex items-center justify-center">
         {loading && (
           <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
