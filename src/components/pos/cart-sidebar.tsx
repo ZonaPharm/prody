@@ -43,7 +43,7 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
             {items.map(item => (
               <div
                 key={item.product.id}
-                className="flex items-center gap-3 p-3 rounded-md border bg-slate-50/50"
+                className="flex items-center gap-2 p-3 rounded-md border bg-slate-50/50"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
@@ -52,25 +52,25 @@ export function CartSidebar({ items, onAdd, onRemove, onSetQty, onSubmit, submit
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 shrink-0">
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     onClick={() => item.qty <= 1 ? onRemove(item.product.id) : onSetQty(item.product.id, item.qty - 1)}
                   >
-                    <Minus className="h-3 w-3" />
+                    <Minus className="h-2.5 w-2.5" />
                   </Button>
-                  <span className="w-8 text-center text-sm font-medium tabular-nums">
+                  <span className="w-6 text-center text-sm font-medium tabular-nums">
                     {item.qty}
                   </span>
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-6 w-6"
                     onClick={() => onAdd(item.product.id)}
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="h-2.5 w-2.5" />
                   </Button>
                 </div>
 
@@ -163,15 +163,15 @@ export function CartBottomBar({ items, onAdd, onRemove, onSetQty, onSubmit, subm
                       {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="outline" size="icon" className="h-7 w-7"
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <Button variant="outline" size="icon" className="h-6 w-6"
                       onClick={() => item.qty <= 1 ? onRemove(item.product.id) : onSetQty(item.product.id, item.qty - 1)}>
-                      <Minus className="h-3 w-3" />
+                      <Minus className="h-2.5 w-2.5" />
                     </Button>
-                    <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
-                    <Button variant="outline" size="icon" className="h-7 w-7"
+                    <span className="w-6 text-center text-sm tabular-nums">{item.qty}</span>
+                    <Button variant="outline" size="icon" className="h-6 w-6"
                       onClick={() => onAdd(item.product.id)}>
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-2.5 w-2.5" />
                     </Button>
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500"
