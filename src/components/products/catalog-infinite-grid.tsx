@@ -54,6 +54,9 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
         if (f.store) params.set('store', f.store)
 
         try {
+          // Save scroll position before adding products to prevent layout jump
+          const scrollY = window.scrollY
+
           const res = await fetch(`/api/products/load-more?${params}`)
           const data = await res.json()
           setProducts(prev => {
@@ -62,6 +65,11 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
           })
           setHasMore(data.hasMore)
           hasMoreRef.current = data.hasMore
+
+          // Restore scroll position after DOM update
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior })
+          })
         } catch {
           // retry on next scroll
         } finally {
@@ -69,7 +77,7 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
           setLoading(false)
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '500px' }
     )
     ob.observe(el)
     return () => ob.disconnect()
