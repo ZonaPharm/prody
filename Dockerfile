@@ -1,18 +1,17 @@
-# ---- 1. Dependencies ----
-FROM node:22-alpine AS deps
+# ---- 1. Production Dependencies ----
+FROM node:22-alpine AS prod-deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-# Install all deps — builder needs devDependencies (typescript, etc.)
-RUN npm ci
+RUN npm ci --omit=dev
 
 
 # ---- 2. Build ----
 FROM node:22-alpine AS builder
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 
 # Build-time args for public env vars (not secrets — these appear in browser)
@@ -41,9 +40,14 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Public assets (favicons, robots.txt, etc.)
 COPY --from=builder /app/public ./public
 
-# Next.js standalone output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Build output
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+
+# Production dependencies (next, react, etc.)
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# package.json needed for next start
+COPY --from=builder /app/package.json ./
 
 USER nextjs
 
@@ -52,4 +56,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["node", "server.js"]
+CMD ["npx", "next", "start"]

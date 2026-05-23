@@ -22,7 +22,6 @@ export function SalesFilters({ fromDate, toDate, store, product, category, store
     else params.delete(key)
     params.delete('page') // reset to page 1
     router.push(`/sales?${params.toString()}`)
-    router.refresh()
   }
 
   const inputClass = 'border rounded px-3 py-2 text-sm'
