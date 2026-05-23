@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Package, Star } from 'lucide-react'
 import { Product } from './cart-types'
+import { getImageSrc } from '@/lib/images'
 
 interface ProductGridProps {
   products: Product[]
@@ -80,7 +81,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                 onClick={() => onAddToCart(product)}
               >
                 {product.image_url ? (
-                  <img src={product.image_url} alt="" className="h-6 w-6 rounded object-cover" />
+                  <img src={getImageSrc(product.image_url)} alt="" className="h-6 w-6 rounded object-cover" />
                 ) : (
                   <Package className="h-4 w-4 text-muted-foreground" />
                 )}
@@ -114,7 +115,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                   >
                     <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
                       {product.image_url ? (
-                        <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                        <img src={getImageSrc(product.image_url)} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <Package className="h-8 w-8 text-slate-300" />
                       )}
@@ -146,7 +147,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                     >
                       <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
                         {product.image_url ? (
-                          <img src={product.image_url} alt="" className="w-full h-full object-cover grayscale" />
+                          <img src={getImageSrc(product.image_url)} alt="" className="w-full h-full object-cover grayscale" />
                         ) : (
                           <Package className="h-8 w-8 text-slate-300" />
                         )}

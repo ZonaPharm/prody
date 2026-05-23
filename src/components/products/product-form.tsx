@@ -3,6 +3,7 @@
 import { useState, useRef, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getImageSrc } from '@/lib/images'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -453,7 +454,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           <div className="flex flex-wrap gap-3">
             {existingImages.map((img) => (
               <div key={img.id} className="relative group">
-                <img src={img.url} alt="" className="h-24 w-24 object-cover rounded-md border" />
+                <img src={getImageSrc(img.url)} alt="" className="h-24 w-24 object-cover rounded-md border" />
                 <button type="button" onClick={() => setPrimaryExistingImage(img.id)}
                   className={`absolute top-1 left-1 rounded-full w-5 h-5 text-xs flex items-center justify-center transition-opacity ${img.is_primary ? 'bg-yellow-400 text-white opacity-100' : 'bg-white/80 text-slate-500 opacity-0 group-hover:opacity-100'}`}
                   title="Задай като основна">

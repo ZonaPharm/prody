@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { Printer, Pencil, Trash2, Package, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { getImageSrc } from '@/lib/images'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
@@ -122,7 +123,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
           <div className="aspect-square bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
             {primaryImage ? (
               <img
-                src={primaryImage.url}
+                src={getImageSrc(primaryImage.url)}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />

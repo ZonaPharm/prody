@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Package } from 'lucide-react'
 import { STATUS_LABELS, STATUS_VARIANTS, INACTIVE_REASON_LABELS } from '@/lib/constants'
 import { ToggleStatusButton } from './toggle-status-button'
+import { getImageSrc } from '@/lib/images'
 
 interface ProductCardProps {
   product: {
@@ -43,7 +44,7 @@ export default function ProductCard({ product, href }: ProductCardProps) {
           <ToggleStatusButton productId={product.id} currentStatus={product.status} />
           {primaryImage ? (
             <img
-              src={primaryImage.url}
+              src={getImageSrc(primaryImage.url)}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
             />

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { Search, CheckCircle, Loader2 } from 'lucide-react'
+import { getImageSrc } from '@/lib/images'
 
 type Product = {
   id: string
@@ -216,7 +217,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
                 onClick={() => handleSelect(product)}
               >
                 {product.image_url ? (
-                  <img src={product.image_url} alt="" className="h-10 w-10 rounded object-cover" />
+                  <img src={getImageSrc(product.image_url)} alt="" className="h-10 w-10 rounded object-cover" />
                 ) : (
                   <div className="h-10 w-10 rounded bg-slate-100 flex items-center justify-center text-xs text-slate-400">
                     НЯМА
@@ -245,7 +246,7 @@ export default function SaleEntry({ storeId, userId }: SaleEntryProps) {
         <div className="rounded-lg border bg-white p-4 space-y-4">
           <div className="flex gap-4">
             {selected.image_url ? (
-              <img src={selected.image_url} alt={selected.name} className="h-24 w-24 rounded object-cover" />
+              <img src={getImageSrc(selected.image_url)} alt={selected.name} className="h-24 w-24 rounded object-cover" />
             ) : (
               <div className="h-24 w-24 rounded bg-slate-100 flex items-center justify-center text-slate-400 text-sm">
                 Няма снимка
