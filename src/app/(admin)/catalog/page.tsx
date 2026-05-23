@@ -1,3 +1,4 @@
+// Catalog page with infinite scroll (PAGE_SIZE=50)
 export const dynamic = 'force-dynamic'
 
 import { requireAdmin } from '@/lib/auth'
