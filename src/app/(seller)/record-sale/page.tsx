@@ -1,7 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { POSClient } from '@/components/pos/pos-client'
 import { Product } from '@/components/pos/cart-types'
@@ -17,7 +16,6 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   const sp = await searchParams
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
-  const supabase = await createServerSupabaseClient()
   const admin = createAdminClient()
 
   // Fetch stores
@@ -60,18 +58,15 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     perStoreQty[b.product_id] = (perStoreQty[b.product_id] || 0) + b.quantity_remaining
   })
 
-  // Fetch listed products (only those with stock in this store)
-  let productQuery = (admin.from('products') as any)
+  // Fetch ALL active products (filter stock in JS to avoid PostgREST URI limit)
+  const { data: allActiveProducts } = await (admin.from('products') as any)
     .select('id, name, price, quantity_on_hand, category_id')
     .eq('status', 'active')
+    .order('name')
 
-  if (storeProductIds.size > 0) {
-    productQuery = productQuery.in('id', Array.from(storeProductIds))
-  } else {
-    productQuery = productQuery.eq('id', '00000000-0000-0000-0000-000000000000') // no results
-  }
-
-  const { data: products } = await productQuery
+  // Split into in-stock vs out-of-stock for this store
+  const products = (allActiveProducts || []).filter((p: any) => storeProductIds.has(p.id))
+  const outOfStockProducts = (allActiveProducts || []).filter((p: any) => !storeProductIds.has(p.id))
 
   // Sort by sales frequency for this store (most sold first, unsold alphabetical)
   const { data: storeSalesCounts } = await (admin.from('sales') as any)
@@ -92,47 +87,25 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     return (a.name || '').localeCompare(b.name || '')
   })
 
-  // Fetch out-of-stock products (had stock in this store but now at 0)
-  const { data: zeroBatches } = await (admin.from('stock_batches') as any)
-    .select('product_id')
-    .eq('store_id', defaultStoreId)
-    .lte('quantity_remaining', 0)
-
-  const zeroStockIds = new Set((zeroBatches || []).map((b: any) => b.product_id))
-  // Remove products that already have stock > 0
-  zeroStockIds.forEach(id => { if (storeProductIds.has(id)) zeroStockIds.delete(id) })
-
-  let outOfStockProducts: any[] = []
-  if (zeroStockIds.size > 0) {
-    const { data: zeroProducts } = await (admin.from('products') as any)
-      .select('id, name, price, quantity_on_hand, category_id')
-      .eq('status', 'active')
-      .in('id', Array.from(zeroStockIds))
-      .order('name')
-    outOfStockProducts = (zeroProducts || []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      quantity_on_hand: 0,
-      category_id: p.category_id,
-      image_url: null,
-    }))
-  }
+  // Out-of-stock: all active products NOT in stock for this store
+  const outOfStockProductsWithMeta = (outOfStockProducts || []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    quantity_on_hand: 0,
+    category_id: p.category_id,
+    image_url: null,
+  }))
 
   // Fetch categories
-  const { data: categories } = await (supabase.from('categories') as any)
+  const { data: categories } = await (admin.from('categories') as any)
     .select('id, name')
     .order('name')
 
-  // Fetch primary images for all products (in-stock + out-of-stock)
-  const productIds = (sortedProducts || []).map((p: any) => p.id)
-  const allIds = [...productIds, ...outOfStockProducts.map((p: any) => p.id)]
-  const { data: images } = allIds.length > 0
-    ? await (supabase.from('product_images') as any)
-        .select('product_id, url')
-        .in('product_id', allIds)
-        .eq('is_primary', true)
-    : { data: [] }
+  // Fetch all primary images (avoid IN filter URI limit)
+  const { data: images } = await (admin.from('product_images') as any)
+    .select('product_id, url')
+    .eq('is_primary', true)
 
   const imageMap: Record<string, string> = {}
   ;(images || []).forEach((img: any) => {
@@ -140,7 +113,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   })
 
   // Add images to outOfStock
-  outOfStockProducts = outOfStockProducts.map((p: any) => ({
+  const outOfStockFinal = outOfStockProductsWithMeta.map((p: any) => ({
     ...p,
     image_url: imageMap[p.id] || null,
   }))
@@ -197,7 +170,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
       frequentlySold={frequentlySold}
       stores={stores as Store[]}
       defaultStoreId={defaultStoreId!}
-      outOfStock={outOfStockProducts as Product[]}
+      outOfStock={outOfStockFinal as Product[]}
     />
   )
 }
