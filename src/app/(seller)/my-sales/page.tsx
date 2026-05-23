@@ -1,6 +1,5 @@
 import React from 'react'
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Package2 } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
@@ -39,11 +38,9 @@ function buildMyPageUrl(params: Record<string, string | undefined>, page: number
 
 export default async function MySalesPage({ searchParams }: PageProps) {
   const user = await requireAuth()
-  const effectiveRole = await getEffectiveRole(user)
 
   const params = await searchParams
   const storeId = user.store_id
-  const supabase = await createServerSupabaseClient()
   const admin = createAdminClient()
 
   const today = sofiaToday()
