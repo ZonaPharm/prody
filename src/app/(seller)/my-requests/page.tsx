@@ -1,5 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { MyRequestsClient } from './client'
 
 export const dynamic = 'force-dynamic'
@@ -12,13 +13,14 @@ export default async function MyRequestsPage({
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
   const supabase = await createServerSupabaseClient()
+  const admin = createAdminClient()
   const sp = await searchParams
   const activeTab = sp.tab || 'request'
 
   // Resolve store_id (admins impersonating sellers may not have one)
   let storeId = user.store_id
   if (!storeId && user.role === 'admin' && effectiveRole === 'seller') {
-    const { data: stores } = await (supabase.from('stores') as any)
+    const { data: stores } = await (admin.from('stores') as any)
       .select('id, is_warehouse').eq('is_active', true).order('name')
     const store = (stores || []).find((s: any) => !s.is_warehouse) || (stores || [])[0]
     if (store) storeId = store.id
@@ -26,9 +28,9 @@ export default async function MyRequestsPage({
 
   // Products for request form (with images + categories for grid view)
   const [{ data: products }, { data: categories }, { data: images }] = await Promise.all([
-    (supabase.from('products') as any).select('id, name, price, quantity_on_hand, category_id').eq('status', 'active').order('name'),
-    (supabase.from('categories') as any).select('id, name').order('name'),
-    (supabase.from('product_images') as any).select('product_id, url').eq('is_primary', true),
+    (admin.from('products') as any).select('id, name, price, quantity_on_hand, category_id').eq('status', 'active').order('name'),
+    (admin.from('categories') as any).select('id, name').order('name'),
+    (admin.from('product_images') as any).select('product_id, url').eq('is_primary', true),
   ])
 
   const imageMap: Record<string, string> = {}
@@ -37,7 +39,7 @@ export default async function MyRequestsPage({
   // My requests
   let myRequests: any[] = []
   if (activeTab === 'my') {
-    const { data } = await (supabase.from('stock_requests') as any)
+    const { data } = await (admin.from('stock_requests') as any)
       .select('id, product:products(name), requested_qty, status, notes, created_at, accepted_at, in_transit_at, delivered_at')
       .eq('requested_by', user.id)
       .order('created_at', { ascending: false })
@@ -61,14 +63,14 @@ export default async function MyRequestsPage({
   let lowStockImageMap: Record<string, string> = {}
   if (activeTab === 'low') {
     if (storeId) {
-      const { data: batches } = await (supabase.from('stock_batches') as any)
+      const { data: batches } = await (admin.from('stock_batches') as any)
         .select('product_id, quantity_remaining').eq('store_id', storeId)
       const productQtys: Record<string, number> = {}
       ;(batches || []).forEach((b: any) => { productQtys[b.product_id] = (productQtys[b.product_id] || 0) + b.quantity_remaining })
 
       const productIds = Object.keys(productQtys)
       const { data: lowProducts } = productIds.length > 0
-        ? await (supabase.from('products') as any).select('id, name, price, min_quantity, category:categories(name)').in('id', productIds).order('name')
+        ? await (admin.from('products') as any).select('id, name, price, min_quantity, category:categories(name)').in('id', productIds).order('name')
         : { data: [] }
 
       lowStockItems = (lowProducts || []).map((p: any) => ({
@@ -79,14 +81,14 @@ export default async function MyRequestsPage({
       })).filter((p: any) => p.current_qty <= p.min_quantity).sort((a: any, b: any) => a.current_qty - b.current_qty)
 
       // All products for request form
-      const { data: allProds } = await (supabase.from('products') as any)
+      const { data: allProds } = await (admin.from('products') as any)
         .select('id, name, price, min_quantity, category:categories(name)').eq('status', 'active').order('name')
       lowStockAllProducts = allProds || []
 
       // Product images
       const allIds = [...lowStockItems.map((i: any) => i.id), ...(allProds || []).map((p: any) => p.id)]
       const { data: images } = allIds.length > 0
-        ? await (supabase.from('product_images') as any).select('product_id, url').in('product_id', allIds).eq('is_primary', true)
+        ? await (admin.from('product_images') as any).select('product_id, url').in('product_id', allIds).eq('is_primary', true)
         : { data: [] }
       ;(images || []).forEach((img: any) => { if (!lowStockImageMap[img.product_id]) lowStockImageMap[img.product_id] = img.url })
     }

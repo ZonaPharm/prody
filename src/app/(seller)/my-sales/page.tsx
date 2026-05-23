@@ -1,6 +1,7 @@
 import React from 'react'
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Package2 } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
@@ -43,6 +44,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const params = await searchParams
   const storeId = user.store_id
   const supabase = await createServerSupabaseClient()
+  const admin = createAdminClient()
 
   const today = sofiaToday()
   const fromDate = params.from || today
@@ -50,7 +52,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(params.page || '1') || 1)
   const offset = (page - 1) * MY_PAGE_SIZE
 
-  let query = supabase
+  let query = admin
     .from('sales')
     .select('id, quantity, sale_price, sale_date, sale_group_id, voided, created_at, payment_method, product:products(name), store:stores(name)', { count: 'exact' })
     .eq('sold_by', user.id)
@@ -77,7 +79,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil((totalCount || 0) / MY_PAGE_SIZE)
 
   // Fetch totals for ENTIRE period (not just current page)
-  let totalsQuery = supabase
+  let totalsQuery = admin
     .from('sales')
     .select('quantity, sale_price')
     .eq('sold_by', user.id)

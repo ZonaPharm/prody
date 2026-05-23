@@ -1,5 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { LowStockClient } from './low-stock-client'
 
 export const dynamic = 'force-dynamic'
@@ -8,12 +9,13 @@ export default async function LowStockPage() {
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
   const supabase = await createServerSupabaseClient()
+  const admin = createAdminClient()
 
   let storeId = user.store_id
 
   // Admin impersonating: get first active non-warehouse store
   if (!storeId && user.role === 'admin' && effectiveRole === 'seller') {
-    const { data: stores } = await (supabase.from('stores') as any)
+    const { data: stores } = await (admin.from('stores') as any)
       .select('id, is_warehouse')
       .eq('is_active', true)
       .order('name')
@@ -30,7 +32,7 @@ export default async function LowStockPage() {
   }
 
   // Get products with batches in this store (including zero)
-  const { data: batches } = await (supabase.from('stock_batches') as any)
+  const { data: batches } = await (admin.from('stock_batches') as any)
     .select('product_id, quantity_remaining')
     .eq('store_id', storeId)
 
@@ -42,7 +44,7 @@ export default async function LowStockPage() {
   // Get product details
   const productIds = Object.keys(productQtys)
   const { data: products } = productIds.length > 0
-    ? await (supabase.from('products') as any)
+    ? await (admin.from('products') as any)
         .select('id, name, price, min_quantity, category:categories(name)')
         .in('id', productIds)
         .order('name')
@@ -59,14 +61,14 @@ export default async function LowStockPage() {
     .sort((a: any, b: any) => a.current_qty - b.current_qty)
 
   // Fetch all active products for search
-  const { data: allProducts } = await (supabase.from('products') as any)
+  const { data: allProducts } = await (admin.from('products') as any)
     .select('id, name, price, min_quantity, category:categories(name)')
     .eq('status', 'active')
     .order('name')
 
   // Fetch product images
   const allIds = [...items.map((i: any) => i.id), ...(allProducts || []).map((p: any) => p.id)]
-  const { data: images } = allIds.length > 0 ? await (supabase.from('product_images') as any)
+  const { data: images } = allIds.length > 0 ? await (admin.from('product_images') as any)
     .select('product_id, url')
     .in('product_id', allIds)
     .eq('is_primary', true)
