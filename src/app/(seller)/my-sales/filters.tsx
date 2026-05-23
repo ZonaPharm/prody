@@ -18,11 +18,13 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
     else params.delete(key)
     params.delete('page')
     router.push(`/my-sales?${params.toString()}`)
+    router.refresh()
   }
 
   const setToday = () => {
     const today = new Date().toISOString().split('T')[0]
     router.push(`/my-sales?from=${today}&to=${today}`)
+    router.refresh()
   }
 
   const setThisWeek = () => {
@@ -33,6 +35,7 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
     router.push(`/my-sales?from=${monday.toISOString().split('T')[0]}&to=${sunday.toISOString().split('T')[0]}`)
+    router.refresh()
   }
 
   const setThisMonth = () => {
@@ -40,6 +43,7 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
     const first = new Date(now.getFullYear(), now.getMonth(), 1)
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
     router.push(`/my-sales?from=${first.toISOString().split('T')[0]}&to=${last.toISOString().split('T')[0]}`)
+    router.refresh()
   }
 
   return (
