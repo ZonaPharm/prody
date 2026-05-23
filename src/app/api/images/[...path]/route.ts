@@ -17,6 +17,7 @@ export async function GET(
   try {
     const res = await fetch(imageUrl, {
       signal: AbortSignal.timeout(10000),
+      next: { revalidate: 86400 },
     })
 
     if (!res.ok) {

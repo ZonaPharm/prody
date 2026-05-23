@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Check, Loader2, MessageSquare, AlertOctagon } from 'lucide-react'
 import { RejectRequestButton } from '@/components/inventory/reject-request-button'
 import { sofiaDate, sofiaDateTime } from '@/lib/date-utils'
+import { getImageSrc } from '@/lib/images'
 
 interface ProductItem {
   id: string
@@ -193,7 +194,7 @@ export function LowStockClient({
             <div key={item.product.id} className="flex items-center gap-3 py-2 border-b last:border-0">
               <div className="h-10 w-10 rounded bg-slate-100 shrink-0 overflow-hidden">
                 {imageMap[item.product.id] ? (
-                  <img src={imageMap[item.product.id]} alt="" className="h-full w-full object-cover" />
+                  <img src={getImageSrc(imageMap[item.product.id])} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <Package className="h-5 w-5 m-2.5 text-slate-300" />
                 )}
@@ -250,7 +251,7 @@ export function LowStockClient({
               <div key={p.id} className="flex items-center gap-3 p-2 hover:bg-slate-50">
                 <div className="h-10 w-10 rounded bg-slate-100 shrink-0 overflow-hidden">
                   {imageMap[p.id] ? (
-                    <img src={imageMap[p.id]} alt="" className="h-full w-full object-cover" />
+                    <img src={getImageSrc(imageMap[p.id])} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <Package className="h-5 w-5 m-2.5 text-slate-300" />
                   )}
@@ -292,7 +293,7 @@ export function LowStockClient({
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded bg-slate-100 shrink-0 overflow-hidden">
                           {imageMap[item.id] ? (
-                            <img src={imageMap[item.id]} alt="" className="h-full w-full object-cover" />
+                            <img src={getImageSrc(imageMap[item.id])} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <Package className="h-5 w-5 m-2.5 text-slate-300" />
                           )}

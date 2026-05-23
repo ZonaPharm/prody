@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
+import { getImageSrc } from '@/lib/images'
 
 interface Product {
   id: string; name: string; price: number | null; quantity_on_hand: number; category_id?: string | null
@@ -248,7 +249,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                     >
                       <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
                         {imageMap[p.id] ? (
-                          <img src={imageMap[p.id]} alt="" className="w-full h-full object-cover" />
+                          <img src={getImageSrc(imageMap[p.id])} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <Package className="h-8 w-8 text-slate-300" />
                         )}
@@ -382,7 +383,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                 <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
                   <div className="flex items-center gap-3 min-w-0">
                     {lowStockImageMap[p.id] && (
-                      <img src={lowStockImageMap[p.id]} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
+                      <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
                     )}
                     <div>
                       <p className="text-sm font-medium truncate">{p.name}</p>
