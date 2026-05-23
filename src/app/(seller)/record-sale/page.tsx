@@ -2,6 +2,7 @@ import { requireAuth, getEffectiveRole } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { POSClient } from '@/components/pos/pos-client'
 import { Product } from '@/components/pos/cart-types'
 import { AlertTriangle } from 'lucide-react'
@@ -17,9 +18,10 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
   const supabase = await createServerSupabaseClient()
+  const admin = createAdminClient()
 
   // Fetch stores
-  const { data: stores } = await (supabase.from('stores') as any)
+  const { data: stores } = await (admin.from('stores') as any)
     .select('id, name')
     .eq('is_active', true)
     .order('name')
@@ -46,8 +48,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   const selectedStore = stores.find((s: any) => s.id === defaultStoreId)
   if (selectedStore) defaultStoreId = selectedStore.id
 
-  // Get products with stock in THIS store from stock_batches
-  const { data: storeBatches } = await (supabase.from('stock_batches') as any)
+  // Get products with stock in THIS store from stock_batches (admin bypasses RLS)
+  const { data: storeBatches } = await (admin.from('stock_batches') as any)
     .select('product_id, quantity_remaining')
     .eq('store_id', defaultStoreId)
     .gt('quantity_remaining', 0)
@@ -59,7 +61,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   })
 
   // Fetch listed products (only those with stock in this store)
-  let productQuery = (supabase.from('products') as any)
+  let productQuery = (admin.from('products') as any)
     .select('id, name, price, quantity_on_hand, category_id')
     .eq('status', 'active')
 
@@ -72,7 +74,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   const { data: products } = await productQuery
 
   // Sort by sales frequency for this store (most sold first, unsold alphabetical)
-  const { data: storeSalesCounts } = await (supabase.from('sales') as any)
+  const { data: storeSalesCounts } = await (admin.from('sales') as any)
     .select('product_id')
     .eq('store_id', defaultStoreId)
     .eq('voided', false)
@@ -91,7 +93,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   })
 
   // Fetch out-of-stock products (had stock in this store but now at 0)
-  const { data: zeroBatches } = await (supabase.from('stock_batches') as any)
+  const { data: zeroBatches } = await (admin.from('stock_batches') as any)
     .select('product_id')
     .eq('store_id', defaultStoreId)
     .lte('quantity_remaining', 0)
@@ -102,7 +104,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
 
   let outOfStockProducts: any[] = []
   if (zeroStockIds.size > 0) {
-    const { data: zeroProducts } = await (supabase.from('products') as any)
+    const { data: zeroProducts } = await (admin.from('products') as any)
       .select('id, name, price, quantity_on_hand, category_id')
       .eq('status', 'active')
       .in('id', Array.from(zeroStockIds))
@@ -155,7 +157,7 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   // Frequently sold: seller's last unique products + fill from store products
   let frequentlySold: Product[] = []
 
-  const { data: recentSales } = await (supabase.from('sales') as any)
+  const { data: recentSales } = await (admin.from('sales') as any)
     .select('product_id')
     .eq('sold_by', user.id)
     .eq('voided', false)
