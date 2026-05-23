@@ -1,19 +1,16 @@
-// Catalog page with infinite scroll (PAGE_SIZE=50)
 export const dynamic = 'force-dynamic'
 
 import { requireAdmin } from '@/lib/auth'
 import { getProducts } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Suspense } from 'react'
 import ProductSearch from '@/components/products/product-search'
-import CatalogInfiniteGrid from '@/components/products/catalog-infinite-grid'
+import ProductCard from '@/components/products/product-card'
 import { ExportButton } from '@/components/products/export-button'
-
-const PAGE_SIZE = 50
 
 interface PageProps {
   searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string; category?: string; store?: string }>
@@ -23,20 +20,18 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   await requireAdmin()
 
   const params = await searchParams
+  const admin = createAdminClient()
+
   const [products, categories, stores] = await Promise.all([
-    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages, categoryId: params.category, storeId: params.store, limit: PAGE_SIZE, offset: 0 }),
+    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages, categoryId: params.category, storeId: params.store }),
     getCategories(),
-    (await createServerSupabaseClient()).from('stores').select('id, name').eq('is_active', true).order('name').then(r => r.data || []),
+    admin.from('stores').select('id, name').eq('is_active', true).order('name').then(r => r.data || []),
   ])
 
-  // Load stock for initial batch only (50 products, not all 488!)
-  const supabase = await createServerSupabaseClient()
-  const productIds = (products || []).map((p: any) => p.id)
-  const { data: storeBatches } = productIds.length > 0 ? await (supabase.from('stock_batches') as any)
+  // Load ALL stock_batches (avoid IN filter URI limit)
+  const { data: storeBatches } = await (admin.from('stock_batches') as any)
     .select('product_id, quantity_remaining, store:stores(name)')
-    .in('product_id', productIds)
     .order('store(name)')
-    : { data: [] }
 
   const stockMap: Record<string, { store_name: string; qty: number }[]> = {}
   ;(storeBatches || []).forEach((b: any) => {
@@ -51,13 +46,6 @@ export default async function CatalogPage({ searchParams }: PageProps) {
     ...p,
     store_stock: stockMap[p.id] || [],
   }))
-
-  const filterParams: Record<string, string> = {}
-  if (params.search) filterParams.search = params.search
-  if (params.status) filterParams.status = params.status
-  if (params.sort) filterParams.sort = params.sort
-  if (params.category) filterParams.category = params.category
-  if (params.store) filterParams.store = params.store
 
   return (
     <div className="space-y-6">
@@ -89,11 +77,11 @@ export default async function CatalogPage({ searchParams }: PageProps) {
           <p className="text-muted-foreground">Няма намерени продукти</p>
         </div>
       ) : (
-        <CatalogInfiniteGrid
-          initialProducts={productsWithStock}
-          filters={filterParams}
-          hasMore={products.length >= PAGE_SIZE}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {productsWithStock.map((product: any) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
       )}
     </div>
   )

@@ -7,8 +7,6 @@ export async function getProducts(filters?: {
   status?: string
   sort?: string
   hasImages?: string
-  limit?: number
-  offset?: number
 }) {
   const supabase = await createServerSupabaseClient()
   let query = supabase
@@ -44,9 +42,6 @@ export async function getProducts(filters?: {
   else if (filters?.sort === 'price_asc') query = query.order('price', { ascending: true })
   else if (filters?.sort === 'price_desc') query = query.order('price', { ascending: false })
   else query = query.order('created_at', { ascending: false })
-
-  if (filters?.limit) query = query.limit(filters.limit)
-  if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1)
 
   const { data } = await query
   let result = data || []
