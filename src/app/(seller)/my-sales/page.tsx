@@ -187,13 +187,13 @@ export default async function MySalesPage({ searchParams }: PageProps) {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium">Продукт</th>
-                  <th className="text-center px-4 py-3 font-medium">Кол.</th>
-                  <th className="text-right px-4 py-3 font-medium">Цена</th>
-                  <th className="text-right px-4 py-3 font-medium">Сума</th>
-                  <th className="text-center px-4 py-3 font-medium hidden sm:table-cell">Плащане</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Обект</th>
-                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Дата / Час</th>
+                  <th className="text-left px-3 py-2.5 font-medium">Продукт</th>
+                  <th className="text-center px-2 py-2.5 font-medium hidden sm:table-cell">Кол.</th>
+                  <th className="text-right px-2 py-2.5 font-medium hidden sm:table-cell">Цена</th>
+                  <th className="text-right px-3 py-2.5 font-medium">Сума</th>
+                  <th className="text-center px-2 py-2.5 font-medium">Плащане</th>
+                  <th className="text-left px-2 py-2.5 font-medium hidden md:table-cell">Обект</th>
+                  <th className="text-right px-2 py-2.5 font-medium">Дата</th>
                   <th className="w-10" />
                 </tr>
               </thead>
@@ -210,54 +210,60 @@ export default async function MySalesPage({ searchParams }: PageProps) {
                     <React.Fragment key={row.id}>
                       {groupChanged && meta && (
                         <tr className="border-t-2 border-blue-200">
-                          <td colSpan={8} className="px-4 py-1 text-[10px] text-blue-500 font-medium uppercase tracking-wider">
+                          <td colSpan={8} className="px-3 py-1 text-[10px] text-blue-500 font-medium uppercase tracking-wider">
                             Група &middot; {groupCounts[gid]} артикула
                           </td>
                         </tr>
                       )}
                   <tr className={`border-b last:border-0 hover:bg-slate-50/50 border-l-4 ${row.voided ? 'opacity-50' : ''} ${meta?.color || 'border-l-transparent'}`}>
-                    <td className="px-4 py-3">
-                      <span className={`font-medium ${row.voided ? 'line-through' : ''}`}>{row.product_name}</span>
-                      {row.voided && (
-                        <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                          сторнирана
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-col">
+                        <span className={`font-medium ${row.voided ? 'line-through' : ''}`}>{row.product_name}</span>
+                        <span className="text-[10px] text-muted-foreground sm:hidden tabular-nums">
+                          {row.quantity} × {row.sale_price.toFixed(2)} €
                         </span>
-                      )}
-                      {row.sale_group_id && groupCounts[row.sale_group_id] > 1 && (
-                        <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
-                          група
-                        </span>
-                      )}
+                      </div>
+                      <div className="flex gap-1 mt-0.5">
+                        {row.voided && (
+                          <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
+                            сторнирана
+                          </span>
+                        )}
+                        {row.sale_group_id && groupCounts[row.sale_group_id] > 1 && (
+                          <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+                            група
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-center tabular-nums">{row.quantity}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{row.sale_price.toFixed(2)} €</td>
-                    <td className="px-4 py-3 text-right font-medium tabular-nums">
+                    <td className="px-2 py-2.5 text-center tabular-nums hidden sm:table-cell">{row.quantity}</td>
+                    <td className="px-2 py-2.5 text-right tabular-nums hidden sm:table-cell">{row.sale_price.toFixed(2)} €</td>
+                    <td className="px-3 py-2.5 text-right font-medium tabular-nums">
                       {(row.quantity * row.sale_price).toFixed(2)} €
                     </td>
-                    <td className="px-4 py-3 text-center hidden sm:table-cell">
-                      {row.payment_method === 'card' ? 'Карта' : row.payment_method === 'transfer' ? 'Превод' : 'В брой'}
+                    <td className="px-2 py-2.5 text-center">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                        row.payment_method === 'card' ? 'bg-purple-100 text-purple-700' :
+                        row.payment_method === 'transfer' ? 'bg-amber-100 text-amber-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {row.payment_method === 'card' ? 'Карта' : row.payment_method === 'transfer' ? 'Превод' : 'Кеш'}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell tabular-nums text-xs">
-                      {sofiaDate(row.sale_date)}<br />
-                      {sofiaTime(row.created_at)}
+                    <td className="px-2 py-2.5 text-muted-foreground hidden md:table-cell">{row.store_name}</td>
+                    <td className="px-2 py-2.5 text-right text-muted-foreground tabular-nums text-[11px]">
+                      <span className="sm:hidden">{sofiaDate(row.sale_date).slice(5)}</span>
+                      <span className="hidden sm:inline">{sofiaDate(row.sale_date)}</span>
+                      <br />
+                      <span className="text-[10px]">{sofiaTime(row.created_at)}</span>
                     </td>
-                    <td className="px-2 py-3">
+                    <td className="px-1 py-2.5">
                       {!row.voided && <VoidSaleButton saleId={row.id} />}
                     </td>
                   </tr>
                   </React.Fragment>
                 )})}
               </tbody>
-              <tfoot>
-                <tr className="bg-slate-50 font-semibold">
-                  <td colSpan={3} className="px-4 py-3 text-right">Общо:</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{total.toFixed(2)} €</td>
-                  <td className="hidden sm:table-cell" />
-                  <td className="hidden md:table-cell" />
-                  <td className="hidden sm:table-cell" />
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>
