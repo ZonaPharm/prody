@@ -28,11 +28,12 @@ RUN npm run build
 
 # ---- 3. Runtime ----
 FROM node:22-alpine AS runner
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl tzdata icu-data-full
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV TZ=Europe/Sofia
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
