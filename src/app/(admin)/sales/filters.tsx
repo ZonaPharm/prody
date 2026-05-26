@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface SalesFiltersProps {
   fromDate: string
@@ -15,16 +15,14 @@ interface SalesFiltersProps {
 
 export function SalesFilters({ fromDate, toDate, store, product, category, stores, categories, products }: SalesFiltersProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const update = (key: string, value: string) => {
-    console.log('[SalesFilters] update called', { key, value, currentSearch: window.location.search })
-    const params = new URLSearchParams(window.location.search)
+    const params = new URLSearchParams(searchParams.toString())
     if (value) params.set(key, value)
     else params.delete(key)
     params.delete('page') // reset to page 1
-    const newUrl = `/sales?${params.toString()}`
-    console.log('[SalesFilters] navigating to', newUrl)
-    router.push(newUrl)
+    router.replace(`/sales?${params.toString()}`)
   }
 
   const inputClass = 'border rounded px-3 py-2 text-sm'

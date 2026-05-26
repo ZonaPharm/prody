@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
@@ -11,18 +11,19 @@ interface MySalesFiltersProps {
 
 export function MySalesFilters({ from, to }: MySalesFiltersProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const navigate = (key: string, value: string) => {
-    const params = new URLSearchParams(window.location.search)
+    const params = new URLSearchParams(searchParams.toString())
     if (value) params.set(key, value)
     else params.delete(key)
     params.delete('page')
-    router.push(`/my-sales?${params.toString()}`)
+    router.replace(`/my-sales?${params.toString()}`)
   }
 
   const setToday = () => {
     const today = new Date().toISOString().split('T')[0]
-    router.push(`/my-sales?from=${today}&to=${today}`)
+    router.replace(`/my-sales?from=${today}&to=${today}`)
   }
 
   const setThisWeek = () => {
@@ -32,14 +33,14 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
     monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
-    router.push(`/my-sales?from=${monday.toISOString().split('T')[0]}&to=${sunday.toISOString().split('T')[0]}`)
+    router.replace(`/my-sales?from=${monday.toISOString().split('T')[0]}&to=${sunday.toISOString().split('T')[0]}`)
   }
 
   const setThisMonth = () => {
     const now = new Date()
     const first = new Date(now.getFullYear(), now.getMonth(), 1)
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    router.push(`/my-sales?from=${first.toISOString().split('T')[0]}&to=${last.toISOString().split('T')[0]}`)
+    router.replace(`/my-sales?from=${first.toISOString().split('T')[0]}&to=${last.toISOString().split('T')[0]}`)
   }
 
   return (
