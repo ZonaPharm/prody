@@ -76,11 +76,11 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const cashTotal = (allActiveSales || []).filter((s: any) => s.payment_method !== 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
 
   // Grouped-by-product data
-  let groupedProducts: { name: string; sales: number; qty: number; revenue: number; unitPrice: number }[] = []
+  let groupedProducts: { name: string; sales: number; qty: number; revenue: number; price: number }[] = []
   if (grouped === '1') {
     let gq = supabase
       .from('sales')
-      .select('quantity, sale_price, product:products!inner(name)')
+      .select('quantity, sale_price, product:products!inner(name, price)')
       .gte('sale_date', fromDate)
       .lte('sale_date', toDate)
       .eq('voided', false)
@@ -88,16 +88,16 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     if (sp.product) gq = gq.eq('product_id', sp.product)
     if (sp.category) gq = gq.eq('product.category_id', sp.category)
     const { data: gs } = await gq
-    const byName: Record<string, { count: number; qty: number; rev: number }> = {}
+    const byName: Record<string, { count: number; qty: number; rev: number; price: number }> = {}
     ;(gs || []).forEach((s: any) => {
       const n = s.product?.name || '?'
-      if (!byName[n]) byName[n] = { count: 0, qty: 0, rev: 0 }
+      if (!byName[n]) byName[n] = { count: 0, qty: 0, rev: 0, price: Number(s.product?.price) || 0 }
       byName[n].count++
       byName[n].qty += s.quantity
       byName[n].rev += s.quantity * Number(s.sale_price)
     })
     groupedProducts = Object.entries(byName)
-      .map(([name, d]) => ({ name, sales: d.count, qty: d.qty, revenue: d.rev, unitPrice: d.qty > 0 ? d.rev / d.qty : 0 }))
+      .map(([name, d]) => ({ name, sales: d.count, qty: d.qty, revenue: d.rev, price: d.price }))
       .sort((a, b) => b.revenue - a.revenue)
   }
 
@@ -191,7 +191,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                       <td className="px-4 py-2.5 font-medium">{p.name}</td>
                       <td className="px-4 py-2.5 text-center">{p.sales}</td>
                       <td className="px-4 py-2.5 text-center">{p.qty}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{p.unitPrice.toFixed(2)} €</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{p.price.toFixed(2)} €</td>
                       <td className="px-4 py-2.5 text-right font-medium tabular-nums">{p.revenue.toFixed(2)} €</td>
                     </tr>
                   ))}
