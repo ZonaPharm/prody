@@ -6,7 +6,7 @@ import { SalesFilters } from './filters'
 import { sofiaToday, sofiaTime, sofiaDate } from '@/lib/date-utils'
 
 interface PageProps {
-  searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string }>
+  searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string; grouped?: string }>
 }
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +30,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const today = sofiaToday()
   const fromDate = sp.from || today
   const toDate = sp.to || today
+  const grouped = sp.grouped || ''
   const page = Math.max(1, parseInt(sp.page || '1') || 1)
   const offset = (page - 1) * PAGE_SIZE
 
@@ -73,6 +74,32 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const total = (allActiveSales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const cardTotal = (allActiveSales || []).filter((s: any) => s.payment_method === 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const cashTotal = (allActiveSales || []).filter((s: any) => s.payment_method !== 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
+
+  // Grouped-by-product data
+  let groupedProducts: { name: string; sales: number; qty: number; revenue: number }[] = []
+  if (grouped === '1') {
+    let gq = supabase
+      .from('sales')
+      .select('quantity, sale_price, product:products!inner(name)')
+      .gte('sale_date', fromDate)
+      .lte('sale_date', toDate)
+      .eq('voided', false)
+    if (sp.store) gq = gq.eq('store_id', sp.store)
+    if (sp.product) gq = gq.eq('product_id', sp.product)
+    if (sp.category) gq = gq.eq('product.category_id', sp.category)
+    const { data: gs } = await gq
+    const byName: Record<string, { count: number; qty: number; rev: number }> = {}
+    ;(gs || []).forEach((s: any) => {
+      const n = s.product?.name || '?'
+      if (!byName[n]) byName[n] = { count: 0, qty: 0, rev: 0 }
+      byName[n].count++
+      byName[n].qty += s.quantity
+      byName[n].rev += s.quantity * Number(s.sale_price)
+    })
+    groupedProducts = Object.entries(byName)
+      .map(([name, d]) => ({ name, sales: d.count, qty: d.qty, revenue: d.rev }))
+      .sort((a, b) => b.revenue - a.revenue)
+  }
 
   // Compute group info: count, short ID, and color index per group
   const groupCounts: Record<string, number> = {}
@@ -119,6 +146,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         store={sp.store}
         product={sp.product}
         category={sp.category}
+        grouped={grouped}
         stores={(stores || []) as { id: string; name: string }[]}
         categories={(categories || []) as { id: string; name: string }[]}
         products={(products || []) as { id: string; name: string }[]}
@@ -140,8 +168,40 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         </div>
       </div>
 
+      {/* Grouped by product */}
+      {grouped === '1' && (
+        <div>
+          {groupedProducts.length === 0 ? (
+            <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
+          ) : (
+            <div className="rounded-lg border bg-white overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-left text-xs text-muted-foreground uppercase tracking-wider">
+                    <th className="px-4 py-2.5 font-medium">Продукт</th>
+                    <th className="px-4 py-2.5 font-medium text-center w-[100px]">Продажби</th>
+                    <th className="px-4 py-2.5 font-medium text-center w-[100px]">Количество</th>
+                    <th className="px-4 py-2.5 font-medium text-right w-[120px]">Сума</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedProducts.map((p, i) => (
+                    <tr key={p.name} className={`border-b last:border-b-0 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                      <td className="px-4 py-2.5 font-medium">{p.name}</td>
+                      <td className="px-4 py-2.5 text-center">{p.sales}</td>
+                      <td className="px-4 py-2.5 text-center">{p.qty}</td>
+                      <td className="px-4 py-2.5 text-right font-medium tabular-nums">{p.revenue.toFixed(2)} €</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sales list */}
-      <div>
+      {grouped !== '1' && <div>
         {(sales || []).map((s: any, i: number) => {
           // Detect group start/change for visual grouping
           const isGroup = s.sale_group_id && groupCounts[s.sale_group_id] > 1
@@ -197,10 +257,10 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         {(!sales || sales.length === 0) && (
           <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
         )}
-      </div>
+      </div>}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {grouped !== '1' && totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
           <p className="text-sm text-muted-foreground">
             Страница {page} от {totalPages} (общо {totalCount})

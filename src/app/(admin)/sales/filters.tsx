@@ -8,12 +8,13 @@ interface SalesFiltersProps {
   store?: string
   product?: string
   category?: string
+  grouped?: string
   stores: { id: string; name: string }[]
   categories: { id: string; name: string }[]
   products: { id: string; name: string }[]
 }
 
-export function SalesFilters({ fromDate, toDate, store, product, category, stores, categories, products }: SalesFiltersProps) {
+export function SalesFilters({ fromDate, toDate, store, product, category, grouped, stores, categories, products }: SalesFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -86,6 +87,18 @@ export function SalesFilters({ fromDate, toDate, store, product, category, store
           </select>
         </div>
       )}
+      <div className="flex items-center gap-1.5 pb-1">
+        <input
+          type="checkbox"
+          id="grouped"
+          defaultChecked={grouped === '1'}
+          onChange={e => update('grouped', e.target.checked ? '1' : '')}
+          className="h-4 w-4"
+        />
+        <label htmlFor="grouped" className="text-xs text-muted-foreground cursor-pointer select-none">
+          Групирай по продукт
+        </label>
+      </div>
     </div>
   )
 }
