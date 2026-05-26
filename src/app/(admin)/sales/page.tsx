@@ -76,7 +76,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const cashTotal = (allActiveSales || []).filter((s: any) => s.payment_method !== 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
 
   // Grouped-by-product data
-  let groupedProducts: { name: string; sales: number; qty: number; revenue: number }[] = []
+  let groupedProducts: { name: string; sales: number; qty: number; revenue: number; unitPrice: number }[] = []
   if (grouped === '1') {
     let gq = supabase
       .from('sales')
@@ -97,7 +97,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       byName[n].rev += s.quantity * Number(s.sale_price)
     })
     groupedProducts = Object.entries(byName)
-      .map(([name, d]) => ({ name, sales: d.count, qty: d.qty, revenue: d.rev }))
+      .map(([name, d]) => ({ name, sales: d.count, qty: d.qty, revenue: d.rev, unitPrice: d.qty > 0 ? d.rev / d.qty : 0 }))
       .sort((a, b) => b.revenue - a.revenue)
   }
 
@@ -181,6 +181,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                     <th className="px-4 py-2.5 font-medium">Продукт</th>
                     <th className="px-4 py-2.5 font-medium text-center w-[100px]">Продажби</th>
                     <th className="px-4 py-2.5 font-medium text-center w-[100px]">Количество</th>
+                    <th className="px-4 py-2.5 font-medium text-right w-[100px]">Ед. цена</th>
                     <th className="px-4 py-2.5 font-medium text-right w-[120px]">Сума</th>
                   </tr>
                 </thead>
@@ -190,6 +191,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                       <td className="px-4 py-2.5 font-medium">{p.name}</td>
                       <td className="px-4 py-2.5 text-center">{p.sales}</td>
                       <td className="px-4 py-2.5 text-center">{p.qty}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{p.unitPrice.toFixed(2)} €</td>
                       <td className="px-4 py-2.5 text-right font-medium tabular-nums">{p.revenue.toFixed(2)} €</td>
                     </tr>
                   ))}
