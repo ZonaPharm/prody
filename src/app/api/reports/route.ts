@@ -62,13 +62,39 @@ export async function GET(request: Request) {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 7)
 
-  // Low stock
+  // Low stock — with per-store breakdown from stock_batches
   const { data: lowStock } = await supabase
     .from('products')
     .select('id, name, quantity_on_hand')
     .eq('status', 'active')
     .lte('quantity_on_hand', 5)
     .order('quantity_on_hand')
+
+  type LowStockRow = { id: string; name: string; quantity_on_hand: number }
+  const products = (lowStock || []) as LowStockRow[]
+
+  // Fetch per-store quantities for low-stock products
+  const lowStockWithStores: (LowStockRow & { stores: { name: string; qty: number }[] })[] = products.map(p => ({ ...p, stores: [] }))
+  if (products.length > 0) {
+    const lowIds = products.map(p => p.id)
+    const { data: batches } = await supabase
+      .from('stock_batches')
+      .select('product_id, quantity_remaining, store:stores!inner(name)')
+      .in('product_id', lowIds)
+      .gt('quantity_remaining', 0)
+    const byProduct: Record<string, { name: string; qty: number }[]> = {}
+    ;((batches || []) as any[]).forEach((b: any) => {
+      const storeName = Array.isArray(b.store) ? b.store[0]?.name : b.store?.name
+      if (!storeName) return
+      if (!byProduct[b.product_id]) byProduct[b.product_id] = []
+      const existing = byProduct[b.product_id].find(s => s.name === storeName)
+      if (existing) existing.qty += b.quantity_remaining
+      else byProduct[b.product_id].push({ name: storeName, qty: b.quantity_remaining })
+    })
+    lowStockWithStores.forEach(p => {
+      p.stores = byProduct[p.id] || []
+    })
+  }
 
   return NextResponse.json({
     totalRevenue: Math.round(totalRevenue * 100) / 100,
@@ -77,6 +103,6 @@ export async function GET(request: Request) {
     byDay,
     topProducts,
     topRevenue,
-    lowStock: lowStock || [],
+    lowStock: lowStockWithStores,
   })
 }

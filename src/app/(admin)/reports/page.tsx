@@ -205,13 +205,25 @@ export default function ReportsPage() {
             {(!data.lowStock || data.lowStock.length === 0) ? (
               <p className="text-muted-foreground text-center py-12">Всички продукти са с достатъчни наличности</p>
             ) : (
-              <div className="space-y-2 max-h-[280px] overflow-auto">
+              <div className="space-y-2 max-h-[320px] overflow-auto">
                 {data.lowStock.map((p: any) => (
-                  <div key={p.id} className="flex justify-between py-2 border-b last:border-0">
-                    <span className="text-sm truncate mr-4">{p.name}</span>
-                    <span className={p.quantity_on_hand === 0 ? 'text-red-600 font-semibold shrink-0' : 'text-amber-600 shrink-0'}>
-                      {p.quantity_on_hand} бр
-                    </span>
+                  <div key={p.id} className="py-2 border-b last:border-0">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm truncate mr-2">{p.name}</span>
+                      <span className={p.quantity_on_hand === 0 ? 'text-red-600 font-semibold shrink-0 ml-auto' : 'text-amber-600 shrink-0 ml-auto'}>
+                        {p.quantity_on_hand} бр
+                      </span>
+                    </div>
+                    {p.stores && p.stores.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {p.stores.map((s: any) => (
+                          <span key={s.name} className="inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">
+                            {s.name}
+                            <span className={s.qty <= 2 ? 'font-semibold text-red-500' : ''}>{s.qty} бр</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
