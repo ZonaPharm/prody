@@ -1,6 +1,16 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
+import { ChevronDown } from 'lucide-react'
 
 interface SalesFiltersProps {
   fromDate: string
@@ -25,6 +35,23 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
     params.delete('page') // reset to page 1
     router.replace(`/sales?${params.toString()}`)
   }
+
+  const selectedStoreIds = store ? store.split(',').filter(Boolean) : []
+  const storeNameMap = new Map(stores.map(s => [s.id, s.name]))
+
+  const toggleStore = (storeId: string) => {
+    const next = selectedStoreIds.includes(storeId)
+      ? selectedStoreIds.filter(id => id !== storeId)
+      : [...selectedStoreIds, storeId]
+    update('store', next.join(','))
+  }
+
+  const selectAll = () => update('store', '')
+  const storeLabel = selectedStoreIds.length === 0
+    ? 'Всички обекти'
+    : selectedStoreIds.length === 1
+      ? storeNameMap.get(selectedStoreIds[0]) || '1 обект'
+      : `${selectedStoreIds.length} обекта`
 
   const inputClass = 'border rounded px-3 py-2 text-sm'
 
@@ -51,14 +78,34 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
       {stores.length > 0 && (
         <div>
           <label className="text-xs text-muted-foreground block mb-1">Обект</label>
-          <select
-            defaultValue={store || ''}
-            onChange={e => update('store', e.target.value)}
-            className={`${inputClass} max-w-[180px]`}
-          >
-            <option value="">Всички обекти</option>
-            {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="justify-between gap-2 max-w-[220px]">
+                <span className="truncate">{storeLabel}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[220px]" align="start">
+              <DropdownMenuLabel className="text-xs">Филтрирай по обект</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={selectedStoreIds.length === 0}
+                onCheckedChange={selectAll}
+              >
+                Всички обекти
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              {stores.map(s => (
+                <DropdownMenuCheckboxItem
+                  key={s.id}
+                  checked={selectedStoreIds.includes(s.id)}
+                  onCheckedChange={() => toggleStore(s.id)}
+                >
+                  {s.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
       {categories.length > 0 && (

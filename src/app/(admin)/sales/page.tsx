@@ -50,7 +50,8 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     .order('sale_group_id')
     .range(offset, offset + PAGE_SIZE - 1)
 
-  if (sp.store) query = query.eq('store_id', sp.store)
+  const storeIds = sp.store ? sp.store.split(',').filter(Boolean) : []
+  if (storeIds.length > 0) query = query.in('store_id', storeIds)
   if (sp.product) query = query.eq('product_id', sp.product)
   if (sp.category) query = query.eq('product.category_id', sp.category)
 
@@ -66,7 +67,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     .gte('sale_date', fromDate)
     .lte('sale_date', toDate)
     .eq('voided', false)
-  if (sp.store) totalsQuery = totalsQuery.eq('store_id', sp.store)
+  if (storeIds.length > 0) totalsQuery = totalsQuery.in('store_id', storeIds)
   if (sp.product) totalsQuery = totalsQuery.eq('product_id', sp.product)
   if (sp.category) totalsQuery = totalsQuery.eq('product.category_id', sp.category)
   const { data: allActiveSales } = await totalsQuery
@@ -84,7 +85,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
       .gte('sale_date', fromDate)
       .lte('sale_date', toDate)
       .eq('voided', false)
-    if (sp.store) gq = gq.eq('store_id', sp.store)
+    if (storeIds.length > 0) gq = gq.in('store_id', storeIds)
     if (sp.product) gq = gq.eq('product_id', sp.product)
     if (sp.category) gq = gq.eq('product.category_id', sp.category)
     const { data: gs } = await gq

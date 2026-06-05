@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get('from') || sofiaToday()
   const to = searchParams.get('to') || sofiaToday()
   const store = searchParams.get('store')
+  const storeIds = store ? store.split(',').filter(Boolean) : []
   const product = searchParams.get('product')
   const category = searchParams.get('category')
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     .eq('voided', false)
     .order('created_at', { ascending: false })
 
-  if (store) query = query.eq('store_id', store)
+  if (storeIds.length > 0) query = query.in('store_id', storeIds)
   if (product) query = query.eq('product_id', product)
   if (category) query = query.eq('product.category_id', category)
 
