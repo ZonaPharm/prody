@@ -13,7 +13,7 @@ const ACTION_LABELS: Record<string, string> = {
   request_create: '📋 Заявка', request_fulfill: '✅ Изпълнена заявка', request_confirm: '✔️ Потвърдена заявка', request_reject: '❌ Отказана заявка',
   user_create: '👤 Създаден потребител', user_update: '✏️ Редактиран потребител', user_deactivate: '🚫 Деактивиран',
   settings_update: '⚙️ Настройки', error: '❌ Грешка',
-  login: '🔑 Вход', magiclink: '📧 Magic link', logout: '🚪 Изход',
+  login: '🔑 Вход', logout: '🚪 Изход',
 }
 
 export function AuditLogs() {
@@ -70,7 +70,7 @@ export function AuditLogs() {
               <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Всички действия" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Всички действия</SelectItem>
-                {Object.entries(ACTION_LABELS).filter(([k]) => !['login','magiclink','logout'].includes(k)).map(([k, v]) => (
+                {Object.entries(ACTION_LABELS).filter(([k]) => !['login','logout'].includes(k)).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}
               </SelectContent>
@@ -82,7 +82,6 @@ export function AuditLogs() {
               <SelectContent>
                 <SelectItem value="__all__">Всички</SelectItem>
                 <SelectItem value="login">Вход</SelectItem>
-                <SelectItem value="magiclink">Magic link</SelectItem>
               </SelectContent>
             </Select>
           )}

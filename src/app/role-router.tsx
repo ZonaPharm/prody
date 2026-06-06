@@ -4,18 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-function parseHashTokens(): { access_token: string; refresh_token: string } | null {
-  if (typeof window === 'undefined') return null
-  const hash = window.location.hash.substring(1)
-  if (!hash) return null
-  const params = new URLSearchParams(hash)
-  const access_token = params.get('access_token')
-  const refresh_token = params.get('refresh_token')
-  if (!access_token || !refresh_token) return null
-  window.history.replaceState(null, '', window.location.pathname + window.location.search)
-  return { access_token, refresh_token }
-}
-
 async function syncAndRedirect(
   access_token: string,
   refresh_token: string,
@@ -33,17 +21,6 @@ export function RoleRouter() {
   const router = useRouter()
 
   useEffect(() => {
-    // 1. Check for hash tokens first (admin-generated magic links)
-    const tokens = parseHashTokens()
-    if (tokens) {
-      syncAndRedirect(tokens.access_token, tokens.refresh_token).then((redirectTo) => {
-        router.push(redirectTo)
-        router.refresh()
-      })
-      return
-    }
-
-    // 2. Check existing Supabase session (normal PKCE flow)
     const supabase = createClient()
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
