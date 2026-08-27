@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { sofiaToday } from '@/lib/date-utils'
+import { fetchAll } from '@/lib/fetch-all'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -18,10 +19,11 @@ export async function GET(request: Request) {
     .eq('is_warehouse', false)
     .order('name')
 
-  const { data: sales } = await supabase.from('sales')
+  const sales = await fetchAll<any>(() => supabase.from('sales')
     .select('quantity, sale_price, store_id, sale_date')
     .gte('sale_date', sinceDate)
     .eq('voided', false)
+    .order('sale_date') as any)
 
   // Build store sales map
   const storeSalesMap: Record<string, Record<string, number>> = {}

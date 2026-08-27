@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWeeklyReport } from '@/lib/email'
 import { sofiaToday } from '@/lib/date-utils'
+import { fetchAll, fetchByIds } from '@/lib/fetch-all'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -29,9 +30,10 @@ export async function GET(request: Request) {
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const today = sofiaToday()
 
-  const { data: sales } = await (admin.from('sales') as any)
+  const sales = await fetchAll<any>(() => (admin.from('sales') as any)
     .select('quantity, sale_price, product:products(name)')
     .gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
+    .order('id'))
 
   const productQty = new Map<string, number>()
   let totalRevenue = 0, totalCount = 0
@@ -44,9 +46,9 @@ export async function GET(request: Request) {
   })
 
   const topProducts = Array.from(productQty.entries()).map(([name, quantity]) => ({ name, quantity })).sort((a, b) => b.quantity - a.quantity).slice(0, 10)
-  const { data: lowStock } = await (admin.from('products') as any).select('name, quantity_on_hand').eq('status', 'active').lte('quantity_on_hand', 5).order('quantity_on_hand')
+  const lowStock = await fetchAll<any>(() => (admin.from('products') as any).select('name, quantity_on_hand').eq('status', 'active').lte('quantity_on_hand', 5).order('quantity_on_hand').order('id'))
 
-  const { data: storeSales } = await (admin.from('sales') as any).select('quantity, sale_price, store:stores(name)').gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
+  const storeSales = await fetchAll<any>(() => (admin.from('sales') as any).select('quantity, sale_price, store:stores(name)').gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false).order('id'))
   const storeMap: Record<string, { count: number; revenue: number }> = {}
   ;(storeSales || []).forEach((s: any) => {
     const store = Array.isArray(s.store) ? s.store[0]?.name : s.store?.name || '—'
@@ -56,13 +58,15 @@ export async function GET(request: Request) {
   const storeBreakdown = Object.entries(storeMap).map(([store, v]) => ({ store, count: v.count, revenue: Math.round(v.revenue * 100) / 100 }))
 
   const fetchSalesForExport = async (q: { from: string; to: string; store_id?: string | null }) => {
-    let query = (admin.from('sales') as any)
-      .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
-      .gte('sale_date', q.from).lte('sale_date', q.to).eq('voided', false).order('sale_date', { ascending: false })
-    if (q.store_id) query = query.eq('store_id', q.store_id)
-    const { data } = await query
+    const data = await fetchAll<any>(() => {
+      let query = (admin.from('sales') as any)
+        .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
+        .gte('sale_date', q.from).lte('sale_date', q.to).eq('voided', false).order('sale_date', { ascending: false }).order('id')
+      if (q.store_id) query = query.eq('store_id', q.store_id)
+      return query
+    })
     const productIds = [...new Set((data || []).map((s: any) => s.product_id))]
-    const { data: prods } = productIds.length > 0 ? await (admin.from('products') as any).select('id, category:categories(name)').in('id', productIds) : { data: [] }
+    const prods = await fetchByIds<any>(ids => (admin.from('products') as any).select('id, category:categories(name)').in('id', ids), productIds as string[])
     const catMap: Record<string, string> = {}
     ;(prods || []).forEach((p: any) => { const cn = Array.isArray(p.category) ? p.category[0]?.name : p.category?.name; if (cn) catMap[p.id] = cn })
     return (data || []).map((s: any) => ({
