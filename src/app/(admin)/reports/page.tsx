@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Download, Building2, FileSpreadsheet, Loader2, Package } from 'lucide-react'
+import { Download, Building2, FileSpreadsheet, Loader2, Package, Boxes } from 'lucide-react'
 
 function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
@@ -62,6 +62,26 @@ export default function ReportsPage() {
       a.href = url
       const labels: Record<string, string> = { store: 'po-obekti', product: 'po-produkti', detail: 'palen-detail' }
       a.download = `${labels[type] || type}-${from}-${to}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Грешка при експорт')
+    } finally {
+      setExportLoading('')
+    }
+  }
+
+  const handleInventoryExport = async () => {
+    setExportLoading('inventory')
+    try {
+      // Embeds a thumbnail per product, so this is slower than the sales exports.
+      const res = await fetch('/api/reports/inventory-export')
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `nalichnosti-${to}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -269,7 +289,7 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-1"
               onClick={() => handleExport('store')} disabled={exportLoading === 'store'}>
               {exportLoading === 'store' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Building2 className="h-5 w-5" />}
@@ -287,6 +307,12 @@ export default function ReportsPage() {
               {exportLoading === 'detail' ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileSpreadsheet className="h-5 w-5" />}
               <span className="font-medium">Пълен детайл</span>
               <span className="text-[10px] text-muted-foreground">Всяка продажба като ред</span>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-1"
+              onClick={handleInventoryExport} disabled={exportLoading === 'inventory'}>
+              {exportLoading === 'inventory' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Boxes className="h-5 w-5" />}
+              <span className="font-medium">Наличности</span>
+              <span className="text-[10px] text-muted-foreground">Със снимки и бройки по обекти</span>
             </Button>
           </div>
         </CardContent>
