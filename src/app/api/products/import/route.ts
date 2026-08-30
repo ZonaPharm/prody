@@ -49,7 +49,12 @@ export async function POST(request: NextRequest) {
           price: p.price,
           description: p.description?.trim() || null,
           status: 'active',
-          quantity_on_hand: 100,
+          // Imported products start empty. Stock has to arrive through a
+          // restock, which is what creates the batch rows that record which
+          // store actually holds it. Seeding a number here invented stock that
+          // existed in no store and left quantity_on_hand permanently above the
+          // batch totals.
+          quantity_on_hand: 0,
           category_id: category_id || null,
         })
         .select('id')
