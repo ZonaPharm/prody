@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildExportWorkbook } from '@/lib/export-reports'
+import { fetchAll, fetchByIds } from '@/lib/fetch-all'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -24,20 +25,26 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
   const fetchSales = async (q: { from: string; to: string; store_id?: string | null }) => {
-    let query = (admin.from('sales') as any)
-      .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
-      .gte('sale_date', q.from)
-      .lte('sale_date', q.to)
-      .eq('voided', false)
-      .order('sale_date', { ascending: false })
-    if (q.store_id) query = query.eq('store_id', q.store_id)
-    const { data } = await query
+    // Rebuilt per page: fetchAll re-invokes this to walk past PostgREST's
+    // 1000-row cap, so the filters have to be reapplied each time.
+    const data = await fetchAll<any>(() => {
+      let query = (admin.from('sales') as any)
+        .select('quantity, sale_price, sale_date, payment_method, product_id, product:products(name), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
+        .gte('sale_date', q.from)
+        .lte('sale_date', q.to)
+        .eq('voided', false)
+        .order('sale_date', { ascending: false })
+        .order('id')
+      if (q.store_id) query = query.eq('store_id', q.store_id)
+      return query
+    })
 
     // Fetch categories separately (category is nested under products)
     const productIds = [...new Set((data || []).map((s: any) => s.product_id))]
-    const { data: prods } = productIds.length > 0
-      ? await (admin.from('products') as any).select('id, category:categories(name)').in('id', productIds)
-      : { data: [] }
+    const prods = await fetchByIds<any>(
+      ids => (admin.from('products') as any).select('id, category:categories(name)').in('id', ids),
+      productIds as string[],
+    )
     const catMap: Record<string, string> = {}
     ;(prods || []).forEach((p: any) => {
       const catName = Array.isArray(p.category) ? p.category[0]?.name : p.category?.name

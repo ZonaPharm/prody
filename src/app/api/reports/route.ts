@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { sofiaToday } from '@/lib/date-utils'
+import { fetchAll, fetchByIds } from '@/lib/fetch-all'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -18,12 +19,13 @@ export async function GET(request: Request) {
   const untilDate = to || sofiaToday()
 
   // All sales for the period
-  const { data: sales } = await supabase
+  const sales = await fetchAll<any>(() => supabase
     .from('sales')
     .select('quantity, sale_price, sale_date, product:products(name)')
     .gte('sale_date', sinceDate)
     .lte('sale_date', untilDate)
     .eq('voided', false)
+    .order('sale_date') as any)
 
   // Aggregate: revenue by day
   const dayMap = new Map<string, number>()
@@ -63,12 +65,13 @@ export async function GET(request: Request) {
     .slice(0, 7)
 
   // Low stock — with per-store breakdown from stock_batches
-  const { data: lowStock } = await supabase
+  const lowStock = await fetchAll<any>(() => supabase
     .from('products')
     .select('id, name, quantity_on_hand')
     .eq('status', 'active')
     .lte('quantity_on_hand', 5)
     .order('quantity_on_hand')
+    .order('id') as any)
 
   type LowStockRow = { id: string; name: string; quantity_on_hand: number }
   const products = (lowStock || []) as LowStockRow[]
@@ -77,11 +80,14 @@ export async function GET(request: Request) {
   const lowStockWithStores: (LowStockRow & { stores: { name: string; qty: number }[] })[] = products.map(p => ({ ...p, stores: [] }))
   if (products.length > 0) {
     const lowIds = products.map(p => p.id)
-    const { data: batches } = await supabase
-      .from('stock_batches')
-      .select('product_id, quantity_remaining, store:stores!inner(name)')
-      .in('product_id', lowIds)
-      .gt('quantity_remaining', 0)
+    const batches = await fetchByIds<any>(
+      ids => supabase
+        .from('stock_batches')
+        .select('product_id, quantity_remaining, store:stores!inner(name)')
+        .in('product_id', ids)
+        .gt('quantity_remaining', 0) as any,
+      lowIds,
+    )
     const byProduct: Record<string, { name: string; qty: number }[]> = {}
     ;((batches || []) as any[]).forEach((b: any) => {
       const storeName = Array.isArray(b.store) ? b.store[0]?.name : b.store?.name

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { sofiaToday, sofiaDate } from '@/lib/date-utils'
+import { fetchAll } from '@/lib/fetch-all'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -15,18 +16,22 @@ export async function GET(request: NextRequest) {
   const product = searchParams.get('product')
   const category = searchParams.get('category')
 
-  let query = (supabase.from('sales') as any)
-    .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
-    .gte('sale_date', from)
-    .lte('sale_date', to)
-    .eq('voided', false)
-    .order('created_at', { ascending: false })
+  // Rebuilt per page: fetchAll re-invokes this to walk past PostgREST's
+  // 1000-row cap, so the filters have to be reapplied each time.
+  const sales = await fetchAll<any>(() => {
+    let query = (supabase.from('sales') as any)
+      .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
+      .gte('sale_date', from)
+      .lte('sale_date', to)
+      .eq('voided', false)
+      .order('created_at', { ascending: false })
+      .order('id')
 
-  if (storeIds.length > 0) query = query.in('store_id', storeIds)
-  if (product) query = query.eq('product_id', product)
-  if (category) query = query.eq('product.category_id', category)
-
-  const { data: sales } = await query
+    if (storeIds.length > 0) query = query.in('store_id', storeIds)
+    if (product) query = query.eq('product_id', product)
+    if (category) query = query.eq('product.category_id', category)
+    return query
+  })
 
   // Compute true group counts (2+ items sharing same sale_group_id)
   const groupCounts: Record<string, number> = {}
