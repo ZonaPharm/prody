@@ -78,38 +78,54 @@ export async function POST(request: NextRequest) {
     payment_method: payment_method || 'cash',
   }))
 
-  const { error: insertError } = await (supabase.from('sales') as any).insert(rows)
+  // The ids come back so each stock movement can point at its own sale row.
+  // stock_movements.sale_id is a foreign key onto sales(id): passing the group
+  // id instead made every insert fail the constraint, and the catch below
+  // swallowed it, so sales silently stopped writing 'sell' movements.
+  const { data: insertedSales, error: insertError } = await (supabase.from('sales') as any)
+    .insert(rows)
+    .select('id, product_id, quantity')
 
   if (insertError) {
     console.error('Group sale insert error:', insertError)
     return NextResponse.json({ error: 'Грешка при записване' }, { status: 500 })
   }
 
-  // Decrement stock using admin client (already created above)
-  for (const item of items) {
-    try {
-      const { data: prod } = await (admin.from('products') as any)
-        .select('quantity_on_hand')
-        .eq('id', item.product_id)
-        .single()
+  // Rows come back in insert order, so pair each item with its sale row by index.
+  const saleIdByIndex: string[] = (insertedSales || []).map((r: any) => r.id)
 
-      if (prod) {
-        await (admin.from('products') as any)
-          .update({ quantity_on_hand: Math.max(0, prod.quantity_on_hand - item.quantity) })
-          .eq('id', item.product_id)
+  // Decrement stock using admin client (already created above)
+  const fifoFailures: string[] = []
+  for (const [index, item] of items.entries()) {
+    try {
+      // Deducted inside the UPDATE rather than read-modify-write in JS: two
+      // sales of the same product overlapping in time would otherwise both
+      // read the same starting value and one deduction would be lost.
+      const { error: decErr } = await (admin as any).rpc('decrement_product_stock', {
+        p_product_id: item.product_id,
+        p_quantity: item.quantity,
+      })
+      if (decErr) throw decErr
+
+      {
 
         // FIFO: create sell movements from batches
+        const saleId = saleIdByIndex[index]
         try {
+          if (!saleId) throw new Error('missing sale id for item ' + index)
           await executeSaleFIFO(
             item.product_id,
             store_id,
             item.quantity,
             item.unit_price,
-            saleGroupId, // use group ID to link to this transaction
+            saleId,
             user.id,
           )
         } catch (fifoErr: any) {
+          // Stock has already left the batches at this point, so the sale still
+          // stands; record the gap loudly instead of dropping it on the floor.
           console.error('FIFO deduction error for product:', item.product_id, fifoErr.message)
+          fifoFailures.push(item.product_id)
         }
       }
     } catch (e) {
@@ -125,6 +141,17 @@ export async function POST(request: NextRequest) {
     entityId: saleGroupId,
     details: `Продажба: ${items.length} артикула, плащане ${payment_method || 'cash'}`,
   }, admin)
+
+  if (fifoFailures.length > 0) {
+    await logAction({
+      action: 'sale_fifo_failed',
+      userId: user.id,
+      userName: profile?.display_name || user.email,
+      entityType: 'sale',
+      entityId: saleGroupId,
+      details: `Липсващи FIFO движения за ${fifoFailures.length} артикула: ${fifoFailures.join(', ')}`,
+    }, admin)
+  }
 
   return NextResponse.json({ success: true, sale_group_id: saleGroupId, count: items.length })
 }
