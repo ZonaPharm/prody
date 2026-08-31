@@ -64,17 +64,41 @@ export async function GET(request: Request) {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 7)
 
-  // Low stock — with per-store breakdown from stock_batches
-  const lowStock = await fetchAll<any>(() => supabase
+  // Low stock — measured from the batches, with a per-store breakdown.
+  //
+  // products.quantity_on_hand disagrees with the sum of a product's batches
+  // for around 150 products, and a physical count settled that the batches
+  // are the accurate side. Filtering on quantity_on_hand therefore hides
+  // products that are genuinely at or below the threshold — 32 of them at
+  // the time of writing.
+  const LOW_STOCK_THRESHOLD = 5
+
+  const activeProducts = await fetchAll<{ id: string; name: string }>(() => supabase
     .from('products')
-    .select('id, name, quantity_on_hand')
+    .select('id, name')
     .eq('status', 'active')
-    .lte('quantity_on_hand', 5)
-    .order('quantity_on_hand')
+    .order('name')
     .order('id') as any)
 
+  const stockRows = await fetchByIds<{ product_id: string; quantity_remaining: number }>(
+    ids => supabase
+      .from('stock_batches')
+      .select('product_id, quantity_remaining')
+      .in('product_id', ids)
+      .gt('quantity_remaining', 0) as any,
+    activeProducts.map(p => p.id),
+  )
+
+  const onHandByProduct: Record<string, number> = {}
+  for (const row of stockRows) {
+    onHandByProduct[row.product_id] = (onHandByProduct[row.product_id] || 0) + row.quantity_remaining
+  }
+
   type LowStockRow = { id: string; name: string; quantity_on_hand: number }
-  const products = (lowStock || []) as LowStockRow[]
+  const products: LowStockRow[] = activeProducts
+    .map(p => ({ id: p.id, name: p.name, quantity_on_hand: onHandByProduct[p.id] || 0 }))
+    .filter(p => p.quantity_on_hand <= LOW_STOCK_THRESHOLD)
+    .sort((a, b) => a.quantity_on_hand - b.quantity_on_hand || a.name.localeCompare(b.name, 'bg'))
 
   // Fetch per-store quantities for low-stock products
   const lowStockWithStores: (LowStockRow & { stores: { name: string; qty: number }[] })[] = products.map(p => ({ ...p, stores: [] }))
