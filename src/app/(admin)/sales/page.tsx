@@ -4,6 +4,7 @@ import { Download } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
 import { SalesFilters } from './filters'
 import { sofiaToday, sofiaTime, sofiaDate } from '@/lib/date-utils'
+import { fetchAll } from '@/lib/fetch-all'
 
 interface PageProps {
   searchParams: Promise<{ store?: string; from?: string; to?: string; product?: string; category?: string; page?: string; grouped?: string }>
@@ -63,18 +64,24 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const hasMore = page < totalPages
   const hasPrev = page > 1
 
-  // Fetch totals for the ENTIRE period (not just current page)
-  let totalsQuery = supabase
-    .from('sales')
-    .select('quantity, sale_price, payment_method, product:products!inner(category_id)')
-    .gte('sale_date', fromDate)
-    .lte('sale_date', toDate)
-    .eq('voided', false)
-  if (storeIds.length > 0) totalsQuery = totalsQuery.in('store_id', storeIds)
-  if (sp.product) totalsQuery = totalsQuery.eq('product_id', sp.product)
-  if (sp.category === '__none__') totalsQuery = totalsQuery.is('product.category_id', null)
-  else if (sp.category) totalsQuery = totalsQuery.eq('product.category_id', sp.category)
-  const { data: allActiveSales } = await totalsQuery
+  // Totals cover the ENTIRE period, not just the current page — and they page
+  // through it. PostgREST caps a response at 1000 rows, so a busy month was
+  // summed from the first 1000 sales only: August across all stores read
+  // 11783.60 against an actual 13386.48.
+  const allActiveSales = await fetchAll<any>(() => {
+    let q = supabase
+      .from('sales')
+      .select('quantity, sale_price, payment_method, product:products!inner(category_id)')
+      .gte('sale_date', fromDate)
+      .lte('sale_date', toDate)
+      .eq('voided', false)
+      .order('id')
+    if (storeIds.length > 0) q = q.in('store_id', storeIds)
+    if (sp.product) q = q.eq('product_id', sp.product)
+    if (sp.category === '__none__') q = q.is('product.category_id', null)
+    else if (sp.category) q = q.eq('product.category_id', sp.category)
+    return q as any
+  })
 
   const total = (allActiveSales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
   const cardTotal = (allActiveSales || []).filter((s: any) => s.payment_method === 'card').reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
