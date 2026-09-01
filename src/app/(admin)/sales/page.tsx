@@ -72,7 +72,8 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
     .eq('voided', false)
   if (storeIds.length > 0) totalsQuery = totalsQuery.in('store_id', storeIds)
   if (sp.product) totalsQuery = totalsQuery.eq('product_id', sp.product)
-  if (sp.category) totalsQuery = totalsQuery.eq('product.category_id', sp.category)
+  if (sp.category === '__none__') totalsQuery = totalsQuery.is('product.category_id', null)
+  else if (sp.category) totalsQuery = totalsQuery.eq('product.category_id', sp.category)
   const { data: allActiveSales } = await totalsQuery
 
   const total = (allActiveSales || []).reduce((sum: number, s: any) => sum + s.quantity * Number(s.sale_price), 0)
