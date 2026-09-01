@@ -162,6 +162,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Всички категории</SelectItem>
+          <SelectItem value="__none__">Без категория</SelectItem>
           {categories.map((c) => (
             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
           ))}

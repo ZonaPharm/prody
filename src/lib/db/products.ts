@@ -18,7 +18,12 @@ export async function getProducts(filters?: {
   if (filters?.search) {
     query = query.ilike('name', `%${filters.search}%`)
   }
-  if (filters?.categoryId) {
+  // '__none__' asks for the products that have no category at all. A plain
+  // falsy check cannot express that, since an empty value already means
+  // 'do not filter'.
+  if (filters?.categoryId === '__none__') {
+    query = query.is('category_id', null)
+  } else if (filters?.categoryId) {
     query = query.eq('category_id', filters.categoryId)
   }
   if (filters?.storeId) {
