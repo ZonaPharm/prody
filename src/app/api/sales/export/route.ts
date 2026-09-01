@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
 
     if (storeIds.length > 0) query = query.in('store_id', storeIds)
     if (product) query = query.eq('product_id', product)
-    if (category) query = query.eq('product.category_id', category)
+    if (category === '__none__') query = query.is('product.category_id', null)
+    else if (category) query = query.eq('product.category_id', category)
     return query
   })
 

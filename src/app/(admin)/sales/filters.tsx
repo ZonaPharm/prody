@@ -175,6 +175,7 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
             className={`${inputClass} max-w-[180px]`}
           >
             <option value="">Всички категории</option>
+            <option value="__none__">Без категория</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>

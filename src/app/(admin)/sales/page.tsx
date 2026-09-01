@@ -53,7 +53,10 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   const storeIds = sp.store ? sp.store.split(',').filter(Boolean) : []
   if (storeIds.length > 0) query = query.in('store_id', storeIds)
   if (sp.product) query = query.eq('product_id', sp.product)
-  if (sp.category) query = query.eq('product.category_id', sp.category)
+  // '__none__' means “products with no category”; a plain falsy check cannot
+  // express that, since an empty value already means “do not filter”.
+  if (sp.category === '__none__') query = query.is('product.category_id', null)
+  else if (sp.category) query = query.eq('product.category_id', sp.category)
 
   const { data: sales, count: totalCount } = await query
   const totalPages = Math.ceil((totalCount || 0) / PAGE_SIZE)
