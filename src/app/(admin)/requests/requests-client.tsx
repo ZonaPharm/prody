@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2, PlusCircle, Search, X, Send } from 'lucide-react'
+import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2, PlusCircle, Search, X, Send, ChevronLeft } from 'lucide-react'
 import { sofiaTime, sofiaDateTime } from '@/lib/date-utils'
 
 interface Request {
@@ -117,6 +117,9 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
   const [stockData, setStockData] = useState<Record<string, any[]>>({})
   const [transferQtys, setTransferQtys] = useState<Record<string, Record<string, number>>>({})
   const [fulfilling, setFulfilling] = useState(false)
+  const [rejectBatch, setRejectBatch] = useState<Batch | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejecting, setRejecting] = useState(false)
   const { toast } = useToast()
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
   const [detailReq, setDetailReq] = useState<Request | null>(null)
@@ -212,11 +215,26 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
     // currently in_transit have no matching movement behind them.
     const shipped: string[] = []
     const failures: string[] = []
+    const partials: string[] = []
+    const skipped: string[] = []
 
     for (const entry of fulfillStore.entries) {
       const productTransfers = transferQtys[entry.product_id] || {}
       const transfers = Object.entries(productTransfers).filter(([, qty]) => qty > 0)
-      if (transfers.length === 0) continue
+      if (transfers.length === 0) {
+        // A request moves as a whole: a product with nothing available is still
+        // marked as shipped, for zero units, so the batch does not split across
+        // statuses. The shortfall is visible in shipped_qty and the note.
+        skipped.push(entry.product_name)
+        const zeroRes = await fetch(`/api/inventory/requests/${entry.id}/ship`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shipped_qty: 0 }),
+        }).catch(() => null)
+        if (zeroRes?.ok) shipped.push(entry.id)
+        else failures.push(`${entry.product_name}: не можа да се отбележи като липсващ`)
+        continue
+      }
 
       let moved = true
       for (const [fromId, qty] of transfers) {
@@ -240,10 +258,22 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
       }
       if (!moved) continue
 
-      const shipRes = await fetch(`/api/inventory/requests/${entry.id}/ship`, { method: 'POST' })
-        .catch(() => null)
-      if (shipRes?.ok) shipped.push(entry.id)
-      else failures.push(`${entry.product_name}: стоката е прехвърлена, но заявката не се отбеляза`)
+      // Tell /ship how much actually moved, so a short shipment is recorded as
+      // partial instead of looking like a request satisfied in full.
+      const movedQty = transfers.reduce((sum, [, qty]) => sum + qty, 0)
+      const shipRes = await fetch(`/api/inventory/requests/${entry.id}/ship`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipped_qty: movedQty }),
+      }).catch(() => null)
+      if (shipRes?.ok) {
+        shipped.push(entry.id)
+        if (movedQty < entry.quantity) {
+          partials.push(`${entry.product_name}: ${movedQty} от ${entry.quantity} бр.`)
+        }
+      } else {
+        failures.push(`${entry.product_name}: стоката е прехвърлена, но заявката не се отбеляза`)
+      }
     }
 
     if (shipped.length > 0) {
@@ -259,7 +289,13 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
         variant: 'destructive',
       })
     } else {
-      toast({ title: `Прехвърлени ${shipped.length} артикула` })
+      const notes: string[] = []
+      if (partials.length > 0) notes.push(`Частично: ${partials.join('; ')}`)
+      if (skipped.length > 0) notes.push(`Без наличност, остават отворени: ${skipped.join(', ')}`)
+      toast({
+        title: `Прехвърлени ${shipped.length} ${shipped.length === 1 ? 'артикул' : 'артикула'}`,
+        description: notes.length > 0 ? notes.join(' · ') : undefined,
+      })
       setFulfillStore(null)
     }
 
@@ -267,24 +303,87 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
     router.refresh()
   }
 
-  const handleAction = async (batch: Batch, action: string) => {
+  // Rejecting after acceptance is how a product held in no store gets closed.
+  const confirmReject = async () => {
+    const batch = rejectBatch
+    if (!batch) return
+    setRejecting(true)
+
     let ok = true
     for (const entry of batch.entries) {
-      setLoading(entry.id)
-      const res = await fetch(`/api/inventory/requests/${entry.id}/${action}`, { method: 'POST' })
-      if (!res.ok) ok = false
+      const res = await fetch(`/api/inventory/requests/${entry.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() }),
+      }).catch(() => null)
+      if (!res?.ok) ok = false
     }
-    setLoading(null)
+    setRejecting(false)
+
     if (ok) {
-      const newStatus = action === 'accept' ? 'accepted' : action === 'deliver' ? 'delivered' : 'rejected'
       setRequests(prev => prev.map(r =>
-        batch.entries.some(e => e.id === r.id) ? { ...r, status: newStatus } : r
+        batch.entries.some(e => e.id === r.id) ? { ...r, status: 'rejected' } : r
       ))
       setSelectedBatch(null)
-      router.refresh()
+      toast({ title: 'Заявката е отказана' })
     } else {
-      alert('Грешка при изпълнение на действието')
+      toast({ title: 'Отказването не мина', variant: 'destructive' })
     }
+    setRejectBatch(null)
+    setRejectReason('')
+    router.refresh()
+  }
+
+  const handleAction = async (batch: Batch, action: string) => {
+    // A batch can hold rows at different statuses — an older one already
+    // delivered next to one still waiting to be sent. Each row is applied on
+    // its own and the ones that move are reflected even if others cannot,
+    // rather than the whole action appearing to do nothing.
+    const moved: string[] = []
+    const refused: string[] = []
+
+    for (const entry of batch.entries) {
+      setLoading(entry.id)
+      const isClose = action === 'close'
+      const endpoint = isClose ? 'deliver' : action
+      const res = await fetch(`/api/inventory/requests/${entry.id}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isClose ? { close: true } : {}),
+      }).catch(() => null)
+
+      if (res?.ok) {
+        moved.push(entry.id)
+      } else {
+        const body = await res?.json().catch(() => ({}))
+        refused.push(`${entry.product_name}: ${body?.error || 'не мина'}`)
+      }
+    }
+    setLoading(null)
+
+    const newStatus = action === 'accept' ? 'accepted'
+      : action === 'deliver' ? 'delivered'
+      : action === 'close' ? 'confirmed'
+      : 'rejected'
+
+    if (moved.length > 0) {
+      setRequests(prev => prev.map(r =>
+        moved.includes(r.id) ? { ...r, status: newStatus } : r
+      ))
+    }
+
+    if (refused.length === 0) {
+      setSelectedBatch(null)
+    } else {
+      toast({
+        title: moved.length > 0
+          ? `${moved.length} от ${batch.entries.length} преминаха`
+          : 'Действието не мина',
+        description: refused.join('; '),
+        variant: moved.length > 0 ? 'default' : 'destructive',
+      })
+    }
+    router.refresh()
   }
 
   const batches: Batch[] = useMemo(() => {
@@ -370,9 +469,12 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
           <p className="text-muted-foreground text-lg">Няма заявки</p>
         </div>
       ) : (
-        <div className="flex gap-4 h-[calc(100vh-12rem)]">
-          {/* Left Panel — Batch List */}
-          <div className="w-1/3 min-w-[300px] overflow-y-auto space-y-3 pr-2">
+        <div className="flex flex-col gap-4 lg:h-[calc(100vh-12rem)] lg:flex-row">
+          {/* Left Panel — Batch List. Hidden on a phone once a batch is open,
+              so the detail gets the full width instead of 75px of it. */}
+          <div className={`space-y-3 overflow-y-auto lg:w-1/3 lg:min-w-[300px] lg:pr-2 ${
+            selectedBatch ? 'hidden lg:block' : 'block'
+          }`}>
             <div className="flex gap-1 bg-slate-100 rounded-lg p-1 sticky top-0 z-10">
               {(['pending', 'in_progress', 'done'] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
@@ -430,17 +532,25 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
           </div>
 
           {/* Right Panel — Detail */}
-          <div className="flex-1 overflow-y-auto min-w-0">
+          <div className={`min-w-0 flex-1 overflow-y-auto ${
+            selectedBatch ? 'block' : 'hidden lg:block'
+          }`}>
             {selectedBatch ? (
-              <div className="space-y-4 bg-white rounded-xl border p-6">
-                <div className="flex items-start justify-between">
-                  <div>
+              <div className="space-y-4 bg-white rounded-xl border p-4 sm:p-6">
+                <button
+                  onClick={() => setSelectedBatch(null)}
+                  className="-ml-1 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground lg:hidden"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Всички заявки
+                </button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <h2 className="text-lg font-bold">{selectedBatch.store_name}</h2>
                     <p className="text-sm text-muted-foreground">
                       {selectedBatch.productCount} продукта · {selectedBatch.totalQty} бр. · {relativeTime(selectedBatch.created_at)}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {selectedBatch.status === 'pending' && (
                       <>
                         <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50"
@@ -453,14 +563,30 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
                       </>
                     )}
                     {selectedBatch.status === 'accepted' && (
-                      <Button size="sm"
-                        onClick={() => openFulfill(selectedBatch.store_id, selectedBatch.store_name, selectedBatch.entries)}>
-                        <ArrowRightLeft className="mr-1 h-4 w-4" /> Прехвърли и изпрати
-                      </Button>
+                      <>
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => { setRejectBatch(selectedBatch); setRejectReason('') }}>
+                          Откажи
+                        </Button>
+                        <Button size="sm"
+                          onClick={() => openFulfill(selectedBatch.store_id, selectedBatch.store_name, selectedBatch.entries)}>
+                          <ArrowRightLeft className="mr-1 h-4 w-4" /> Прехвърли и изпрати
+                        </Button>
+                      </>
                     )}
                     {selectedBatch.status === 'in_transit' && (
-                      <Button size="sm" onClick={() => handleAction(selectedBatch, 'deliver')}>
-                        <CheckCircle2 className="mr-1 h-4 w-4" /> Маркирай като доставена
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => handleAction(selectedBatch, 'deliver')}>
+                          <CheckCircle2 className="mr-1 h-4 w-4" /> Маркирай като доставена
+                        </Button>
+                        <Button size="sm" onClick={() => handleAction(selectedBatch, 'close')}>
+                          Приключи
+                        </Button>
+                      </>
+                    )}
+                    {selectedBatch.status === 'delivered' && (
+                      <Button size="sm" onClick={() => handleAction(selectedBatch, 'close')}>
+                        <CheckCircle2 className="mr-1 h-4 w-4" /> Приключи
                       </Button>
                     )}
                   </div>
@@ -619,6 +745,42 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
                 <Button onClick={executeFulfill} disabled={fulfilling}>
                   {fulfilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Прехвърли и изпрати
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Reject Dialog */}
+      {rejectBatch && (
+        <Dialog open={!!rejectBatch} onOpenChange={() => { setRejectBatch(null); setRejectReason('') }}>
+          <DialogContent className="sm:max-w-[440px]">
+            <DialogHeader>
+              <DialogTitle>Отказ на заявка от {rejectBatch.store_name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">
+                {rejectBatch.productCount} {rejectBatch.productCount === 1 ? 'продукт' : 'продукта'} ще бъдат отказани.
+                Причината се записва в историята на заявката.
+              </p>
+              <div>
+                <label className="text-xs font-medium mb-1 block">Причина</label>
+                <Input
+                  autoFocus
+                  placeholder="напр. няма наличност, поръчано от доставчик"
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && rejectReason.trim()) confirmReject() }}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-1">
+                <Button variant="ghost" onClick={() => { setRejectBatch(null); setRejectReason('') }}>
+                  Назад
+                </Button>
+                <Button variant="destructive" onClick={confirmReject} disabled={rejecting || !rejectReason.trim()}>
+                  {rejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Откажи заявката
                 </Button>
               </div>
             </div>
