@@ -18,24 +18,40 @@ export async function POST(
   }
 
   const { id } = await params
+  const body = await request.json().catch(() => ({}))
+  // The admin can close the request outright instead of waiting for the shop to
+  // confirm. Both routes to a closed request exist: the shop confirms what it
+  // received, or the admin closes it when nobody does.
+  const closeNow = body?.close === true
+
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('id, status').eq('id', id).single()
+    .select('id, status, requested_qty, shipped_qty').eq('id', id).single()
 
   if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (req.status !== 'in_transit') {
-    return NextResponse.json({ error: 'Може да доставите само изпратени заявки' }, { status: 400 })
+
+  const DELIVERABLE = closeNow ? ['in_transit', 'delivered'] : ['in_transit']
+  if (!DELIVERABLE.includes(req.status)) {
+    return NextResponse.json(
+      { error: `Може да доставите само изпратени заявки (статус: ${req.status})` },
+      { status: 400 },
+    )
   }
 
   const admin = createAdminClient()
   const now = new Date().toISOString()
 
   await (admin.from('stock_requests') as any)
-    .update({ status: 'delivered', delivered_at: now, updated_at: now })
+    .update({
+      status: closeNow ? 'confirmed' : 'delivered',
+      delivered_at: now,
+      updated_at: now,
+      ...(closeNow ? { confirmed_by: user.id, confirmed_at: now } : {}),
+    })
     .eq('id', id)
 
   try {
     await (admin.from('request_events') as any).insert({
-      request_id: id, status: 'delivered', user_id: user.id,
+      request_id: id, status: closeNow ? 'confirmed' : 'delivered', user_id: user.id,
       notes: 'Доставена в магазина', created_at: now,
     })
   } catch { /* table may not exist */ }

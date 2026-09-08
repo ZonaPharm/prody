@@ -18,8 +18,9 @@ export async function POST(
   }
 
   const { id } = await params
+  const body = await request.json().catch(() => ({}))
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('id, status').eq('id', id).single()
+    .select('id, status, requested_qty').eq('id', id).single()
 
   if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (req.status !== 'accepted') {
@@ -29,23 +30,63 @@ export async function POST(
   const admin = createAdminClient()
   const now = new Date().toISOString()
 
-  await (admin.from('stock_requests') as any)
-    .update({ status: 'in_transit', in_transit_at: now, updated_at: now })
+  // How much actually moved. Callers that send nothing are treated as shipping
+  // the full amount, which is what every existing caller meant.
+  const shippedQty = Number.isFinite(Number(body?.shipped_qty))
+    ? Math.max(0, Math.floor(Number(body.shipped_qty)))
+    : req.requested_qty
+
+  // A short shipment is still a shipment: those units are on their way and the
+  // shop has to receive them like any other. The shortfall lives in
+  // shipped_qty, not in the status — marking it 'partial' here would take the
+  // request out of the in-transit flow and leave nobody to confirm arrival.
+  const isPartial = shippedQty < req.requested_qty
+  const nothingSent = shippedQty === 0
+  const status = 'in_transit'
+
+  const updatePayload: Record<string, any> = {
+    status,
+    shipped_qty: shippedQty,
+    in_transit_at: now,
+    updated_at: now,
+  }
+
+  const { error: updErr } = await (admin.from('stock_requests') as any)
+    .update(updatePayload)
     .eq('id', id)
+
+  if (updErr) {
+    return NextResponse.json({ error: updErr.message }, { status: 500 })
+  }
 
   try {
     await (admin.from('request_events') as any).insert({
-      request_id: id, status: 'in_transit', user_id: user.id,
-      notes: 'Пратена към магазина', created_at: now,
+      request_id: id, status, user_id: user.id,
+      notes: nothingSent
+        ? `Няма наличност — 0 от ${req.requested_qty} бр.`
+        : isPartial
+          ? `Изпратени ${shippedQty} от ${req.requested_qty} бр.`
+          : 'Пратена към магазина',
+      created_at: now,
     })
   } catch { /* table may not exist */ }
 
   try {
     await (admin.from('request_notes') as any).insert({
       request_id: id, user_id: user.id,
-      body: '📦 Заявката е изпратена към магазина',
+      body: nothingSent
+        ? `⚠️ Няма наличност — 0 от ${req.requested_qty} бр. не са изпратени`
+        : isPartial
+          ? `📦 Изпратени ${shippedQty} от ${req.requested_qty} бр. — частично`
+          : '📦 Заявката е изпратена към магазина',
     })
   } catch {}
-  await logAction({ action: 'request_ship', userId: user.id, entityType: 'stock_request', entityId: id }, admin)
-  return NextResponse.json({ success: true })
+  await logAction({
+    action: 'request_ship',
+    userId: user.id,
+    entityType: 'stock_request',
+    entityId: id,
+    details: `${shippedQty} от ${req.requested_qty} бр.`,
+  }, admin)
+  return NextResponse.json({ success: true, status, shipped_qty: shippedQty })
 }

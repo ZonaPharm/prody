@@ -15,6 +15,8 @@ export async function POST(
     .select('role').eq('id', user.id).single()
 
   const { id } = await params
+  const body = await request.json().catch(() => ({}))
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : ''
 
   const { data: req } = await (supabase.from('stock_requests') as any)
     .select('id, requested_by, status, product:products(name), requested_qty')
@@ -22,8 +24,15 @@ export async function POST(
     .single()
 
   if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (req.status !== 'pending') {
-    return NextResponse.json({ error: 'Може да откажете само чакащи заявки' }, { status: 400 })
+  // Accepted requests can be rejected too. Without this, a product held in no
+  // store had no closing move at all: the only action left after accepting is
+  // "transfer and send", which cannot be done without stock, so the request sat
+  // there indefinitely — 32 of them for an average of 82 days.
+  if (req.status !== 'pending' && req.status !== 'accepted') {
+    return NextResponse.json(
+      { error: `Може да откажете само чакащи или приети заявки (статус: ${req.status})` },
+      { status: 400 },
+    )
   }
 
   // Seller can only reject their own requests; admin can reject any
@@ -43,7 +52,9 @@ export async function POST(
   try {
     await (admin.from('request_events') as any).insert({
       request_id: id, status: 'rejected', user_id: user.id,
-      notes: `Отказана заявка: ${productName || '—'} (${req.requested_qty} бр.)`,
+      notes: reason
+        ? `Отказана: ${productName || '—'} (${req.requested_qty} бр.) — ${reason}`
+        : `Отказана заявка: ${productName || '—'} (${req.requested_qty} бр.)`,
       created_at: now,
     })
   } catch { /* table may not exist yet */ }

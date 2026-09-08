@@ -163,8 +163,12 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       if (res.ok) {
         toast({ title: 'Получаването е потвърдено' })
         router.refresh()
+        return
       }
-    } catch { toast({ title: 'Грешка', variant: 'destructive' }) }
+      // A rejected confirmation used to do nothing at all on screen.
+      const body = await res.json().catch(() => ({}))
+      toast({ title: body.error || 'Потвърждаването не мина', variant: 'destructive' })
+    } catch { toast({ title: 'Грешка при потвърждаване', variant: 'destructive' }) }
   }
 
   return (

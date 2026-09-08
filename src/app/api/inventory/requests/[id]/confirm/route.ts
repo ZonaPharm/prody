@@ -16,18 +16,35 @@ export async function POST(
   const { received_qty, notes } = body
 
   const { data: req } = await (supabase.from('stock_requests') as any)
-    .select('store_id, status, requested_qty, notes')
+    .select('store_id, status, requested_qty, shipped_qty, notes')
     .eq('id', id)
     .single()
 
   if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (req.status !== 'fulfilled' && req.status !== 'delivered') {
-    return NextResponse.json({ error: 'Заявката не е доставена все още' }, { status: 400 })
+
+  // in_transit is what the admin side actually produces: fulfilling a request
+  // transfers the stock and then calls /ship. The older 'fulfilled' and
+  // 'delivered' states are still accepted so anything already in them can be
+  // closed, but leaving in_transit out meant a seller holding the goods was
+  // told the request had not been delivered — no request has ever reached
+  // confirmed since.
+  const RECEIVABLE = ['in_transit', 'fulfilled', 'delivered']
+  if (!RECEIVABLE.includes(req.status)) {
+    return NextResponse.json(
+      { error: `Заявката не е изпратена все още (статус: ${req.status})` },
+      { status: 400 },
+    )
   }
 
   const admin = createAdminClient()
-  const actualQty = received_qty ?? req.requested_qty
-  const isPartial = actualQty < req.requested_qty
+
+  // Compare against what was shipped, not what was originally requested. A
+  // request for 20 that shipped 12 and arrived complete is a full receipt of
+  // that shipment; measuring it against 20 would flag every short shipment as
+  // a delivery problem it is not.
+  const expectedQty = req.shipped_qty ?? req.requested_qty
+  const actualQty = received_qty ?? expectedQty
+  const isPartial = actualQty < expectedQty
   const status = isPartial ? 'partial' : 'confirmed'
 
   // Build timeline note
