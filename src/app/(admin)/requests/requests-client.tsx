@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useToast } from '@/hooks/use-toast'
 import { Check, Loader2, ArrowRightLeft, Package, Store, ChevronDown, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle2, PlusCircle, Search, X, Send } from 'lucide-react'
 import { sofiaTime, sofiaDateTime } from '@/lib/date-utils'
 
@@ -116,6 +117,7 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
   const [stockData, setStockData] = useState<Record<string, any[]>>({})
   const [transferQtys, setTransferQtys] = useState<Record<string, Record<string, number>>>({})
   const [fulfilling, setFulfilling] = useState(false)
+  const { toast } = useToast()
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
   const [detailReq, setDetailReq] = useState<Request | null>(null)
   const [requestEvents, setRequestEvents] = useState<any[]>([])
@@ -203,25 +205,64 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
   const executeFulfill = async () => {
     if (!fulfillStore) return
     setFulfilling(true)
-    try {
-      for (const entry of fulfillStore.entries) {
-        const productTransfers = transferQtys[entry.product_id] || {}
-        const transfers = Object.entries(productTransfers).filter(([, qty]) => qty > 0)
-        for (const [fromId, qty] of transfers) {
-          if (qty <= 0) continue
-          await fetch('/api/inventory/transfer', {
+
+    // A request is only marked shipped if its stock actually moved. Previously
+    // the transfer result was ignored and /ship ran regardless, so a failed
+    // transfer still left the request looking sent — five of the requests
+    // currently in_transit have no matching movement behind them.
+    const shipped: string[] = []
+    const failures: string[] = []
+
+    for (const entry of fulfillStore.entries) {
+      const productTransfers = transferQtys[entry.product_id] || {}
+      const transfers = Object.entries(productTransfers).filter(([, qty]) => qty > 0)
+      if (transfers.length === 0) continue
+
+      let moved = true
+      for (const [fromId, qty] of transfers) {
+        try {
+          const res = await fetch('/api/inventory/transfer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ product_id: entry.product_id, from_store_id: fromId, to_store_id: fulfillStore.store_id, quantity: qty }),
           })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            failures.push(`${entry.product_name}: ${body.error || 'прехвърлянето не мина'}`)
+            moved = false
+            break
+          }
+        } catch {
+          failures.push(`${entry.product_name}: няма връзка със сървъра`)
+          moved = false
+          break
         }
-        await fetch(`/api/inventory/requests/${entry.id}/ship`, { method: 'POST' })
       }
+      if (!moved) continue
+
+      const shipRes = await fetch(`/api/inventory/requests/${entry.id}/ship`, { method: 'POST' })
+        .catch(() => null)
+      if (shipRes?.ok) shipped.push(entry.id)
+      else failures.push(`${entry.product_name}: стоката е прехвърлена, но заявката не се отбеляза`)
+    }
+
+    if (shipped.length > 0) {
       setRequests(prev => prev.map(r =>
-        fulfillStore.entries.some(e => e.id === r.id) ? { ...r, status: 'in_transit' } : r
+        shipped.includes(r.id) ? { ...r, status: 'in_transit' } : r
       ))
+    }
+
+    if (failures.length > 0) {
+      toast({
+        title: shipped.length > 0 ? 'Част от заявките не минаха' : 'Прехвърлянето не мина',
+        description: failures.join('; '),
+        variant: 'destructive',
+      })
+    } else {
+      toast({ title: `Прехвърлени ${shipped.length} артикула` })
       setFulfillStore(null)
-    } catch { /* ignore */ }
+    }
+
     setFulfilling(false)
     router.refresh()
   }
@@ -534,7 +575,10 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
             <DialogHeader>
               <DialogTitle>Прехвърляне към: {fulfillStore.store_name}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            {/* The product list scrolls on its own so the action buttons below
+                stay reachable no matter how many products the request holds. */}
+            <div className="flex min-h-0 flex-col gap-4 pt-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div className="bg-slate-50 rounded p-3 space-y-1">
                 <p className="text-sm font-medium">Заявени продукти:</p>
                 {fulfillStore.entries.map(e => (
@@ -569,7 +613,8 @@ export function RequestsClient({ requests: initialRequests, stores: initialStore
                   </div>
                 )
               })}
-              <div className="flex justify-end gap-3 pt-2">
+              </div>
+              <div className="flex shrink-0 justify-end gap-3 border-t pt-3">
                 <Button variant="ghost" onClick={() => setFulfillStore(null)}>Отказ</Button>
                 <Button onClick={executeFulfill} disabled={fulfilling}>
                   {fulfilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
