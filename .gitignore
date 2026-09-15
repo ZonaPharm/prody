@@ -9,3 +9,4 @@ tsconfig.tsbuildinfo
 .worktrees/
 .clone-tmp/
 backups/
+.claude/launch.json
