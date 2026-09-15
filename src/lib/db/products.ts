@@ -7,6 +7,7 @@ export async function getProducts(filters?: {
   status?: string
   sort?: string
   hasImages?: string
+  wp?: string
   limit?: number
   offset?: number
 }) {
@@ -25,6 +26,12 @@ export async function getProducts(filters?: {
     query = query.is('category_id', null)
   } else if (filters?.categoryId) {
     query = query.eq('category_id', filters.categoryId)
+  }
+  // 'not_synced' asks for the products that have never reached the shop. As
+  // with the category filter, a plain falsy check cannot express it, since an
+  // empty value already means 'do not filter'.
+  if (filters?.wp === 'not_synced') {
+    query = query.is('wp_product_id', null)
   }
   if (filters?.storeId) {
     // Filter products that have stock in the selected store

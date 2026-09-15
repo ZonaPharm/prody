@@ -51,6 +51,7 @@ export default function ProductSearch({ categories, stores }: Props) {
           hasImages: p.get('hasImages') || '',
           category: p.get('category') || '',
           store: p.get('store') || '',
+          wp: p.get('wp') || '',
         }
       }
     }
@@ -72,21 +73,26 @@ export default function ProductSearch({ categories, stores }: Props) {
   const [storeId, setStoreId] = useState(
     urlInitial.current.store || searchParams.get('store') || savedRef.current.store || 'all'
   )
+  const [wp, setWp] = useState(
+    urlInitial.current.wp || searchParams.get('wp') || savedRef.current.wp || 'all'
+  )
 
   const updateParams = useCallback(
-    (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string; replace?: boolean }) => {
+    (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string; wp?: string; replace?: boolean }) => {
       const params = new URLSearchParams()
       const s = opts.search ?? search
       const st = opts.status ?? status
       const hi = opts.hasImages ?? hasImages
       const cat = opts.category ?? categoryId
       const store = opts.store ?? storeId
+      const w = opts.wp ?? wp
       if (s) params.set('search', s)
       if (st && st !== 'all') params.set('status', st)
       if (hi && hi !== 'all') params.set('hasImages', hi)
       if (cat && cat !== 'all') params.set('category', cat)
       if (store && store !== 'all') params.set('store', store)
-      try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, store })) } catch {}
+      if (w && w !== 'all') params.set('wp', w)
+      try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, store, wp: w })) } catch {}
       const url = `/catalog?${params.toString()}`
       if (opts.replace) {
         router.replace(url, { scroll: false })
@@ -94,7 +100,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         router.push(url, { scroll: false })
       }
     },
-    [router, search, status, hasImages, categoryId, storeId]
+    [router, search, status, hasImages, categoryId, storeId, wp]
   )
 
   useEffect(() => {
@@ -187,6 +193,15 @@ export default function ProductSearch({ categories, stores }: Props) {
           {IMAGE_OPTIONS.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+      <Select value={wp} onValueChange={(v) => { setWp(v); updateParams({ wp: v }) }}>
+        <SelectTrigger className="w-[150px]">
+          <SelectValue placeholder="Сайт" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Всички</SelectItem>
+          <SelectItem value="not_synced">Не е в сайта</SelectItem>
         </SelectContent>
       </Select>
     </div>

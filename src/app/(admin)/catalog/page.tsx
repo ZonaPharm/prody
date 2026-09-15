@@ -16,7 +16,7 @@ import { ExportButton } from '@/components/products/export-button'
 const PAGE_SIZE = 50
 
 interface PageProps {
-  searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string; category?: string; store?: string }>
+  searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string; category?: string; store?: string; wp?: string }>
 }
 
 export default async function CatalogPage({ searchParams }: PageProps) {
@@ -24,7 +24,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
   const params = await searchParams
   const [products, categories, stores] = await Promise.all([
-    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages, categoryId: params.category, storeId: params.store, limit: PAGE_SIZE, offset: 0 }),
+    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages, categoryId: params.category, storeId: params.store, wp: params.wp, limit: PAGE_SIZE, offset: 0 }),
     getCategories(),
     (await createServerSupabaseClient()).from('stores').select('id, name').eq('is_active', true).order('name').then(r => r.data || []),
   ])
@@ -58,6 +58,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   if (params.sort) filterParams.sort = params.sort
   if (params.category) filterParams.category = params.category
   if (params.store) filterParams.store = params.store
+  if (params.wp) filterParams.wp = params.wp
 
   return (
     <div className="space-y-6">
