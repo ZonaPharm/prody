@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
 import { logAction } from '@/lib/audit'
 import { ProductInventoryTab } from '@/components/inventory/product-inventory-tab'
+import { PushToWpButton } from '@/components/products/push-to-wp-button'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -95,6 +96,12 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <PushToWpButton
+            productId={product.id}
+            wpTitle={(product as any).wp_title ?? null}
+            wpProductId={(product as any).wp_product_id ?? null}
+            wpSyncedAt={(product as any).wp_synced_at ?? null}
+          />
           <Button variant="outline" size="sm" asChild>
             <Link href={`/labels?productId=${product.id}`}>
               <Printer className="mr-1 h-4 w-4" />
