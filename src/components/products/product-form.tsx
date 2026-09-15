@@ -40,6 +40,12 @@ interface ProductFormProps {
     min_quantity?: number
     images?: { id: string; url: string; is_primary: boolean; sort_order: number }[]
     label?: { title: string; content: string } | null
+    wp_title?: string | null
+    wp_description?: string | null
+    wp_short_description?: string | null
+    wp_ingredients?: string | null
+    wp_usage?: string | null
+    wp_warnings?: string | null
   }
   categories: CategoryOption[]
 }
@@ -75,6 +81,13 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const [labelTitle, setLabelTitle] = useState(initialData?.label?.title || '')
   const [labelContent, setLabelContent] = useState(initialData?.label?.content || '')
+
+  const [wpTitle, setWpTitle] = useState(initialData?.wp_title || '')
+  const [wpShortDescription, setWpShortDescription] = useState(initialData?.wp_short_description || '')
+  const [wpDescription, setWpDescription] = useState(initialData?.wp_description || '')
+  const [wpIngredients, setWpIngredients] = useState(initialData?.wp_ingredients || '')
+  const [wpUsage, setWpUsage] = useState(initialData?.wp_usage || '')
+  const [wpWarnings, setWpWarnings] = useState(initialData?.wp_warnings || '')
 
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -148,6 +161,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         source_order_date: sourceOrderDate || null,
         status,
         min_quantity: minQuantity ? parseInt(minQuantity, 10) : 5,
+        wp_title: wpTitle.trim() || null,
+        wp_short_description: wpShortDescription.trim() || null,
+        wp_description: wpDescription.trim() || null,
+        wp_ingredients: wpIngredients.trim() || null,
+        wp_usage: wpUsage.trim() || null,
+        wp_warnings: wpWarnings.trim() || null,
       }
 
       // Only set quantity_on_hand for new products; edits go through inventory system
@@ -317,6 +336,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         <TabsList>
           <TabsTrigger value="info">Информация</TabsTrigger>
           <TabsTrigger value="label">Етикет</TabsTrigger>
+          <TabsTrigger value="website">За уебсайта</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-6 pt-4">
@@ -443,6 +463,100 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
               <Label htmlFor="label_content">Текст</Label>
               <Textarea id="label_content" rows={6} value={labelContent} onChange={(e) => setLabelContent(e.target.value)} placeholder="Текст на етикета" />
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="website" className="space-y-4 pt-4">
+          <p className="text-sm text-muted-foreground">
+            Тези полета отиват в сайта при качване. Празните се пропускат.
+          </p>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="wp_title" className="text-sm font-medium">
+                Заглавие за сайта
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setWpTitle(name)}
+                disabled={!name.trim()}
+              >
+                Копирай от Prody
+              </Button>
+            </div>
+            <Input
+              id="wp_title"
+              value={wpTitle}
+              onChange={e => setWpTitle(e.target.value)}
+              placeholder="Както да се казва продуктът в сайта"
+            />
+            <p className="text-xs text-muted-foreground">
+              Задължително за качване. Може да се различава от името в Prody.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="wp_short_description" className="text-sm font-medium">
+              Кратко описание
+            </label>
+            <Textarea
+              id="wp_short_description"
+              rows={3}
+              value={wpShortDescription}
+              onChange={e => setWpShortDescription(e.target.value)}
+              placeholder="Показва се до бутона за поръчка"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="wp_description" className="text-sm font-medium">
+              Пълно описание
+            </label>
+            <Textarea
+              id="wp_description"
+              rows={6}
+              value={wpDescription}
+              onChange={e => setWpDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="wp_ingredients" className="text-sm font-medium">
+              Състав
+            </label>
+            <Textarea
+              id="wp_ingredients"
+              rows={4}
+              value={wpIngredients}
+              onChange={e => setWpIngredients(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="wp_usage" className="text-sm font-medium">
+              Начин на употреба
+            </label>
+            <Textarea
+              id="wp_usage"
+              rows={3}
+              value={wpUsage}
+              onChange={e => setWpUsage(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="wp_warnings" className="text-sm font-medium">
+              Предупреждения
+            </label>
+            <Textarea
+              id="wp_warnings"
+              rows={3}
+              value={wpWarnings}
+              onChange={e => setWpWarnings(e.target.value)}
+            />
           </div>
         </TabsContent>
       </Tabs>
