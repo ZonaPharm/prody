@@ -19,6 +19,7 @@ export type WooProductInput = {
   sku?: string
   meta_data?: { key: string; value: string }[]
   categories?: { id: number }[]
+  slug?: string
   images?: { id: number }[]
 }
 

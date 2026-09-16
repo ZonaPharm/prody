@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createProduct, updateProduct, isWooConfigured, productHasImage, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
 import { uploadImage, isWpMediaConfigured } from '@/lib/wordpress-media'
+import { slugify, asciiFilename } from '@/lib/transliterate'
 import { logAction } from '@/lib/audit'
 
 // sharp is a native module and only runs under Node.js, never the edge
@@ -119,7 +120,9 @@ export async function POST(
 
     if (!shopHasImage) {
       try {
-        mediaId = await uploadImage(primaryImage.url, `${title}.jpg`)
+        // The file name travels in an HTTP header, which permits ASCII only.
+        // A Cyrillic title made the request illegal and the upload failed.
+        mediaId = await uploadImage(primaryImage.url, asciiFilename(title))
       } catch (imgErr: any) {
         // The copy is worth more than the picture: a failed image must not
         // block the push. The product goes up without it and the operator is
@@ -138,6 +141,12 @@ export async function POST(
     ...(categoryIds.length > 0 ? { categories: categoryIds.map(id => ({ id })) } : {}),
     ...(meta.length > 0 ? { meta_data: meta } : {}),
     ...(mediaId ? { images: [{ id: mediaId }] } : {}),
+    // Only on create. WordPress derives a Cyrillic title's URL as percent-
+    // encoded bytes, which is unreadable and unshareable; the shop's own
+    // products are Latin-slugged by hand. Never sent on update: the URL is
+    // published by then and may be linked from elsewhere, so changing it
+    // would break those links.
+    ...(existingId ? {} : { slug: slugify(title) }),
   }
 
   try {
