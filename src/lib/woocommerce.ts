@@ -39,6 +39,16 @@ export type WooError = Error & { status?: number; code?: string }
 /** The shop's answer when the product id in an update no longer exists. */
 export const WOO_INVALID_ID = 'woocommerce_rest_product_invalid_id'
 
+/**
+ * The shop's answer when a SKU is already taken.
+ *
+ * Reachable when recreating a product whose old record sits in the WordPress
+ * trash: a trashed product keeps its SKU, so the create is refused even though
+ * the product is invisible in the shop. No product in Prody carries a SKU
+ * today, which is why this has not been seen — it waits for the first one.
+ */
+export const WOO_DUPLICATE_SKU = 'product_invalid_sku'
+
 export function isWooConfigured(): boolean {
   return Boolean(BASE && KEY && SECRET)
 }
@@ -60,7 +70,7 @@ async function request(path: string, method: 'POST' | 'PUT', body: unknown): Pro
       Authorization: authHeader(),
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(15000),
   })
 
   const text = await res.text()
@@ -117,7 +127,7 @@ export async function getProductState(id: number): Promise<ShopProductState> {
 
   const res = await fetch(
     `${BASE!.replace(/\/$/, '')}/wp-json/wc/v3/products/${id}?_fields=id,status,images`,
-    { headers: { Authorization: authHeader() }, signal: AbortSignal.timeout(20000) },
+    { headers: { Authorization: authHeader() }, signal: AbortSignal.timeout(10000) },
   )
 
   // A removed product answers 404 with woocommerce_rest_product_invalid_id.

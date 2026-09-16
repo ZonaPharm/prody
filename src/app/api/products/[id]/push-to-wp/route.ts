@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createProduct, updateProduct, isWooConfigured, getProductState, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
+import { createProduct, updateProduct, isWooConfigured, getProductState, WOO_INVALID_ID, WOO_DUPLICATE_SKU, type WooProductInput } from '@/lib/woocommerce'
 import { uploadImage, isWpMediaConfigured } from '@/lib/wordpress-media'
 import { slugify, asciiFilename } from '@/lib/transliterate'
 import { logAction } from '@/lib/audit'
@@ -105,6 +105,8 @@ export async function POST(
   // record invisible in the shop, reporting success while nothing appears.
   // Treat that as gone and create it afresh.
   let shopHasImage = false
+  let mediaId: number | null = null
+  let imageWarning: string | null = null
 
   if (existingId) {
     try {
@@ -118,15 +120,16 @@ export async function POST(
       // Cannot tell: keep the update path and assume an image is present.
       // Skipping an image is recoverable by hand; a duplicate product on the
       // shop is not, and neither is a duplicate in the media library.
+      // Say so rather than skipping in silence — otherwise the push reports
+      // plain success and nobody learns the image never went.
       shopHasImage = true
+      imageWarning = 'Сайтът не отговори навреме — снимката беше пропусната'
     }
   }
 
   // A product that already carries an image on the shop keeps it. Re-uploading
   // on every push would pile up duplicates in the media library, and the image
   // is the part least likely to have changed.
-  let mediaId: number | null = null
-  let imageWarning: string | null = null
 
   if (primaryImage?.url && isWpMediaConfigured()) {
     if (!shopHasImage) {
@@ -210,6 +213,18 @@ export async function POST(
 
       return NextResponse.json(
         { error: 'Продуктът вече не съществува в сайта — връзката е изчистена. Натиснете отново, за да го качите наново.' },
+        { status: 409 },
+      )
+    }
+
+    // A trashed product keeps its SKU, so recreating one refuses with a
+    // duplicate. Without this branch the product wedges: every push takes the
+    // same route and fails identically, which is the failure the clause above
+    // exists to prevent, reached through a different door. Say what to do
+    // instead of repeating WooCommerce's bare refusal.
+    if (err?.code === WOO_DUPLICATE_SKU) {
+      return NextResponse.json(
+        { error: 'Артикулният номер вече се използва в сайта — най-вероятно от продукт в кошчето. Изпразнете кошчето в WordPress и опитайте пак.' },
         { status: 409 },
       )
     }
