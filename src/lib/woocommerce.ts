@@ -99,17 +99,37 @@ export async function updateProduct(id: number, input: WooProductInput): Promise
   return request(`/products/${id}`, 'PUT', input)
 }
 
-/** Whether the shop product already carries at least one image. */
-export async function productHasImage(id: number): Promise<boolean> {
-  if (!isWooConfigured()) return false
+/**
+ * What the shop currently holds for a product id.
+ *
+ * 'gone' covers both a deleted record and one sitting in the trash. Deleting a
+ * product in WordPress trashes it rather than removing it, and WooCommerce
+ * keeps answering for a trashed product — so an update against it succeeds
+ * while the product is invisible in the shop. Treating trashed as gone lets
+ * the caller recreate it, instead of silently updating a record nobody can see.
+ */
+export type ShopProductState =
+  | { state: 'gone' }
+  | { state: 'live'; hasImage: boolean }
+
+export async function getProductState(id: number): Promise<ShopProductState> {
+  if (!isWooConfigured()) return { state: 'gone' }
 
   const res = await fetch(
-    `${BASE!.replace(/\/$/, '')}/wp-json/wc/v3/products/${id}?_fields=images`,
+    `${BASE!.replace(/\/$/, '')}/wp-json/wc/v3/products/${id}?_fields=id,status,images`,
     { headers: { Authorization: authHeader() }, signal: AbortSignal.timeout(20000) },
   )
 
+  // A removed product answers 404 with woocommerce_rest_product_invalid_id.
+  if (res.status === 404) return { state: 'gone' }
   if (!res.ok) throw new Error(`WooCommerce отказа (${res.status})`)
 
-  const body = await res.json() as { images?: unknown[] }
-  return Array.isArray(body.images) && body.images.length > 0
+  const body = await res.json() as { status?: string; images?: unknown[] }
+
+  if (body.status === 'trash') return { state: 'gone' }
+
+  return {
+    state: 'live',
+    hasImage: Array.isArray(body.images) && body.images.length > 0,
+  }
 }

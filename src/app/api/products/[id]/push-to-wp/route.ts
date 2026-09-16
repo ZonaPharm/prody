@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createProduct, updateProduct, isWooConfigured, productHasImage, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
+import { createProduct, updateProduct, isWooConfigured, getProductState, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
 import { uploadImage, isWpMediaConfigured } from '@/lib/wordpress-media'
 import { slugify, asciiFilename } from '@/lib/transliterate'
 import { logAction } from '@/lib/audit'
@@ -97,7 +97,30 @@ export async function POST(
     ? product.wp_category_ids.filter((n: unknown) => typeof n === 'number')
     : []
 
-  const existingId: number | null = product.wp_product_id ?? null
+  let existingId: number | null = product.wp_product_id ?? null
+
+  // Ask the shop what it actually holds before deciding to update it. A
+  // product deleted in WordPress goes to the trash, and WooCommerce still
+  // answers for a trashed product — so an update would succeed against a
+  // record invisible in the shop, reporting success while nothing appears.
+  // Treat that as gone and create it afresh.
+  let shopHasImage = false
+
+  if (existingId) {
+    try {
+      const shop = await getProductState(existingId)
+      if (shop.state === 'gone') {
+        existingId = null
+      } else {
+        shopHasImage = shop.hasImage
+      }
+    } catch {
+      // Cannot tell: keep the update path and assume an image is present.
+      // Skipping an image is recoverable by hand; a duplicate product on the
+      // shop is not, and neither is a duplicate in the media library.
+      shopHasImage = true
+    }
+  }
 
   // A product that already carries an image on the shop keeps it. Re-uploading
   // on every push would pile up duplicates in the media library, and the image
@@ -106,18 +129,6 @@ export async function POST(
   let imageWarning: string | null = null
 
   if (primaryImage?.url && isWpMediaConfigured()) {
-    let shopHasImage = false
-
-    if (existingId) {
-      try {
-        shopHasImage = await productHasImage(existingId)
-      } catch {
-        // If we cannot tell, assume it has one. Skipping an image is
-        // recoverable by hand; a duplicate in the media library is litter.
-        shopHasImage = true
-      }
-    }
-
     if (!shopHasImage) {
       try {
         // The file name travels in an HTTP header, which permits ASCII only.
