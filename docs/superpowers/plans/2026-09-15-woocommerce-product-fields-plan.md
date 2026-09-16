@@ -911,6 +911,365 @@ If nothing needed changing, skip this step.
 
 ---
 
+### Task 8: Carry the filters through infinite scroll
+
+Added after Task 5. The catalogue loads 50 products server-side and fetches the
+rest through `/api/products/load-more` as the user scrolls. That route reads
+six query parameters — `search`, `status`, `sort`, `category`, `store`,
+`limit`/`offset` — and neither `wp` nor `hasImages` is among them, so both
+filters stop applying from row 51 onwards.
+
+`hasImages` additionally never leaves the page: `catalog/page.tsx` builds
+`filterParams` without it, so the grid has nothing to forward even once the
+route accepts it. Both halves must be fixed for either filter to survive.
+
+`hasImages` is a pre-existing gap, not one this branch introduced. It is
+included because it is the same defect in the same two files, and splitting it
+into its own task would mean touching both files twice.
+
+**Files:**
+- Modify: `src/app/api/products/load-more/route.ts` — read both parameters and pass them to `getProducts`
+- Modify: `src/components/products/catalog-infinite-grid.tsx` — forward both to the route
+- Modify: `src/app/(admin)/catalog/page.tsx:55-61` — put `hasImages` into `filterParams`
+
+**Interfaces:**
+- Consumes: `getProducts({ wp, hasImages, ... })` from `src/lib/db/products.ts` — both already accepted, both already implemented (`wp` at line 33, `hasImages` at line 65)
+- Produces: nothing new; no signature changes
+
+Note on `hasImages`: `getProducts` applies it **after** the query returns, as a
+filter on the 50-row page rather than a condition in SQL. A page can therefore
+come back with fewer than `limit` rows while more still exist, which makes
+`hasMore: products.length >= limit` end the scroll early. That behaviour is
+pre-existing and **out of scope here** — this task carries the parameter
+through; it does not move the filter into SQL. Do not attempt that change.
+
+- [ ] **Step 1: Read the three files**
+
+Read them before editing. The route and the grid each list their parameters in
+one place; add to those lists rather than restructuring.
+
+- [ ] **Step 2: Accept both parameters in the route**
+
+In `src/app/api/products/load-more/route.ts`, alongside the existing
+`const store = ...` line:
+
+```typescript
+  const hasImages = searchParams.get('hasImages') || undefined
+  const wp = searchParams.get('wp') || undefined
+```
+
+and pass them into the existing `getProducts({ ... })` call:
+
+```typescript
+  const products = await getProducts({
+    search, status, sort, hasImages, wp,
+    categoryId: category,
+    storeId: store,
+    limit, offset,
+  })
+```
+
+- [ ] **Step 3: Forward both from the grid**
+
+In `src/components/products/catalog-infinite-grid.tsx`, after the existing
+`if (f.store) params.set('store', f.store)`:
+
+```typescript
+        if (f.hasImages) params.set('hasImages', f.hasImages)
+        if (f.wp) params.set('wp', f.wp)
+```
+
+- [ ] **Step 4: Put hasImages into filterParams**
+
+In `src/app/(admin)/catalog/page.tsx`, after the `params.store` line and before
+the `params.wp` line:
+
+```typescript
+  if (params.hasImages) filterParams.hasImages = params.hasImages
+```
+
+`params.hasImages` is already in the `PageProps` type at line 19 and already
+reaches `getProducts` at line 27 — only `filterParams` was missing it.
+
+- [ ] **Step 5: Verify the types compile**
+
+Run: `npx tsc --noEmit`
+Expected: exit 0, no new errors.
+
+- [ ] **Step 6: Verify live against staging**
+
+The dev server runs on port 3000 against staging. With an authenticated
+session, request the load-more route directly with a filter that
+discriminates, and confirm the response honours it:
+
+```
+/api/products/load-more?wp=not_synced&limit=5&offset=0
+```
+
+Expected: 5 products, every one of them with `wp_product_id` null.
+
+Then the negative control — without the parameter, the same offset should be
+free to return synced products too. With staging currently at 0 synced
+products this control cannot discriminate, so note it as such rather than
+claiming it passed. Record in the report exactly which of the two checks
+actually discriminated.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/app/api/products/load-more/route.ts src/components/products/catalog-infinite-grid.tsx "src/app/(admin)/catalog/page.tsx"
+git commit -m "fix: carry the catalogue filters through infinite scroll
+
+load-more read neither wp nor hasImages, so both filters stopped applying
+from row 51. hasImages never left the page either. Both halves fixed.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 9: Write the fields the shop actually reads
+
+Added after observing three real shop products. The spec's theme dependency —
+"the theme must be checked to confirm it displays `_ingredients`, `_usage` and
+`_warnings`, or they will be saved and invisible" — was checked against the
+live shop and **failed**. The theme is Woodmart, and it reads its own meta keys.
+Nothing on zonapharm.com reads `_ingredients`, `_usage` or `_warnings`.
+
+Observed on products 203794, 200403 and 203519 — all three identical in shape:
+
+| Woodmart key | Holds |
+|---|---|
+| `_woodmart_product_custom_tab_title` | tab 1 title, always "Състав" |
+| `_woodmart_product_custom_tab_content` | tab 1 body |
+| `_woodmart_product_custom_tab_content_type` | always `text` |
+| `_woodmart_product_custom_tab_title_2` | tab 2 title ("Указания за употреба" ×2, "Указания" ×1) |
+| `_woodmart_product_custom_tab_content_2` | tab 2 body |
+| `_woodmart_product_custom_tab_content_type_2` | always `text` |
+
+`content_type` is `text` yet the stored values contain HTML (`<ul>`, `<li>`,
+`<em>`) and the shop renders it. So these fields accept HTML.
+
+There is no third custom tab. The "Противопоказания" tab visible on product
+pages is global theme text, identical for every product and not settable per
+product — which is why warnings must join tab 2.
+
+**User decisions driving this task** (do not revisit them):
+- Warnings append to the usage tab, separated by a blank line — matching what
+  product 203519 already does by hand.
+- Tab 2's title is per-product, not hardcoded, because the shop is inconsistent
+  about it. Default "Указания за употреба".
+- Categories are chosen per product from the shop's own list. Prody's own
+  categories are suppliers/brands (Арома, Витамаг, Зонафарм…) while the shop's
+  are health concerns (Женско здраве, За кожата…) — the two do not map, so
+  nothing is derived automatically.
+- Multiple categories per product are allowed; product 203519 has two.
+- **Stock is no longer sent.** All three observed products have
+  `manage_stock: false`. The current code forces `manage_stock: true` with a
+  batch total, which made the test product display "1 налични". Sending stock
+  is contrary to how this shop is run.
+
+**Files:**
+- Create: `supabase/migrations/20260916_wp_woodmart_fields.sql`
+- Modify: `src/app/api/products/[id]/push-to-wp/route.ts:61-75`
+- Modify: `src/components/products/product-form.tsx`
+- Create: `src/app/api/woocommerce/categories/route.ts`
+
+**Interfaces:**
+- Consumes: `isWooConfigured` from `src/lib/woocommerce.ts`
+- Produces: `WooProductInput` gains `categories?: { id: number }[]` — add the
+  field to the type in `src/lib/woocommerce.ts`
+
+- [ ] **Step 1: Add the two new columns**
+
+Create `supabase/migrations/20260916_wp_woodmart_fields.sql`:
+
+```sql
+-- The shop's theme (Woodmart) renders two per-product tabs whose titles are
+-- editable, and its categories are health concerns rather than Prody's
+-- suppliers. Both are therefore per-product choices, not derivable.
+
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS wp_usage_tab_title text,
+  ADD COLUMN IF NOT EXISTS wp_category_ids    integer[];
+
+COMMENT ON COLUMN public.products.wp_usage_tab_title IS
+  'Title of the shop''s second product tab. NULL means use the default "Указания за употреба"; the shop is inconsistent about this wording, so it is editable per product.';
+
+COMMENT ON COLUMN public.products.wp_category_ids IS
+  'WooCommerce product category ids. Prody categories are suppliers and the shop''s are health concerns, so this is chosen per product, never derived.';
+```
+
+Do NOT apply this migration. The controller applies it to staging
+(`ruhhsixmqusnpiajkbxe`). Never to production.
+
+- [ ] **Step 2: Add categories to the client type**
+
+In `src/lib/woocommerce.ts`, add one field to `WooProductInput`:
+
+```typescript
+  categories?: { id: number }[]
+```
+
+- [ ] **Step 3: Serve the shop's category list**
+
+Create `src/app/api/woocommerce/categories/route.ts`. Admin-gated like the push
+route, so copy its auth block verbatim (lines 11-19 of
+`src/app/api/products/[id]/push-to-wp/route.ts`), then:
+
+```typescript
+  if (!isWooConfigured()) {
+    return NextResponse.json({ error: 'WooCommerce не е настроен на този сървър' }, { status: 400 })
+  }
+
+  const base = process.env.WOOCOMMERCE_URL!.replace(/\/$/, '')
+  const auth = 'Basic ' + Buffer.from(
+    `${process.env.WOOCOMMERCE_CONSUMER_KEY}:${process.env.WOOCOMMERCE_CONSUMER_SECRET}`,
+  ).toString('base64')
+
+  const res = await fetch(
+    `${base}/wp-json/wc/v3/products/categories?per_page=100&orderby=name&order=asc&_fields=id,name`,
+    { headers: { Authorization: auth }, signal: AbortSignal.timeout(20000) },
+  )
+
+  if (!res.ok) {
+    return NextResponse.json({ error: `WooCommerce отказа (${res.status})` }, { status: 502 })
+  }
+
+  return NextResponse.json({ categories: await res.json() })
+```
+
+The shop has 15 categories, so one page of 100 covers it with room to spare.
+Never log or return the credentials.
+
+- [ ] **Step 4: Build the Woodmart payload**
+
+In `src/app/api/products/[id]/push-to-wp/route.ts`, add the two new columns to
+the `.select(...)` on line 32:
+
+```typescript
+    .select('id, name, sku, price, wp_title, wp_description, wp_short_description, wp_ingredients, wp_usage, wp_warnings, wp_usage_tab_title, wp_category_ids, wp_product_id')
+```
+
+Replace lines 49-75 (the stock block, the `meta` block and the `payload`)
+entirely with:
+
+```typescript
+  // Stock is deliberately not sent: every product on this shop runs with
+  // manage_stock false, and pushing a quantity made a test product advertise
+  // "1 налични". Prody remains the stock system; the shop does not track it.
+
+  const ingredients = product.wp_ingredients?.trim() || ''
+  const usage = product.wp_usage?.trim() || ''
+  const warnings = product.wp_warnings?.trim() || ''
+
+  // Warnings join the usage tab because the theme offers only two per-product
+  // tabs; its "Противопоказания" tab is global text, identical for every
+  // product. A blank line between them matches how the shop's own products
+  // are written by hand.
+  const usageTab = [usage, warnings].filter(Boolean).join('\n\n')
+
+  const meta: { key: string; value: string }[] = []
+  if (ingredients) {
+    meta.push({ key: '_woodmart_product_custom_tab_title', value: 'Състав' })
+    meta.push({ key: '_woodmart_product_custom_tab_content', value: ingredients })
+    meta.push({ key: '_woodmart_product_custom_tab_content_type', value: 'text' })
+  }
+  if (usageTab) {
+    meta.push({
+      key: '_woodmart_product_custom_tab_title_2',
+      value: product.wp_usage_tab_title?.trim() || 'Указания за употреба',
+    })
+    meta.push({ key: '_woodmart_product_custom_tab_content_2', value: usageTab })
+    meta.push({ key: '_woodmart_product_custom_tab_content_type_2', value: 'text' })
+  }
+
+  const categoryIds: number[] = Array.isArray(product.wp_category_ids)
+    ? product.wp_category_ids.filter((n: unknown) => typeof n === 'number')
+    : []
+
+  const payload: WooProductInput = {
+    name: title,
+    description: product.wp_description?.trim() || '',
+    short_description: product.wp_short_description?.trim() || '',
+    ...(product.price != null ? { regular_price: String(product.price) } : {}),
+    ...(product.sku ? { sku: product.sku } : {}),
+    ...(categoryIds.length > 0 ? { categories: categoryIds.map(id => ({ id })) } : {}),
+    ...(meta.length > 0 ? { meta_data: meta } : {}),
+  }
+```
+
+Note what this removes: the `stock_batches` query, `manage_stock` and
+`stock_quantity`. Leave the rest of the route — auth, the title check, the
+create/update branch, the bookkeeping write, the audit log — untouched.
+
+- [ ] **Step 5: Add the two controls to the form**
+
+In `src/components/products/product-form.tsx`, inside the existing
+`value="website"` tab, following the patterns already in that file:
+
+Add state beside the existing `wp*` state:
+
+```typescript
+  const [wpUsageTabTitle, setWpUsageTabTitle] = useState(product?.wp_usage_tab_title || '')
+  const [wpCategoryIds, setWpCategoryIds] = useState<number[]>(product?.wp_category_ids || [])
+  const [wooCategories, setWooCategories] = useState<{ id: number; name: string }[]>([])
+```
+
+Load the list once when the component mounts:
+
+```typescript
+  useEffect(() => {
+    fetch('/api/woocommerce/categories')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.categories) setWooCategories(d.categories) })
+      .catch(() => { /* the shop may be unreachable; the rest of the form still works */ })
+  }, [])
+```
+
+Render the tab-title input directly after the existing usage field, labelled
+`Заглавие на таба с указания`, with placeholder `Указания за употреба`, bound
+to `wpUsageTabTitle`.
+
+Render the categories as a checkbox list labelled `Категории в сайта`, one row
+per entry in `wooCategories`, checked when `wpCategoryIds` includes that id,
+toggling the id in and out of `wpCategoryIds`. A checkbox list, not a
+`<select multiple>` — the shop has 15 categories and a product may need
+several. When `wooCategories` is empty, render the help text
+`Списъкът не можа да се зареди` instead of an empty box.
+
+Add both to the payload the form submits, alongside the existing `wp_*` fields:
+
+```typescript
+      wp_usage_tab_title: wpUsageTabTitle.trim() || null,
+      wp_category_ids: wpCategoryIds.length > 0 ? wpCategoryIds : null,
+```
+
+As with the existing fields, the form must NOT send `wp_product_id` or
+`wp_synced_at` — those belong to the push route alone.
+
+- [ ] **Step 6: Verify the types compile**
+
+Run: `npx tsc --noEmit`
+Expected: exit 0.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add supabase/migrations/20260916_wp_woodmart_fields.sql src/lib/woocommerce.ts "src/app/api/products/[id]/push-to-wp/route.ts" src/app/api/woocommerce/categories/route.ts src/components/products/product-form.tsx
+git commit -m "fix: write the meta keys the shop's theme actually reads
+
+_ingredients/_usage/_warnings are read by nothing on zonapharm.com. The
+Woodmart theme renders two per-product tabs from its own keys; warnings join
+the usage tab because there is no third. Categories are now chosen per product
+from the shop's list, and stock is no longer sent — the shop runs with
+manage_stock false.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
 ## Out of scope
 
 Stated so nobody adds them mid-implementation: images, SEO fields (meta title,
