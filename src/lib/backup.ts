@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gzipSync } from 'zlib'
+import { fetchAll } from '@/lib/fetch-all'
 
 const TABLES = [
   'products',
@@ -37,15 +38,32 @@ export async function runBackup(): Promise<BackupResult> {
   const backup: Record<string, any[]> = {}
   let emailResult = 'not sent'
 
+  const failedTables: string[] = []
+
   try {
-    // 1. Export all tables
+    // 1. Export all tables.
+    //
+    // Paged, not a plain select: PostgREST caps a response at 1000 rows and
+    // truncates silently. Every backup taken before this change holds only the
+    // first 1000 rows of each table — with 5314 sales and 2405 batches, most of
+    // the data was never in the file, and its size looked plausible anyway.
     for (const table of TABLES) {
-      const { data, error } = await (admin.from(table) as any).select('*')
-      if (error) {
-        console.error(`Backup: error reading ${table}:`, error.message)
-        continue
+      try {
+        backup[table] = await fetchAll<any>(() => (admin.from(table) as any).select('*'))
+      } catch (tableErr: any) {
+        // A table that cannot be read is a hole in the backup, not a detail to
+        // log and walk past: the file would still be written and reported as a
+        // success while missing whatever that table held.
+        console.error(`Backup: error reading ${table}:`, tableErr?.message)
+        failedTables.push(table)
       }
-      backup[table] = data || []
+    }
+
+    if (failedTables.length > 0) {
+      return {
+        status: 'partial',
+        error: `Таблици, които не бяха прочетени: ${failedTables.join(', ')}`,
+      }
     }
 
     const rowCounts = Object.entries(backup).map(([t, rows]) => `${t}:${rows.length}`).join(',')
@@ -108,6 +126,15 @@ export async function runBackup(): Promise<BackupResult> {
           })
 
           const sizeKB = (gzipped.length / 1024).toFixed(1)
+
+          // Paging made the backup complete, and therefore much larger — about
+          // 1 MB gzipped today against 0.3 MB when it held only the first 1000
+          // rows of each table. Attach it while it is small enough to arrive;
+          // past the limit the mail would bounce and the backup would look
+          // failed when the file is safely in storage. The copy in the bucket
+          // is the real backup either way.
+          const attachable = gzipped.length <= 8 * 1024 * 1024
+
           await transport.sendMail({
             from: settings.sender_email,
             to: adminEmails.join(', '),
@@ -115,14 +142,19 @@ export async function runBackup(): Promise<BackupResult> {
             html: `<p>Бекъп на базата данни — ${new Date().toLocaleDateString('bg-BG')}</p>
 <p>Редове: ${totalRows} | Таблици: ${Object.keys(backup).length}</p>
 <p>Размер: ${sizeKB} KB</p>
-<p>Детайли: ${rowCounts}</p>`,
-            attachments: [{
-              filename,
-              content: gzipped,
-              contentType: 'application/gzip',
-            }],
+<p>Детайли: ${rowCounts}</p>
+${attachable ? '' : '<p>Файлът е твърде голям за прикачване — изтеглете го от Настройки → Бекъпи.</p>'}`,
+            ...(attachable ? {
+              attachments: [{
+                filename,
+                content: gzipped,
+                contentType: 'application/gzip',
+              }],
+            } : {}),
           })
-          emailResult = `sent to ${adminEmails.join(', ')}`
+          emailResult = attachable
+            ? `sent to ${adminEmails.join(', ')}`
+            : `sent to ${adminEmails.join(', ')} (without attachment, ${sizeKB} KB)`
         }
       }
     } catch (emailErr: any) {
