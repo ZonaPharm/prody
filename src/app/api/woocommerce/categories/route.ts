@@ -22,14 +22,24 @@ export async function GET() {
     `${process.env.WOOCOMMERCE_CONSUMER_KEY}:${process.env.WOOCOMMERCE_CONSUMER_SECRET}`,
   ).toString('base64')
 
-  const res = await fetch(
-    `${base}/wp-json/wc/v3/products/categories?per_page=100&orderby=name&order=asc&_fields=id,name`,
-    { headers: { Authorization: auth }, signal: AbortSignal.timeout(20000) },
-  )
+  // An unreachable shop — DNS, TLS, or the timeout firing — rejects the fetch
+  // rather than returning a response, so !res.ok alone would let the route
+  // throw instead of answering. The form degrades gracefully on any failure;
+  // this keeps the route's promise to always answer with JSON.
+  try {
+    const res = await fetch(
+      `${base}/wp-json/wc/v3/products/categories?per_page=100&orderby=name&order=asc&_fields=id,name`,
+      { headers: { Authorization: auth }, signal: AbortSignal.timeout(20000) },
+    )
 
-  if (!res.ok) {
-    return NextResponse.json({ error: `WooCommerce отказа (${res.status})` }, { status: 502 })
+    if (!res.ok) {
+      return NextResponse.json({ error: `WooCommerce отказа (${res.status})` }, { status: 502 })
+    }
+
+    return NextResponse.json({ categories: await res.json() })
+  } catch {
+    // Deliberately not forwarding the thrown error: it can carry the request
+    // URL, and that URL is built from the credentials.
+    return NextResponse.json({ error: 'Сайтът е недостъпен' }, { status: 502 })
   }
-
-  return NextResponse.json({ categories: await res.json() })
 }

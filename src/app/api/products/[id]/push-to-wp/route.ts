@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createProduct, updateProduct, isWooConfigured, type WooProductInput } from '@/lib/woocommerce'
+import { createProduct, updateProduct, isWooConfigured, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
 import { logAction } from '@/lib/audit'
 
 export async function POST(
@@ -124,6 +124,25 @@ export async function POST(
       created: !existingId,
     })
   } catch (err: any) {
+    // The shop record this product points at no longer exists — someone
+    // deleted it in WordPress. Left alone, the stale id makes every future
+    // push take the update branch and fail the same way, with nothing in the
+    // interface able to clear it. Forget the id so the next push creates the
+    // product afresh.
+    //
+    // Matched on the error code, not the status: the shop answers 400 here,
+    // not 404. Verified against the live shop against a deleted id.
+    if (product.wp_product_id && (err?.code === WOO_INVALID_ID || err?.status === 404)) {
+      await (admin.from('products') as any)
+        .update({ wp_product_id: null, wp_synced_at: null })
+        .eq('id', id)
+
+      return NextResponse.json(
+        { error: 'Продуктът вече не съществува в сайта — връзката е изчистена. Натиснете отново, за да го качите наново.' },
+        { status: 409 },
+      )
+    }
+
     return NextResponse.json({ error: err.message || 'Качването не мина' }, { status: 500 })
   }
 }

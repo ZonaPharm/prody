@@ -17,17 +17,25 @@ export type WooProductInput = {
   short_description?: string
   regular_price?: string
   sku?: string
-  stock_quantity?: number
-  manage_stock?: boolean
   meta_data?: { key: string; value: string }[]
   categories?: { id: number }[]
 }
+
+// Deliberately absent: stock_quantity and manage_stock. This shop runs every
+// product with manage_stock false, and sending a quantity made a pushed
+// product advertise stock it does not track. Prody remains the stock system.
 
 export type WooProduct = {
   id: number
   name: string
   permalink: string
 }
+
+/** An Error carrying WooCommerce's HTTP status and error code, so callers can branch on them. */
+export type WooError = Error & { status?: number; code?: string }
+
+/** The shop's answer when the product id in an update no longer exists. */
+export const WOO_INVALID_ID = 'woocommerce_rest_product_invalid_id'
 
 export function isWooConfigured(): boolean {
   return Boolean(BASE && KEY && SECRET)
@@ -60,11 +68,22 @@ async function request(path: string, method: 'POST' | 'PUT', body: unknown): Pro
     // difference between a bad credential and a rejected field matters to
     // whoever is looking at the screen.
     let detail = text.slice(0, 300)
+    let code: string | undefined
     try {
       const parsed = JSON.parse(text)
       if (parsed?.message) detail = parsed.message
+      if (typeof parsed?.code === 'string') code = parsed.code
     } catch { /* keep the raw text */ }
-    throw new Error(`WooCommerce отказа (${res.status}): ${detail}`)
+    // Status and code travel as fields, not only inside the message: a caller
+    // needs to tell "the shop record is gone" from every other refusal, and
+    // parsing that back out of Bulgarian prose would be brittle. The code
+    // matters more than the status here — updating a deleted product answers
+    // 400 with woocommerce_rest_product_invalid_id, not the 404 that fetching
+    // the same id gives. Verified against the live shop.
+    const error = new Error(`WooCommerce отказа (${res.status}): ${detail}`) as WooError
+    error.status = res.status
+    error.code = code
+    throw error
   }
 
   return JSON.parse(text) as WooProduct
