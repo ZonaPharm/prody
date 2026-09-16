@@ -19,6 +19,7 @@ export type WooProductInput = {
   sku?: string
   meta_data?: { key: string; value: string }[]
   categories?: { id: number }[]
+  images?: { id: number }[]
 }
 
 // Deliberately absent: stock_quantity and manage_stock. This shop runs every
@@ -95,4 +96,19 @@ export async function createProduct(input: WooProductInput): Promise<WooProduct>
 
 export async function updateProduct(id: number, input: WooProductInput): Promise<WooProduct> {
   return request(`/products/${id}`, 'PUT', input)
+}
+
+/** Whether the shop product already carries at least one image. */
+export async function productHasImage(id: number): Promise<boolean> {
+  if (!isWooConfigured()) return false
+
+  const res = await fetch(
+    `${BASE!.replace(/\/$/, '')}/wp-json/wc/v3/products/${id}?_fields=images`,
+    { headers: { Authorization: authHeader() }, signal: AbortSignal.timeout(20000) },
+  )
+
+  if (!res.ok) throw new Error(`WooCommerce отказа (${res.status})`)
+
+  const body = await res.json() as { images?: unknown[] }
+  return Array.isArray(body.images) && body.images.length > 0
 }

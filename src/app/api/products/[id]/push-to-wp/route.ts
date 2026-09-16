@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createProduct, updateProduct, isWooConfigured, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
+import { createProduct, updateProduct, isWooConfigured, productHasImage, WOO_INVALID_ID, type WooProductInput } from '@/lib/woocommerce'
+import { uploadImage, isWpMediaConfigured } from '@/lib/wordpress-media'
 import { logAction } from '@/lib/audit'
+
+// sharp is a native module and only runs under Node.js, never the edge
+// runtime. Next.js already picks Node.js for this route, but the choice is
+// then implicit — and the image upload would fail in a way that looks like a
+// WordPress problem rather than a runtime one.
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 export async function POST(
   _request: Request,
@@ -46,6 +54,15 @@ export async function POST(
     )
   }
 
+  // Only the primary image is sent. Most products have exactly one; the few
+  // with several are not worth a gallery sync until someone asks for it.
+  const { data: primaryImage } = await (admin.from('product_images') as any)
+    .select('url')
+    .eq('product_id', id)
+    .eq('is_primary', true)
+    .limit(1)
+    .maybeSingle()
+
   // Stock is deliberately not sent: every product on this shop runs with
   // manage_stock false, and pushing a quantity made a test product advertise
   // "1 налични". Prody remains the stock system; the shop does not track it.
@@ -79,6 +96,39 @@ export async function POST(
     ? product.wp_category_ids.filter((n: unknown) => typeof n === 'number')
     : []
 
+  const existingId: number | null = product.wp_product_id ?? null
+
+  // A product that already carries an image on the shop keeps it. Re-uploading
+  // on every push would pile up duplicates in the media library, and the image
+  // is the part least likely to have changed.
+  let mediaId: number | null = null
+  let imageWarning: string | null = null
+
+  if (primaryImage?.url && isWpMediaConfigured()) {
+    let shopHasImage = false
+
+    if (existingId) {
+      try {
+        shopHasImage = await productHasImage(existingId)
+      } catch {
+        // If we cannot tell, assume it has one. Skipping an image is
+        // recoverable by hand; a duplicate in the media library is litter.
+        shopHasImage = true
+      }
+    }
+
+    if (!shopHasImage) {
+      try {
+        mediaId = await uploadImage(primaryImage.url, `${title}.jpg`)
+      } catch (imgErr: any) {
+        // The copy is worth more than the picture: a failed image must not
+        // block the push. The product goes up without it and the operator is
+        // told, rather than the whole push failing.
+        imageWarning = imgErr?.message || 'Снимката не можа да се качи'
+      }
+    }
+  }
+
   const payload: WooProductInput = {
     name: title,
     description: product.wp_description?.trim() || '',
@@ -87,10 +137,10 @@ export async function POST(
     ...(product.sku ? { sku: product.sku } : {}),
     ...(categoryIds.length > 0 ? { categories: categoryIds.map(id => ({ id })) } : {}),
     ...(meta.length > 0 ? { meta_data: meta } : {}),
+    ...(mediaId ? { images: [{ id: mediaId }] } : {}),
   }
 
   try {
-    const existingId: number | null = product.wp_product_id ?? null
     const result = existingId
       ? await updateProduct(existingId, payload)
       : await createProduct(payload)
@@ -122,6 +172,7 @@ export async function POST(
       wp_product_id: result.id,
       permalink: result.permalink,
       created: !existingId,
+      ...(imageWarning ? { warning: imageWarning } : {}),
     })
   } catch (err: any) {
     // The shop record this product points at no longer exists — someone

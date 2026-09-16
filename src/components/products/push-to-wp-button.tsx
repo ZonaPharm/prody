@@ -32,7 +32,9 @@ export function PushToWpButton({ productId, wpTitle, wpProductId, wpSyncedAt }: 
       if (res.ok) {
         toast({
           title: body.created ? 'Продуктът е качен в сайта' : 'Продуктът е обновен в сайта',
-          description: body.permalink,
+          description: body.warning
+            ? `${body.permalink} — Снимката не се качи: ${body.warning}`
+            : body.permalink,
         })
         router.refresh()
       } else {
