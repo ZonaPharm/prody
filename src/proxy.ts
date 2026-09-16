@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/auth', '/api/auth', '/']
+// '/api/cron' is here because a scheduled request carries no session cookie and
+// never will: Vercel's cron caller is not a logged-in user. Without this the
+// proxy redirects it to /login before the route can check its own secret, so
+// the job never runs — which is how the nightly backup stayed dead even after
+// its authentication was fixed. These routes are not unprotected: each verifies
+// CRON_SECRET itself and refuses without it.
+const PUBLIC_PATHS = ['/login', '/auth', '/api/auth', '/api/cron', '/']
 const AUTH_COOKIE_PREFIX = 'sb-'
 
 function hasAuthCookie(request: NextRequest): boolean {
