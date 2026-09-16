@@ -184,6 +184,25 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `uploadImage`, `isWpMediaConfigured` from Task 1
 - Produces: `WooProductInput` gains `images?: { id: number }[]`
 
+- [ ] **Step 0: Pin the route to the Node.js runtime**
+
+At the top of `src/app/api/products/[id]/push-to-wp/route.ts`, after the
+imports and before the handler:
+
+```typescript
+// sharp is a native module and only runs under Node.js, never the edge
+// runtime. Next.js already picks Node.js for this route, but the choice is
+// then implicit — and the image upload would fail in a way that looks like a
+// WordPress problem rather than a runtime one.
+export const runtime = 'nodejs'
+export const maxDuration = 60
+```
+
+`maxDuration` covers the slow part, which is network rather than conversion:
+fetching the image from Supabase and posting it to WordPress. Conversion itself
+measured 49 ms. The existing Excel export sets 300 for the same reason at far
+greater scale, so this ceiling is available on the current Vercel plan.
+
 - [ ] **Step 1: Add images to the WooCommerce input type**
 
 In `src/lib/woocommerce.ts`, add one field to `WooProductInput`:
