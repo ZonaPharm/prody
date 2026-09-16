@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, type FormEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getImageSrc } from '@/lib/images'
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select'
 import { STATUS_LABELS } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Checkbox } from '@/components/ui/checkbox'
 import { RestockForm } from '@/components/inventory/restock-form'
 import { Loader2, Upload, Star } from 'lucide-react'
 
@@ -46,6 +47,8 @@ interface ProductFormProps {
     wp_ingredients?: string | null
     wp_usage?: string | null
     wp_warnings?: string | null
+    wp_usage_tab_title?: string | null
+    wp_category_ids?: number[] | null
   }
   categories: CategoryOption[]
 }
@@ -88,6 +91,16 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [wpIngredients, setWpIngredients] = useState(initialData?.wp_ingredients || '')
   const [wpUsage, setWpUsage] = useState(initialData?.wp_usage || '')
   const [wpWarnings, setWpWarnings] = useState(initialData?.wp_warnings || '')
+  const [wpUsageTabTitle, setWpUsageTabTitle] = useState(initialData?.wp_usage_tab_title || '')
+  const [wpCategoryIds, setWpCategoryIds] = useState<number[]>(initialData?.wp_category_ids || [])
+  const [wooCategories, setWooCategories] = useState<{ id: number; name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/woocommerce/categories')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.categories) setWooCategories(d.categories) })
+      .catch(() => { /* the shop may be unreachable; the rest of the form still works */ })
+  }, [])
 
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -167,6 +180,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         wp_ingredients: wpIngredients.trim() || null,
         wp_usage: wpUsage.trim() || null,
         wp_warnings: wpWarnings.trim() || null,
+        wp_usage_tab_title: wpUsageTabTitle.trim() || null,
+        wp_category_ids: wpCategoryIds.length > 0 ? wpCategoryIds : null,
       }
 
       // Only set quantity_on_hand for new products; edits go through inventory system
@@ -548,6 +563,18 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           </div>
 
           <div className="space-y-2">
+            <label htmlFor="wp_usage_tab_title" className="text-sm font-medium">
+              Заглавие на таба с указания
+            </label>
+            <Input
+              id="wp_usage_tab_title"
+              value={wpUsageTabTitle}
+              onChange={e => setWpUsageTabTitle(e.target.value)}
+              placeholder="Указания за употреба"
+            />
+          </div>
+
+          <div className="space-y-2">
             <label htmlFor="wp_warnings" className="text-sm font-medium">
               Предупреждения
             </label>
@@ -557,6 +584,34 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
               value={wpWarnings}
               onChange={e => setWpWarnings(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium">Категории в сайта</span>
+            {wooCategories.length > 0 ? (
+              <div className="space-y-2">
+                {wooCategories.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`wp_category_${cat.id}`}
+                      checked={wpCategoryIds.includes(cat.id)}
+                      onCheckedChange={checked => {
+                        setWpCategoryIds(prev =>
+                          checked
+                            ? [...prev, cat.id]
+                            : prev.filter(id => id !== cat.id)
+                        )
+                      }}
+                    />
+                    <label htmlFor={`wp_category_${cat.id}`} className="text-sm">
+                      {cat.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Списъкът не можа да се зареди</p>
+            )}
           </div>
         </TabsContent>
       </Tabs>

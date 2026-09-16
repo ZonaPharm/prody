@@ -29,7 +29,7 @@ export async function POST(
   const admin = createAdminClient()
 
   const { data: product } = await (admin.from('products') as any)
-    .select('id, name, sku, price, wp_title, wp_description, wp_short_description, wp_ingredients, wp_usage, wp_warnings, wp_product_id')
+    .select('id, name, sku, price, wp_title, wp_description, wp_short_description, wp_ingredients, wp_usage, wp_warnings, wp_usage_tab_title, wp_category_ids, wp_product_id')
     .eq('id', id)
     .single()
 
@@ -46,31 +46,46 @@ export async function POST(
     )
   }
 
-  // Stock comes from the batches, which a physical count confirmed is the
-  // accurate side; products.quantity_on_hand drifted above them.
-  const { data: batches } = await (admin.from('stock_batches') as any)
-    .select('quantity_remaining')
-    .eq('product_id', id)
-    .gt('quantity_remaining', 0)
+  // Stock is deliberately not sent: every product on this shop runs with
+  // manage_stock false, and pushing a quantity made a test product advertise
+  // "1 налични". Prody remains the stock system; the shop does not track it.
 
-  const stock = (batches || []).reduce(
-    (sum: number, b: any) => sum + (b.quantity_remaining || 0),
-    0,
-  )
+  const ingredients = product.wp_ingredients?.trim() || ''
+  const usage = product.wp_usage?.trim() || ''
+  const warnings = product.wp_warnings?.trim() || ''
+
+  // Warnings join the usage tab because the theme offers only two per-product
+  // tabs; its "Противопоказания" tab is global text, identical for every
+  // product. A blank line between them matches how the shop's own products
+  // are written by hand.
+  const usageTab = [usage, warnings].filter(Boolean).join('\n\n')
 
   const meta: { key: string; value: string }[] = []
-  if (product.wp_ingredients?.trim()) meta.push({ key: '_ingredients', value: product.wp_ingredients.trim() })
-  if (product.wp_usage?.trim()) meta.push({ key: '_usage', value: product.wp_usage.trim() })
-  if (product.wp_warnings?.trim()) meta.push({ key: '_warnings', value: product.wp_warnings.trim() })
+  if (ingredients) {
+    meta.push({ key: '_woodmart_product_custom_tab_title', value: 'Състав' })
+    meta.push({ key: '_woodmart_product_custom_tab_content', value: ingredients })
+    meta.push({ key: '_woodmart_product_custom_tab_content_type', value: 'text' })
+  }
+  if (usageTab) {
+    meta.push({
+      key: '_woodmart_product_custom_tab_title_2',
+      value: product.wp_usage_tab_title?.trim() || 'Указания за употреба',
+    })
+    meta.push({ key: '_woodmart_product_custom_tab_content_2', value: usageTab })
+    meta.push({ key: '_woodmart_product_custom_tab_content_type_2', value: 'text' })
+  }
+
+  const categoryIds: number[] = Array.isArray(product.wp_category_ids)
+    ? product.wp_category_ids.filter((n: unknown) => typeof n === 'number')
+    : []
 
   const payload: WooProductInput = {
     name: title,
     description: product.wp_description?.trim() || '',
     short_description: product.wp_short_description?.trim() || '',
-    manage_stock: true,
-    stock_quantity: stock,
     ...(product.price != null ? { regular_price: String(product.price) } : {}),
     ...(product.sku ? { sku: product.sku } : {}),
+    ...(categoryIds.length > 0 ? { categories: categoryIds.map(id => ({ id })) } : {}),
     ...(meta.length > 0 ? { meta_data: meta } : {}),
   }
 

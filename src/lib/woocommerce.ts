@@ -20,6 +20,7 @@ export type WooProductInput = {
   stock_quantity?: number
   manage_stock?: boolean
   meta_data?: { key: string; value: string }[]
+  categories?: { id: number }[]
 }
 
 export type WooProduct = {
