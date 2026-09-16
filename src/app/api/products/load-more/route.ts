@@ -14,9 +14,11 @@ export async function GET(req: NextRequest) {
   const sort = searchParams.get('sort') || undefined
   const category = searchParams.get('category') || undefined
   const store = searchParams.get('store') || undefined
+  const hasImages = searchParams.get('hasImages') || undefined
+  const wp = searchParams.get('wp') || undefined
 
   const products = await getProducts({
-    search, status, sort,
+    search, status, sort, hasImages, wp,
     categoryId: category,
     storeId: store,
     limit, offset,

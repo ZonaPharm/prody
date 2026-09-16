@@ -58,6 +58,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   if (params.sort) filterParams.sort = params.sort
   if (params.category) filterParams.category = params.category
   if (params.store) filterParams.store = params.store
+  if (params.hasImages) filterParams.hasImages = params.hasImages
   if (params.wp) filterParams.wp = params.wp
 
   return (
