@@ -159,6 +159,38 @@ export async function executeSaleFIFO(
   userId: string
 ) {
   const admin = createAdminClient()
+
+  // Batches are reduced and movements written inside one database transaction,
+  // with the batches locked: reading quantity_remaining here and writing it back
+  // let two overlapping sales of the same product both start from the same
+  // value, losing one deduction.
+  const { error } = await (admin as any).rpc('sell_from_batches', {
+    p_product_id: productId,
+    p_store_id: storeId,
+    p_quantity: qty,
+    p_unit_price: salePrice,
+    p_sale_id: saleId,
+    p_user_id: userId,
+  })
+  if (!error) return
+
+  // PGRST202: the function is not in the database yet. Keeps sales working if
+  // this code is deployed before 20260926_sell_from_batches_atomically is
+  // applied; remove once it is.
+  if (error.code !== 'PGRST202') throw new Error(error.message)
+  console.warn('sell_from_batches missing, using the non-atomic deduction')
+  await legacyExecuteSaleFIFO(productId, storeId, qty, salePrice, saleId, userId)
+}
+
+async function legacyExecuteSaleFIFO(
+  productId: string,
+  storeId: string,
+  qty: number,
+  salePrice: number,
+  saleId: string,
+  userId: string
+) {
+  const admin = createAdminClient()
   const { batches } = await getFIFOBatches(productId, storeId, qty)
   const { deductedFrom, remainingNeeded } = calculateFIFODeduction(batches, qty)
 
