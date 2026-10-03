@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth'
 import { getProduct } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import ProductForm from '@/components/products/product-form'
 
@@ -21,6 +22,14 @@ export default async function EditProductPage({ params }: PageProps) {
 
   const label = product.labels?.[0] || null
 
+  // The form shows stock read-only when editing (it never writes it back), so
+  // give it what the batches hold rather than the drifting quantity_on_hand.
+  const supabase = await createServerSupabaseClient()
+  const { data: batches } = await (supabase.from('stock_batches') as any)
+    .select('quantity_remaining')
+    .eq('product_id', id)
+  const totalStock = (batches || []).reduce((sum: number, b: any) => sum + b.quantity_remaining, 0)
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,7 +42,7 @@ export default async function EditProductPage({ params }: PageProps) {
       </div>
 
       <ProductForm
-        initialData={{ ...product, label }}
+        initialData={{ ...product, quantity_on_hand: totalStock, label }}
         categories={categories as { id: string; name: string }[]}
       />
     </div>
