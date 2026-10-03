@@ -76,8 +76,11 @@ export function RestockForm({ productId, productName, stores, autoOpen, onSucces
       }
 
       setOpen(false)
+      // Refresh the server-rendered page as well: on the product page onSuccess
+      // only reloads the inventory tab, which left "Наличност" and the per-store
+      // figures above it showing the stock from before the restock.
+      router.refresh()
       if (onSuccess) onSuccess()
-      else router.refresh()
     } catch (err: any) {
       setError(err.message || 'Грешка при зареждане')
     } finally {

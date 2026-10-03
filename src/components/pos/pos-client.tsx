@@ -90,6 +90,10 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
 
       toast({ title: 'Продажбата е записана' })
       dispatch({ type: 'CLEAR' })
+      // Reload the stock shown on the products. Without this the screen kept the
+      // quantities from when it was opened, so after selling 2 of 12 it still
+      // read 12 until someone reloaded the page.
+      router.refresh()
     } catch (err: any) {
       toast({ title: err.message || 'Грешка при записване', variant: 'destructive' })
     } finally {
