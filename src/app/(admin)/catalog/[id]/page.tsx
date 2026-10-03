@@ -42,6 +42,9 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
     const name = b.store?.name || (Array.isArray(b.store) ? b.store[0]?.name : '—')
     storeStockMap[name] = (storeStockMap[name] || 0) + b.quantity_remaining
   })
+  // The batches are what the stores hold. products.quantity_on_hand is a
+  // separate counter that has drifted from them, so it is not shown.
+  const totalStock = Object.values(storeStockMap).reduce((sum, qty) => sum + qty, 0)
 
   const { data: stores } = await (supabase.from('stores') as any)
     .select('id, name, is_warehouse')
@@ -189,7 +192,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Наличност</p>
-                  <p className="font-medium">{product.quantity_on_hand}</p>
+                  <p className="font-medium">{totalStock}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Мин. к-во</p>

@@ -96,13 +96,10 @@ export default function ProductCard({ product, href }: ProductCardProps) {
             </div>
           )}
 
-          {/* Global stock fallback (no store_stock data) */}
+          {/* No batches anywhere means no stock. quantity_on_hand is not used:
+              it drifts from the batches and showed stock no store held. */}
           {(!product.store_stock || product.store_stock.length === 0) && (
-            <p className={`text-[11px] tabular-nums ${
-              product.quantity_on_hand === 0 ? 'text-red-600 font-semibold' : 'text-muted-foreground'
-            }`}>
-              {product.quantity_on_hand === 0 ? 'Изчерпан' : `Общо: ${product.quantity_on_hand} бр.`}
-            </p>
+            <p className="text-[11px] tabular-nums text-red-600 font-semibold">Изчерпан</p>
           )}
         </CardContent>
       </Card>

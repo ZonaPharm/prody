@@ -1,6 +1,7 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getStockTotals } from '@/lib/stock-totals'
 import { MyRequestsClient } from './client'
 
 export const dynamic = 'force-dynamic'
@@ -27,11 +28,16 @@ export default async function MyRequestsPage({
   }
 
   // Products for request form (with images + categories for grid view)
-  const [{ data: products }, { data: categories }, { data: images }] = await Promise.all([
-    (admin.from('products') as any).select('id, name, price, quantity_on_hand, category_id').eq('status', 'active').order('name'),
+  const [{ data: activeProducts }, { data: categories }, { data: images }, stockTotals] = await Promise.all([
+    (admin.from('products') as any).select('id, name, price, category_id').eq('status', 'active').order('name'),
     (admin.from('categories') as any).select('id, name').order('name'),
     (admin.from('product_images') as any).select('product_id, url').eq('is_primary', true),
+    getStockTotals(admin),
   ])
+
+  // Stock across all stores as the batches hold it, not the drifting
+  // quantity_on_hand counter. The list is also sorted by this number.
+  const products = (activeProducts || []).map((p: any) => ({ ...p, quantity_on_hand: stockTotals[p.id] || 0 }))
 
   const imageMap: Record<string, string> = {}
   ;(images || []).forEach((img: any) => { if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url })
@@ -96,7 +102,7 @@ export default async function MyRequestsPage({
 
   return (
     <MyRequestsClient
-      products={(products || []) as any[]}
+      products={products}
       categories={(categories || []) as any[]}
       imageMap={imageMap}
       myRequests={myRequests}
