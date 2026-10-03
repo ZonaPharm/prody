@@ -184,9 +184,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         wp_category_ids: wpCategoryIds.length > 0 ? wpCategoryIds : null,
       }
 
-      // Only set quantity_on_hand for new products; edits go through inventory system
+      // A new product starts at zero. The quantity typed here only pre-fills the
+      // restock dialog opened below, and the restock adds it to quantity_on_hand
+      // together with the batches. Writing it here as well counted it twice —
+      // 43 products created this way show double their real stock.
       if (!isEdit) {
-        payload.quantity_on_hand = quantityOnHand ? parseInt(quantityOnHand, 10) : 0
+        payload.quantity_on_hand = 0
       }
 
       let productId: string
