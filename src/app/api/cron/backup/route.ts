@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runBackup } from '@/lib/backup'
 import { reportBackupFailure } from '@/lib/backup-alert'
+import { runIntegrityCheck, integritySummaryHtml, sendIntegrityAlert } from '@/lib/integrity-check'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -36,7 +37,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const result = await runBackup()
+  // The data check rides on this job rather than a cron of its own: this one is
+  // proven to run every night, and a second schedule would be one more thing
+  // that can stop silently. It goes first, is read-only, and never throws, so
+  // it cannot hold up the backup — and it still runs if the backup fails.
+  const integrity = await runIntegrityCheck()
+
+  const result = await runBackup(integritySummaryHtml(integrity))
 
   // A backup that fails quietly is the reason this went unnoticed for four
   // months. Tell someone.
@@ -44,6 +51,8 @@ export async function GET(request: NextRequest) {
     await reportBackupFailure(result)
   }
 
+  await sendIntegrityAlert(integrity)
+
   const statusCode = result.status === 'ok' ? 200 : 500
-  return NextResponse.json(result, { status: statusCode })
+  return NextResponse.json({ ...result, integrity }, { status: statusCode })
 }

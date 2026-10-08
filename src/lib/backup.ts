@@ -32,7 +32,12 @@ export interface BackupResult {
   error?: string
 }
 
-export async function runBackup(): Promise<BackupResult> {
+/**
+ * @param extraHtml Appended to the success email — the nightly data check puts
+ *   its summary here, so the one email that arrives every morning also says
+ *   whether the data is consistent.
+ */
+export async function runBackup(extraHtml = ''): Promise<BackupResult> {
   const admin = createAdminClient()
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const backup: Record<string, any[]> = {}
@@ -143,7 +148,8 @@ export async function runBackup(): Promise<BackupResult> {
 <p>Редове: ${totalRows} | Таблици: ${Object.keys(backup).length}</p>
 <p>Размер: ${sizeKB} KB</p>
 <p>Детайли: ${rowCounts}</p>
-${attachable ? '' : '<p>Файлът е твърде голям за прикачване — изтеглете го от Настройки → Бекъпи.</p>'}`,
+${attachable ? '' : '<p>Файлът е твърде голям за прикачване — изтеглете го от Настройки → Бекъпи.</p>'}
+${extraHtml}`,
             ...(attachable ? {
               attachments: [{
                 filename,
