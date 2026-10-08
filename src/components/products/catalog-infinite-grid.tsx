@@ -46,7 +46,8 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
         setLoading(true)
 
         const f = filtersRef.current
-        const params = new URLSearchParams({ offset: String(offsetRef.current), limit: '50' })
+        const requestOffset = offsetRef.current
+        const params = new URLSearchParams({ offset: String(requestOffset), limit: '50' })
         if (f.search) params.set('search', f.search)
         if (f.status) params.set('status', f.status)
         if (f.sort) params.set('sort', f.sort)
@@ -61,10 +62,20 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
 
           const res = await fetch(`/api/products/load-more?${params}`)
           const data = await res.json()
-          setProducts(prev => {
-            offsetRef.current = initialProducts.length + prev.length + (data.products || []).length
-            return [...prev, ...(data.products || [])]
-          })
+          const fetched = data.products || []
+
+          // The next page starts where this one ended. It used to be computed as
+          // initialProducts.length + prev.length + fetched.length, but prev
+          // already holds the initial products, so they were counted twice: the
+          // second scroll asked for row 150 instead of 100 and rows 100-149
+          // never loaded. Every list over 100 products lost exactly 50 — in
+          // Бургас, 164 products showed as 114.
+          //
+          // Computed here rather than inside the setProducts updater, which
+          // React may call twice in development.
+          offsetRef.current = requestOffset + fetched.length
+
+          setProducts(prev => [...prev, ...fetched])
           setHasMore(data.hasMore)
           hasMoreRef.current = data.hasMore
 
