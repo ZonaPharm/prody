@@ -133,18 +133,31 @@ export async function executeRestock(input: RestockInput) {
     }
   }
 
-  // Update product quantity_on_hand
+  // Recompute quantity_on_hand from the batches rather than adding to whatever
+  // it held before.
+  //
+  // Adding was wrong twice over. A new product created with a quantity already
+  // carries that quantity — the form writes it on insert — and this restock
+  // then added the same units a second time, so every new product started life
+  // showing double. ("Пачове за деколте": 5 entered once, 10 displayed.)
+  // And because the old sum built on the previous value, any missed or
+  // repeated call drifted permanently; that is how 2753 units accumulated
+  // across 153 products before the one-off correction in 00023.
+  //
+  // The batches are the authoritative side — a physical count settled that —
+  // so deriving the figure from them cannot drift, whoever calls this.
+  const { data: allBatches } = await (admin.from('stock_batches') as any)
+    .select('quantity_remaining')
+    .eq('product_id', input.productId)
+
+  const onHand = (allBatches || []).reduce(
+    (sum: number, b: any) => sum + (b.quantity_remaining || 0),
+    0,
+  )
+
   await (admin.from('products') as any)
-    .select('quantity_on_hand')
+    .update({ quantity_on_hand: onHand })
     .eq('id', input.productId)
-    .single()
-    .then(({ data: prod }: any) => {
-      if (prod) {
-        return (admin.from('products') as any)
-          .update({ quantity_on_hand: prod.quantity_on_hand + input.totalQty })
-          .eq('id', input.productId)
-      }
-    })
 
   return results
 }
