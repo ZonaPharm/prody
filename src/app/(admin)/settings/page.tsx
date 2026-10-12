@@ -9,6 +9,7 @@ import { EmailSettings } from './email-settings'
 import { UsersManager } from './users-manager'
 import { AuditLogs } from './audit-logs'
 import { BackupSettings } from './backup-settings'
+import { ExternalImages } from './external-images'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +59,7 @@ export default async function SettingsPage() {
         </TabsContent>
         <TabsContent value="backup">
           <BackupSettings />
+          <ExternalImages />
         </TabsContent>
       </Tabs>
     </div>
