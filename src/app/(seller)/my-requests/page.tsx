@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function MyRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; product?: string }>
 }) {
   const user = await requireAuth()
   const effectiveRole = await getEffectiveRole(user)
@@ -105,6 +105,7 @@ export default async function MyRequestsPage({
       lowStockItems={lowStockItems}
       lowStockAllProducts={lowStockAllProducts}
       lowStockImageMap={lowStockImageMap}
+      initialProductId={sp.product}
     />
   )
 }

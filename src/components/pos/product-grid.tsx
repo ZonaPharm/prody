@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Package, Star } from 'lucide-react'
+import { Search, Package, Star, Send } from 'lucide-react'
 import { Product } from './cart-types'
 import { getImageSrc } from '@/lib/images'
 
@@ -21,14 +21,23 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
-  const filtered = products.filter(p => {
+  const matches = (p: Product) => {
     if (selectedCategory && p.category_id !== selectedCategory) return false
     if (search.length >= 2) {
       const q = search.toLowerCase()
       if (!p.name.toLowerCase().includes(q)) return false
     }
     return true
-  })
+  }
+
+  const filtered = products.filter(matches)
+
+  // Out-of-stock products go through the same search and category filter.
+  // They used to be shown only while nothing was typed: the moment a seller
+  // searched for a product that had run out in their shop, it vanished and
+  // the screen said "no matches", as if the item did not exist — which is
+  // exactly when they need its exact name to request more.
+  const filteredOut = (outOfStock || []).filter(matches)
 
   return (
     <div className="space-y-4">
@@ -97,7 +106,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
 
       {/* Product grid + out of stock */}
       <div>
-        {filtered.length === 0 && (!outOfStock || outOfStock.length === 0 || search || selectedCategory) ? (
+        {filtered.length === 0 && filteredOut.length === 0 ? (
           <div className="py-16 text-center text-muted-foreground">
             {search.length >= 2
               ? `Няма съвпадения за "${search}"`
@@ -134,31 +143,39 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
               </div>
             )}
 
-            {outOfStock && outOfStock.length > 0 && !search && !selectedCategory && (
+            {filteredOut.length > 0 && (
               <div className={filtered.length > 0 ? 'border-t pt-3 mt-3' : ''}>
                 <p className="text-xs font-medium text-red-500 mb-2">
-                  Изчерпани в този магазин ({outOfStock.length})
+                  Изчерпани в този магазин ({filteredOut.length})
                 </p>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 opacity-60">
-                  {outOfStock.map(product => (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredOut.map(product => (
                     <div
                       key={product.id}
                       className="rounded-lg border border-red-200 bg-red-50/30 p-3 text-left"
                     >
-                      <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-square bg-slate-100 rounded-md mb-2 flex items-center justify-center overflow-hidden opacity-60">
                         {product.image_url ? (
                           <img src={getImageSrc(product.image_url)} alt="" className="w-full h-full object-cover grayscale" />
                         ) : (
                           <Package className="h-8 w-8 text-slate-300" />
                         )}
                       </div>
-                      <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em] text-slate-500">{product.name}</p>
+                      <p className="text-sm font-medium leading-tight line-clamp-2 min-h-[2.5em] text-slate-700" title={product.name}>{product.name}</p>
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-sm font-semibold tabular-nums text-slate-400">
                           {product.price != null ? `${product.price.toFixed(2)} €` : '—'}
                         </span>
                         <span className="text-xs text-red-500 font-medium">Изчерпан</span>
                       </div>
+                      {/* Straight into a request with this product already in the basket,
+                          so nobody has to retype or guess the name. */}
+                      <a
+                        href={`/my-requests?tab=request&product=${product.id}`}
+                        className="mt-2 flex items-center justify-center gap-1 rounded-md border border-slate-300 bg-white py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Send className="h-3 w-3" /> Заяви
+                      </a>
                     </div>
                   ))}
                 </div>

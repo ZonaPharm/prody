@@ -35,6 +35,8 @@ interface Props {
   lowStockItems: LowStockItem[]
   lowStockAllProducts: any[]
   lowStockImageMap: Record<string, string>
+  /** Opens the request form with this product already in the basket. */
+  initialProductId?: string
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -56,13 +58,18 @@ const TABS = [
   { key: 'low', label: 'Ниски наличности' },
 ]
 
-export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap }: Props) {
+export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap, initialProductId }: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const [tab, setTab] = useState(activeTab)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [basket, setBasket] = useState<{ product: Product; qty: number }[]>([])
+  // Arriving from the "Заяви" button on an out-of-stock product: start with it
+  // in the basket. An unknown or inactive id is simply ignored.
+  const [basket, setBasket] = useState<{ product: Product; qty: number }[]>(() => {
+    const preset = initialProductId ? products.find(p => p.id === initialProductId) : undefined
+    return preset ? [{ product: preset, qty: 1 }] : []
+  })
   const [sending, setSending] = useState(false)
   const [detail, setDetail] = useState<MyRequest | null>(null)
   const [events, setEvents] = useState<any[]>([])
