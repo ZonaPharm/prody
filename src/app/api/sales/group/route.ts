@@ -94,42 +94,32 @@ export async function POST(request: NextRequest) {
   // Rows come back in insert order, so pair each item with its sale row by index.
   const saleIdByIndex: string[] = (insertedSales || []).map((r: any) => r.id)
 
-  // Decrement stock using admin client (already created above)
+  // Deduct each item from stock in a single database call: its batches, its
+  // 'sell' movements and quantity_on_hand change together or not at all.
+  //
+  // The counter used to be a separate call made first, and when it failed the
+  // batch deduction was skipped along with it — a sale on 12 September 2026 at
+  // Заимов left its store one unit above the shelf that way. With one call per
+  // item there is no state in which one has moved and the other has not.
   const fifoFailures: string[] = []
   for (const [index, item] of items.entries()) {
+    const saleId = saleIdByIndex[index]
     try {
-      // Deducted inside the UPDATE rather than read-modify-write in JS: two
-      // sales of the same product overlapping in time would otherwise both
-      // read the same starting value and one deduction would be lost.
-      const { error: decErr } = await (admin as any).rpc('decrement_product_stock', {
-        p_product_id: item.product_id,
-        p_quantity: item.quantity,
-      })
-      if (decErr) throw decErr
-
-      {
-
-        // FIFO: create sell movements from batches
-        const saleId = saleIdByIndex[index]
-        try {
-          if (!saleId) throw new Error('missing sale id for item ' + index)
-          await executeSaleFIFO(
-            item.product_id,
-            store_id,
-            item.quantity,
-            item.unit_price,
-            saleId,
-            user.id,
-          )
-        } catch (fifoErr: any) {
-          // Stock has already left the batches at this point, so the sale still
-          // stands; record the gap loudly instead of dropping it on the floor.
-          console.error('FIFO deduction error for product:', item.product_id, fifoErr.message)
-          fifoFailures.push(item.product_id)
-        }
-      }
-    } catch (e) {
-      console.error('Stock decrement error for product:', item.product_id, e)
+      if (!saleId) throw new Error('missing sale id for item ' + index)
+      await executeSaleFIFO(
+        item.product_id,
+        store_id,
+        item.quantity,
+        item.unit_price,
+        saleId,
+        user.id,
+      )
+    } catch (fifoErr: any) {
+      // The sale row already exists, so the sale stands but its stock has not
+      // moved — neither the batches nor the counter. Record it loudly; the
+      // nightly integrity check also reports any sale without a movement.
+      console.error('Stock deduction failed for product:', item.product_id, fifoErr?.message)
+      fifoFailures.push(item.product_id)
     }
   }
 
@@ -149,7 +139,7 @@ export async function POST(request: NextRequest) {
       userName: profile?.display_name || user.email,
       entityType: 'sale',
       entityId: saleGroupId,
-      details: `Липсващи FIFO движения за ${fifoFailures.length} артикула: ${fifoFailures.join(', ')}`,
+      details: `Наличността не е намалена (партиди и брояч) за ${fifoFailures.length} артикула: ${fifoFailures.join(', ')}`,
     }, admin)
   }
 
