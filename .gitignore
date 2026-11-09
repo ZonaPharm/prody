@@ -1,6 +1,9 @@
 .superpowers/
 .env
 .env.local
+.env.vercel
+.env.vercel.*
+.env.*.local
 node_modules/
 .next/
 .DS_Store
