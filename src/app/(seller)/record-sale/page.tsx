@@ -2,6 +2,7 @@ import { requireAuth, getEffectiveRole } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchAll } from '@/lib/fetch-all'
 import { POSClient } from '@/components/pos/pos-client'
 import { Product } from '@/components/pos/cart-types'
 import { AlertTriangle } from 'lucide-react'
@@ -46,11 +47,21 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   const selectedStore = stores.find((s: any) => s.id === defaultStoreId)
   if (selectedStore) defaultStoreId = selectedStore.id
 
+  // PostgREST returns at most 1000 rows per request and says nothing when it
+  // stops there, so every list below that can grow past it is read page by
+  // page (fetchAll), ordered down to the id so the pages neither overlap nor
+  // skip. On 9 November 2026 90 days of sales were 1499 rows at Заимов and
+  // 1355 at Ботев, so their "most sold first" order was worked out from an
+  // arbitrary 1000; active products (777) and primary images (833) were
+  // heading for the same cut, past which products would simply have vanished
+  // from the till.
+
   // Get products with stock in THIS store from stock_batches (admin bypasses RLS)
-  const { data: storeBatches } = await (admin.from('stock_batches') as any)
+  const storeBatches = await fetchAll<{ product_id: string; quantity_remaining: number }>(() => (admin.from('stock_batches') as any)
     .select('product_id, quantity_remaining')
     .eq('store_id', defaultStoreId)
     .gt('quantity_remaining', 0)
+    .order('id'))
 
   const storeProductIds = new Set((storeBatches || []).map((b: any) => b.product_id))
   const perStoreQty: Record<string, number> = {}
@@ -59,21 +70,26 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   })
 
   // Fetch ALL active products (filter stock in JS to avoid PostgREST URI limit)
-  const { data: allActiveProducts } = await (admin.from('products') as any)
+  const allActiveProducts = await fetchAll<{ id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null }>(() => (admin.from('products') as any)
     .select('id, name, price, quantity_on_hand, category_id')
     .eq('status', 'active')
     .order('name')
+    .order('id'))
 
   // Split into in-stock vs out-of-stock for this store
   const products = (allActiveProducts || []).filter((p: any) => storeProductIds.has(p.id))
   const outOfStockProducts = (allActiveProducts || []).filter((p: any) => !storeProductIds.has(p.id))
 
-  // Sort by sales frequency for this store (most sold first, unsold alphabetical)
-  const { data: storeSalesCounts } = await (admin.from('sales') as any)
+  // Sort by sales frequency for this store (most sold first, unsold alphabetical).
+  // Only the order depends on it, so a failure leaves the till alphabetical
+  // rather than taking it down.
+  const storeSalesCounts = await fetchAll<{ product_id: string }>(() => (admin.from('sales') as any)
     .select('product_id')
     .eq('store_id', defaultStoreId)
     .eq('voided', false)
     .gte('sale_date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0])
+    .order('id'))
+    .catch((err: unknown) => { console.error('record-sale: sales counts', err); return [] })
 
   const salesCountMap: Record<string, number> = {}
   ;(storeSalesCounts || []).forEach((s: any) => {
@@ -102,10 +118,13 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     .select('id, name')
     .order('name')
 
-  // Fetch all primary images (avoid IN filter URI limit)
-  const { data: images } = await (admin.from('product_images') as any)
+  // Fetch all primary images (avoid IN filter URI limit). Pictures only: on a
+  // failure the till still sells, just without them.
+  const images = await fetchAll<{ product_id: string; url: string }>(() => (admin.from('product_images') as any)
     .select('product_id, url')
     .eq('is_primary', true)
+    .order('id'))
+    .catch((err: unknown) => { console.error('record-sale: images', err); return [] })
 
   const imageMap: Record<string, string> = {}
   ;(images || []).forEach((img: any) => {
