@@ -17,6 +17,11 @@
 -- The conditions themselves are unchanged; only who they apply to. Signed-in
 -- admins and sellers see exactly what they saw before.
 
+-- ALTER POLICY takes a brief exclusive lock on each table, and every sale
+-- updates products. Should a long transaction hold one, give up (all of it)
+-- rather than queue sales behind the wait.
+SET LOCAL lock_timeout = '3s';
+
 ALTER POLICY "Admins full access products"      ON public.products       TO authenticated;
 ALTER POLICY "Sellers read active products"     ON public.products       TO authenticated;
 ALTER POLICY "Admins full access images"        ON public.product_images TO authenticated;
