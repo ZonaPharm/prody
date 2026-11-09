@@ -162,7 +162,17 @@ export async function executeRestock(input: RestockInput) {
   return results
 }
 
-/** Execute FIFO deduction after a sale. Creates sell movements and updates batches. */
+/**
+ * Deduct a sale from stock: the store's batches oldest first, a 'sell' movement
+ * per batch, and products.quantity_on_hand — in one database transaction, all
+ * or nothing (sell_from_batches, migration 20261109_sell_from_batches_atomically).
+ *
+ * This used to read each batch here, subtract in JS and write it back, so two
+ * sales of the same product overlapping in time could both start from the same
+ * quantity and lose a deduction; its writes were never checked either. The
+ * function locks the batches instead. Throws if the store holds too little or
+ * the function is missing — there is deliberately no fallback to the old path.
+ */
 export async function executeSaleFIFO(
   productId: string,
   storeId: string,
@@ -172,39 +182,15 @@ export async function executeSaleFIFO(
   userId: string
 ) {
   const admin = createAdminClient()
-  const { batches } = await getFIFOBatches(productId, storeId, qty)
-  const { deductedFrom, remainingNeeded } = calculateFIFODeduction(batches, qty)
-
-  if (remainingNeeded > 0) {
-    throw new Error(`Недостатъчна наличност: липсват ${remainingNeeded} бр.`)
-  }
-
-  for (const d of deductedFrom) {
-    // Update batch remaining
-    const { data: batch } = await (admin.from('stock_batches') as any)
-      .select('quantity_remaining')
-      .eq('id', d.batchId)
-      .single()
-
-    if (batch) {
-      await (admin.from('stock_batches') as any)
-        .update({ quantity_remaining: batch.quantity_remaining - d.qty })
-        .eq('id', d.batchId)
-    }
-
-    // Create sell movement
-    await (admin.from('stock_movements') as any).insert({
-      product_id: productId,
-      store_id: storeId,
-      batch_id: d.batchId,
-      type: 'sell',
-      quantity: -d.qty,
-      unit_cost: d.unitCost,
-      unit_price: salePrice,
-      sale_id: saleId,
-      created_by: userId,
-    })
-  }
+  const { error } = await (admin as any).rpc('sell_from_batches', {
+    p_product_id: productId,
+    p_store_id: storeId,
+    p_quantity: qty,
+    p_unit_price: salePrice,
+    p_sale_id: saleId,
+    p_user_id: userId,
+  })
+  if (error) throw new Error(`sell_from_batches: ${error.message}`)
 }
 
 /** Get product inventory: stock per store + recent movements */
