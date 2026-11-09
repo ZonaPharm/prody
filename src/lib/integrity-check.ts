@@ -22,13 +22,11 @@ export async function runIntegrityCheck(): Promise<IntegrityReport> {
     // finds its movement.
     const movementsFrom = new Date(now - 8 * 24 * 60 * 60 * 1000).toISOString()
 
-    const [products, batches, stores, recentSales, movements] = await Promise.all([
+    const [products, batches, recentSales, movements] = await Promise.all([
       fetchAll<any>(() => (admin.from('products') as any)
         .select('id, name, status, quantity_on_hand').order('id')),
       fetchAll<any>(() => (admin.from('stock_batches') as any)
         .select('product_id, store_id, quantity_remaining').order('id')),
-      fetchAll<any>(() => (admin.from('stores') as any)
-        .select('id, name').order('id')),
       fetchAll<any>(() => (admin.from('sales') as any)
         .select('id').gte('created_at', salesFrom).lte('created_at', salesTo).order('id')),
       fetchAll<any>(() => (admin.from('stock_movements') as any)
@@ -38,7 +36,6 @@ export async function runIntegrityCheck(): Promise<IntegrityReport> {
     return evaluateIntegrity({
       products,
       batches,
-      stores,
       recentSales,
       movementSaleIds: movements.map((m: any) => m.sale_id),
     })

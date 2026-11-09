@@ -12,9 +12,14 @@ export async function getProducts(filters?: {
   offset?: number
 }) {
   const supabase = await createServerSupabaseClient()
-  let query = supabase
-    .from('products')
-    .select('*, category:categories(name), images:product_images(url, is_primary, sort_order)')
+  // The store filter joins the batches in the database (an inner embed: only
+  // products with at least one matching batch come back, once each). It used
+  // to fetch the store's product ids first and send them back in .in('id', …),
+  // which put every id into the request URL; past roughly 398 products the URL
+  // grew too long and the filtered catalogue came back empty.
+  const columns = '*, category:categories(name), images:product_images(url, is_primary, sort_order)'
+  let query = (supabase.from('products') as any)
+    .select(filters?.storeId ? `${columns}, in_store:stock_batches!inner(id)` : columns)
 
   if (filters?.search) {
     query = query.ilike('name', `%${filters.search}%`)
@@ -34,18 +39,10 @@ export async function getProducts(filters?: {
     query = query.is('wp_product_id', null)
   }
   if (filters?.storeId) {
-    // Filter products that have stock in the selected store
-    const { data: storeProductIds } = await supabase
-      .from('stock_batches')
-      .select('product_id')
-      .eq('store_id', filters.storeId)
-      .gt('quantity_remaining', 0)
-    const ids = [...new Set((storeProductIds || []).map((b: any) => b.product_id))]
-    if (ids.length > 0) {
-      query = query.in('id', ids)
-    } else {
-      return []
-    }
+    // Products with stock in the selected store.
+    query = query
+      .eq('in_store.store_id', filters.storeId)
+      .gt('in_store.quantity_remaining', 0)
   }
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -61,7 +58,10 @@ export async function getProducts(filters?: {
   if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1)
 
   const { data } = await query
-  let result = data || []
+  // The joined batches only served the filter; callers (the catalogue, its
+  // export) never expected them on the product.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let result = (data || []).map(({ in_store, ...product }: any) => product)
   if (filters?.hasImages === 'yes') {
     result = result.filter((p: any) => p.images && p.images.length > 0)
   } else if (filters?.hasImages === 'no') {

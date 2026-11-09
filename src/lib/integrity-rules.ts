@@ -9,8 +9,11 @@
  *   reported a product showing 10 of 5.
  * - sales recorded without a stock movement: 4546 of them, from a broken
  *   foreign key, before anyone looked.
- * - the store filter building a URL too long to send: measured to break at 398
- *   products, with the largest store at 362 when this was written.
+ *
+ * There was a fourth, store_filter_headroom: the catalogue's store filter put
+ * every product id in the request URL and broke at 398 (Ботев reached 391).
+ * The filter now joins in the database and has no such limit, so the check
+ * went with it.
  *
  * Pure functions over plain rows — no database client, no mail — so they can
  * be tested against real data without side effects. The caller fetches and
@@ -20,7 +23,6 @@
 export type IntegrityInput = {
   products: { id: string; name: string; status: string; quantity_on_hand: number | null }[]
   batches: { product_id: string; store_id: string; quantity_remaining: number }[]
-  stores: { id: string; name: string }[]
   /** Sales old enough that their stock movement should already exist. */
   recentSales: { id: string }[]
   /** sale_id of every stock movement created over the same window. */
@@ -47,16 +49,6 @@ export type IntegrityReport = {
   }
 }
 
-/**
- * The store filter sends every matching product id in the request URL.
- * Measured against Supabase on 8 October 2026: 397 ids pass, 398 fail.
- * The catalogue's own query carries a longer select clause than the
- * measurement did, so its real limit sits slightly lower — hence the margin.
- */
-export const STORE_FILTER_LIMIT = 398
-const STORE_FILTER_ERROR_AT = 390
-const STORE_FILTER_WARN_AT = 360
-
 const MAX_DETAIL_LINES = 10
 
 export function evaluateIntegrity(input: IntegrityInput): IntegrityReport {
@@ -64,7 +56,6 @@ export function evaluateIntegrity(input: IntegrityInput): IntegrityReport {
     ...checkStockMatchesBatches(input),
     ...checkNoNegativeBatches(input),
     ...checkSalesHaveMovements(input),
-    ...checkStoreFilterHeadroom(input),
   ]
 
   return {
@@ -147,38 +138,6 @@ function checkSalesHaveMovements({ recentSales, movementSaleIds }: IntegrityInpu
     detail: [
       'Продажбата е записана, но наличността в партидите не е намалена.',
       ...missing.slice(0, MAX_DETAIL_LINES).map(s => `продажба ${s.id}`),
-    ],
-  }]
-}
-
-function checkStoreFilterHeadroom({ batches, stores }: IntegrityInput): Finding[] {
-  // Counted the way the catalogue builds its list: distinct products with any
-  // stock in the store, whatever their status.
-  const perStore = new Map<string, Set<string>>()
-  for (const b of batches) {
-    if (b.quantity_remaining <= 0) continue
-    if (!perStore.has(b.store_id)) perStore.set(b.store_id, new Set())
-    perStore.get(b.store_id)!.add(b.product_id)
-  }
-
-  const names = new Map(stores.map(s => [s.id, s.name]))
-  const rows = [...perStore.entries()]
-    .map(([id, set]) => ({ name: names.get(id) || id, count: set.size }))
-    .filter(r => r.count >= STORE_FILTER_WARN_AT)
-    .sort((a, b) => b.count - a.count)
-
-  if (rows.length === 0) return []
-
-  const severity: Severity = rows.some(r => r.count >= STORE_FILTER_ERROR_AT) ? 'error' : 'warning'
-  return [{
-    check: 'store_filter_headroom',
-    severity,
-    title: severity === 'error'
-      ? 'Филтърът по обект е на ръба да спре да работи'
-      : 'Филтърът по обект наближава лимита си',
-    detail: [
-      ...rows.map(r => `${r.name}: ${r.count} продукта (лимит около ${STORE_FILTER_LIMIT})`),
-      'Над лимита каталогът ще показва празна страница при филтър по този обект.',
     ],
   }]
 }
