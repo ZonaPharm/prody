@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { SalesChart, TopProductsChart } from './charts'
 import { StoreSalesSection } from './store-sales-section'
 import { sofiaToday } from '@/lib/date-utils'
+import { fetchAll } from '@/lib/fetch-all'
 
 export default async function DashboardPage() {
   await requireAdmin()
@@ -14,6 +15,18 @@ export default async function DashboardPage() {
   const today = sofiaToday()
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+
+  // Every sales total here pages through the whole period. A plain select is
+  // capped at 1000 rows by PostgREST, and 30 days hold more than that (1468
+  // sales on 9 November 2026), so the month, top products and per-store
+  // figures were summed from about two thirds of the sales.
+  const salesSince = async (from: string, columns: string) => ({
+    data: await fetchAll<any>(() => (supabase.from('sales') as any)
+      .select(columns)
+      .gte('sale_date', from)
+      .eq('voided', false)
+      .order('id')),
+  })
 
   const [
     { count: totalProducts },
@@ -31,12 +44,12 @@ export default async function DashboardPage() {
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'inactive').eq('inactive_reason', 'ordered'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active').lte('quantity_on_hand', 5),
-    supabase.from('sales').select('quantity, sale_price').gte('sale_date', today).eq('voided', false),
-    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', monthAgo).order('sale_date').eq('voided', false),
-    supabase.from('sales').select('quantity, sale_price, product:products(name)').gte('sale_date', monthAgo).eq('voided', false),
-    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', weekAgo).order('sale_date').eq('voided', false),
+    salesSince(today, 'quantity, sale_price'),
+    salesSince(monthAgo, 'quantity, sale_price, sale_date'),
+    salesSince(monthAgo, 'quantity, sale_price, product:products(name)'),
+    salesSince(weekAgo, 'quantity, sale_price, sale_date'),
     supabase.from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name'),
-    supabase.from('sales').select('quantity, sale_price, store_id').gte('sale_date', monthAgo).eq('voided', false),
+    salesSince(monthAgo, 'quantity, sale_price, store_id'),
   ])
 
   const sumReducer = (sum: number, s: any) => sum + s.quantity * Number(s.sale_price)
