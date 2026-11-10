@@ -1,6 +1,8 @@
 .superpowers/
-.env
-.env.local
+# Environment files hold secrets (the Vercel pulls carry an OIDC token).
+# Only the template is committed.
+.env*
+!.env.example
 node_modules/
 .next/
 .DS_Store
