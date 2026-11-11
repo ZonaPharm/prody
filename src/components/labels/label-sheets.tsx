@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { FileDown, Printer } from 'lucide-react'
+import { FileDown, Printer, Save, Trash2 } from 'lucide-react'
 import { formatMoney } from '@/lib/deliveries/format'
 import { code128Bars } from '@/lib/labels/code128'
+import type { SheetProfile } from '@/lib/labels/profiles'
 import { A4, DEFAULT_LAYOUT, LINE_HEIGHT, SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
 
 export type PrintLabel = {
@@ -20,65 +21,105 @@ export type PrintLabel = {
   count: number
 }
 
-const STORAGE_KEY = 'prody_label_sheet'
+const STORAGE_KEY = 'prody_label_sheet_v2'
 const MAX_LABELS = 2000
 
-function loadLayout(): SheetLayout {
+/** What this browser remembers: the chosen sheet and its numbers as last used. */
+type Remembered = { selected: string; layout: SheetLayout }
+
+const presetKey = (id: string) => `preset:${id}`
+const profileKey = (id: string) => `profile:${id}`
+const DEFAULT_SELECTED = presetKey(SHEET_PRESETS[0].id)
+
+function loadRemembered(): Remembered | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_LAYOUT
-    const l = { ...DEFAULT_LAYOUT, ...JSON.parse(raw) } as SheetLayout
-    return layoutError(l) ? DEFAULT_LAYOUT : l
+    if (!raw) return null
+    const r = JSON.parse(raw) as Remembered
+    const layout = { ...DEFAULT_LAYOUT, ...r.layout }
+    return layoutError(layout) ? null : { selected: String(r.selected ?? ''), layout }
   } catch {
-    return DEFAULT_LAYOUT
+    return null
   }
 }
 
-function saveLayout(l: SheetLayout) {
+function remember(r: Remembered) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(l))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(r))
   } catch {
-    // Private window or blocked storage: the layout just is not remembered.
+    // Private window or blocked storage: the choice just is not remembered.
   }
 }
 
-const FIELDS: { key: keyof SheetLayout; label: string; step: number }[] = [
-  { key: 'cols', label: 'Колони', step: 1 },
-  { key: 'rows', label: 'Редове', step: 1 },
-  { key: 'width', label: 'Ширина, мм', step: 0.1 },
-  { key: 'height', label: 'Височина, мм', step: 0.1 },
-  { key: 'top', label: 'Горе, мм', step: 0.1 },
-  { key: 'left', label: 'Ляво, мм', step: 0.1 },
-  { key: 'gapX', label: 'Между колоните, мм', step: 0.1 },
-  { key: 'gapY', label: 'Между редовете, мм', step: 0.1 },
+type Field = { key: keyof SheetLayout; label: string; step: number; min: number }
+
+const FIELDS: Field[] = [
+  { key: 'cols', label: 'Колони', step: 1, min: 1 },
+  { key: 'rows', label: 'Редове', step: 1, min: 1 },
+  { key: 'width', label: 'Ширина, мм', step: 0.1, min: 0 },
+  { key: 'height', label: 'Височина, мм', step: 0.1, min: 0 },
+  { key: 'top', label: 'Горе, мм', step: 0.1, min: 0 },
+  { key: 'left', label: 'Ляво, мм', step: 0.1, min: 0 },
+  { key: 'gapX', label: 'Между колоните, мм', step: 0.1, min: 0 },
+  { key: 'gapY', label: 'Между редовете, мм', step: 0.1, min: 0 },
 ]
+const OFFSET_FIELDS: Field[] = [
+  { key: 'offsetX', label: 'Надясно, мм', step: 0.1, min: -20 },
+  { key: 'offsetY', label: 'Надолу, мм', step: 0.1, min: -20 },
+]
+const ALL_FIELDS = [...FIELDS, ...OFFSET_FIELDS]
+
+const draftOf = (l: SheetLayout) => Object.fromEntries(ALL_FIELDS.map(f => [f.key, String(l[f.key] ?? 0)]))
+const sameLayout = (a: SheetLayout, b: SheetLayout) => ALL_FIELDS.every(f => Math.abs((a[f.key] ?? 0) - (b[f.key] ?? 0)) < 0.005)
+
+async function send<T>(url: string, method: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Не стана, опитай пак')
+  return data as T
+}
 
 /**
  * The print screen of the labels: settings on the left (hidden when printing), the
  * A4 sheets at real size beside them. Prints with the browser's own dialog; the
  * sheets are drawn in mm, so it has to print at 100 % with no margins.
+ * Sheets: the built-in Office1 ones, then the profiles people saved (shared by all
+ * computers), e.g. the same paper moved a millimetre for one printer.
  */
-export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
+export function LabelSheets({ labels, initialProfiles, profilesReady }: {
+  labels: PrintLabel[]
+  initialProfiles: SheetProfile[]
+  /** False until the profiles table exists (migration not run yet). */
+  profilesReady: boolean
+}) {
+  const [profiles, setProfiles] = useState<SheetProfile[]>(initialProfiles)
+  const [selected, setSelected] = useState(DEFAULT_SELECTED)
   const [layout, setLayout] = useState<SheetLayout>(DEFAULT_LAYOUT)
-  const [draft, setDraft] = useState<Record<string, string>>({})
+  const [draft, setDraft] = useState<Record<string, string>>(() => draftOf(DEFAULT_LAYOUT))
   const [counts, setCounts] = useState<Record<string, number>>(() => Object.fromEntries(labels.map(l => [l.key, l.count])))
   const [start, setStart] = useState(1)
   const [outline, setOutline] = useState(false)
   const [pdfHint, setPdfHint] = useState(false)
+  const [newName, setNewName] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   // The remembered sheet is in this browser only, so it is read after hydration.
   useEffect(() => {
-    const l = loadLayout()
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLayout(l)
-    setDraft(Object.fromEntries(FIELDS.map(f => [f.key, String(l[f.key])])))
+    const r = loadRemembered()
+    if (!r) return
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setSelected(r.selected)
+    setLayout(r.layout)
+    setDraft(draftOf(r.layout))
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
   const candidate: SheetLayout = useMemo(() => {
     const out = { ...layout }
-    for (const f of FIELDS) {
+    for (const f of ALL_FIELDS) {
       const v = draft[f.key]
-      if (v !== undefined) out[f.key] = Number(String(v).replace(',', '.'))
+      if (v !== undefined && v.trim() !== '' && v.trim() !== '-') out[f.key] = Number(String(v).replace(',', '.'))
     }
     return out
   }, [layout, draft])
@@ -86,16 +127,64 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
   const sheet = error ? layout : candidate
 
   useEffect(() => {
-    if (!error) saveLayout(candidate)
-  }, [candidate, error])
+    if (!error) remember({ selected, layout: candidate })
+  }, [candidate, error, selected])
 
-  const presetId = SHEET_PRESETS.find(p => FIELDS.every(f => p.layout[f.key] === sheet[f.key]))?.id ?? ''
-  function pickPreset(id: string) {
-    const p = SHEET_PRESETS.find(x => x.id === id)
-    if (!p) return
-    setLayout(p.layout)
-    setDraft(Object.fromEntries(FIELDS.map(f => [f.key, String(p.layout[f.key])])))
+  const preset = SHEET_PRESETS.find(p => presetKey(p.id) === selected)
+  const profile = profiles.find(p => profileKey(p.id) === selected)
+  const source = preset?.layout ?? profile?.layout ?? null
+  const changed = !source || !sameLayout(source, sheet)
+
+  function choose(key: string) {
+    const l = SHEET_PRESETS.find(p => presetKey(p.id) === key)?.layout ?? profiles.find(p => profileKey(p.id) === key)?.layout
+    if (!l) return
+    setSelected(key)
+    setLayout(l)
+    setDraft(draftOf(l))
     setStart(1)
+    setMessage(null)
+    setNewName(null)
+  }
+
+  async function run(work: () => Promise<string>) {
+    setBusy(true)
+    setMessage(null)
+    try {
+      setMessage({ ok: true, text: await work() })
+    } catch (e: any) {
+      setMessage({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveNew = () => run(async () => {
+    const p = await send<SheetProfile>('/api/label-profiles', 'POST', { name: newName ?? '', layout: sheet })
+    setProfiles(list => [...list, p].sort((a, b) => a.name.localeCompare(b.name, 'bg')))
+    setSelected(profileKey(p.id))
+    setLayout(p.layout)
+    setDraft(draftOf(p.layout))
+    setNewName(null)
+    return `Профилът „${p.name}“ е запазен за всички компютри.`
+  })
+
+  const saveChanges = () => run(async () => {
+    if (!profile) return ''
+    const p = await send<SheetProfile>(`/api/label-profiles/${profile.id}`, 'PATCH', { layout: sheet })
+    setProfiles(list => list.map(x => (x.id === p.id ? p : x)))
+    setLayout(p.layout)
+    setDraft(draftOf(p.layout))
+    return `Промените в „${p.name}“ са запазени.`
+  })
+
+  const remove = () => {
+    if (!profile || !window.confirm(`Да изтрия ли профила „${profile.name}“?`)) return
+    run(async () => {
+      await send(`/api/label-profiles/${profile.id}`, 'DELETE')
+      setProfiles(list => list.filter(x => x.id !== profile.id))
+      choose(DEFAULT_SELECTED)
+      return `Профилът „${profile.name}“ е изтрит.`
+    })
   }
 
   const list = useMemo(() => {
@@ -108,6 +197,20 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
   }, [labels, counts])
   const n = perSheet(sheet)
   const pages = paginate(list, sheet, Math.min(start, n))
+
+  const input = (f: Field) => (
+    <label key={f.key} className="text-xs text-muted-foreground">
+      {f.label}
+      <Input
+        type="number"
+        step={f.step}
+        min={f.min}
+        className="mt-0.5 h-8"
+        value={draft[f.key] ?? String(layout[f.key] ?? 0)}
+        onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))}
+      />
+    </label>
+  )
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
@@ -122,9 +225,7 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
 
       <div className="flex flex-col gap-6 p-4 lg:flex-row lg:items-start print:block print:p-0">
         <aside className="w-full shrink-0 space-y-4 rounded-lg border bg-white p-4 text-sm lg:sticky lg:top-4 lg:w-80 print:hidden">
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="text-base font-semibold">Печат на етикети</h1>
-          </div>
+          <h1 className="text-base font-semibold">Печат на етикети</h1>
           <p className="text-muted-foreground">
             {list.length} {list.length === 1 ? 'етикет' : 'етикета'} на {pages.length} {pages.length === 1 ? 'лист' : 'листа'}.
           </p>
@@ -164,27 +265,59 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
           </div>
 
           <div className="space-y-2">
-            <label className="block font-medium" htmlFor="sheet-preset">Лист</label>
-            <select id="sheet-preset" className="h-9 w-full rounded-md border border-input bg-white px-2" value={presetId} onChange={e => pickPreset(e.target.value)}>
-              {!presetId && <option value="">Мой размер</option>}
-              {SHEET_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <label className="block font-medium" htmlFor="sheet-profile">Лист (профил на хартията)</label>
+            <select id="sheet-profile" className="h-9 w-full rounded-md border border-input bg-white px-2" value={source ? selected : ''} onChange={e => choose(e.target.value)}>
+              {!source && <option value="">Мой размер</option>}
+              <optgroup label="Office1">
+                {SHEET_PRESETS.map(p => <option key={p.id} value={presetKey(p.id)}>{p.name}</option>)}
+              </optgroup>
+              {profiles.length > 0 && (
+                <optgroup label="Запазени профили">
+                  {profiles.map(p => <option key={p.id} value={profileKey(p.id)}>{p.name}</option>)}
+                </optgroup>
+              )}
             </select>
-            <div className="grid grid-cols-2 gap-2">
-              {FIELDS.map(f => (
-                <label key={f.key} className="text-xs text-muted-foreground">
-                  {f.label}
-                  <Input
-                    type="number"
-                    step={f.step}
-                    min={0}
-                    className="mt-0.5 h-8"
-                    value={draft[f.key] ?? String(layout[f.key])}
-                    onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))}
-                  />
-                </label>
-              ))}
-            </div>
+            {source && changed && <p className="text-xs text-amber-700">Числата са променени спрямо профила.</p>}
+            <div className="grid grid-cols-2 gap-2">{FIELDS.map(input)}</div>
+
+            <div className="pt-1 font-medium">Отместване на целия печат</div>
+            <p className="text-xs text-muted-foreground">
+              Ако принтерът печата разместено: плюс мести всичко надясно или надолу, минус наляво или нагоре.
+            </p>
+            <div className="grid grid-cols-2 gap-2">{OFFSET_FIELDS.map(input)}</div>
             {error && <p className="text-xs text-red-600">{error}</p>}
+
+            {profilesReady ? (
+              <div className="space-y-2 pt-1">
+                {newName === null ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={busy || !!error} onClick={() => setNewName(profile ? `${profile.name} (2)` : preset ? `${preset.name.split(' (')[0]}, ` : '')}>
+                      <Save className="mr-1 h-4 w-4" />Запази като нов профил
+                    </Button>
+                    {profile && changed && (
+                      <Button size="sm" disabled={busy || !!error} onClick={saveChanges}>Запази промените</Button>
+                    )}
+                    {profile && (
+                      <Button size="sm" variant="ghost" className="text-red-600" disabled={busy} onClick={remove}><Trash2 className="mr-1 h-4 w-4" />Изтрий</Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2 rounded-md border p-2">
+                    <label className="block text-xs text-muted-foreground">
+                      Име на профила, например „24 на лист, принтер Офис“
+                      <Input autoFocus className="mt-0.5 h-8" maxLength={60} value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveNew() }} />
+                    </label>
+                    <div className="flex gap-2">
+                      <Button size="sm" disabled={busy || !newName.trim() || !!error} onClick={saveNew}>Запази</Button>
+                      <Button size="sm" variant="ghost" disabled={busy} onClick={() => setNewName(null)}>Откажи</Button>
+                    </div>
+                  </div>
+                )}
+                {message && <p className={message.ok ? 'text-xs text-emerald-700' : 'text-xs text-red-600'}>{message.text}</p>}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Запазването на профили ще стане достъпно след обновяване на базата. Дотогава числата се помнят само на този компютър.</p>
+            )}
           </div>
 
           <label className="block text-xs text-muted-foreground">
@@ -214,8 +347,8 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
                     className={outline ? 'outline outline-1 outline-slate-300' : 'outline outline-1 outline-dashed outline-slate-200 print:outline-none'}
                     style={{
                       position: 'absolute',
-                      left: `${sheet.left + c * (sheet.width + sheet.gapX)}mm`,
-                      top: `${sheet.top + r * (sheet.height + sheet.gapY)}mm`,
+                      left: `${sheet.left + (sheet.offsetX ?? 0) + c * (sheet.width + sheet.gapX)}mm`,
+                      top: `${sheet.top + (sheet.offsetY ?? 0) + r * (sheet.height + sheet.gapY)}mm`,
                       width: `${sheet.width}mm`,
                       height: `${sheet.height}mm`,
                     }}

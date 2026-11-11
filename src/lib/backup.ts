@@ -19,6 +19,7 @@ const TABLES = [
   'products',
   'product_images',
   'labels',
+  'label_sheet_profiles',
   'suppliers',
   'deliveries',
   'delivery_items',
@@ -45,6 +46,7 @@ const TABLES = [
  * in production this set can go.
  */
 const TABLES_PENDING_MIGRATION = new Set([
+  'label_sheet_profiles',
   'suppliers',
   'deliveries',
   'delivery_items',

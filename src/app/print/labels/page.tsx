@@ -4,6 +4,7 @@ import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { isUuid } from '@/lib/deliveries/api'
 import { formatDeliveryNumber } from '@/lib/deliveries/format'
 import { plainText } from '@/lib/labels/sheet'
+import { PROFILE_COLUMNS, profileFromRow, type SheetProfile } from '@/lib/labels/profiles'
 import { LabelSheets, type PrintLabel } from '@/components/labels/label-sheets'
 
 export const dynamic = 'force-dynamic'
@@ -47,5 +48,17 @@ export default async function LabelsPrintPage({ searchParams }: { searchParams: 
     }))
   if (labels.length === 0) notFound()
 
-  return <LabelSheets labels={labels} />
+  // Saved paper profiles; until migration 20261111_label_sheet_profiles runs the table
+  // is missing, and the page works with the built-in sheets only.
+  let profiles: SheetProfile[] = []
+  let profilesReady = true
+  const prof = await (supabase as any).from('label_sheet_profiles').select(PROFILE_COLUMNS).order('name').limit(500)
+  if (prof.error) {
+    profilesReady = false
+    console.error('label_sheet_profiles read failed:', JSON.stringify(prof.error))
+  } else {
+    profiles = (prof.data ?? []).map(profileFromRow)
+  }
+
+  return <LabelSheets labels={labels} initialProfiles={profiles} profilesReady={profilesReady} />
 }

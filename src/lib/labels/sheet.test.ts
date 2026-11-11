@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, plainText, type SheetLayout } from './sheet'
 
-const L: SheetLayout = { cols: 3, rows: 8, width: 70, height: 37, top: 0, left: 0, gapX: 0, gapY: 0 }
+const L: SheetLayout = { cols: 3, rows: 8, width: 70, height: 37, top: 0, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 }
 
 describe('sheet', () => {
   it('every preset fits on A4', () => {
@@ -39,6 +39,8 @@ describe('sheet', () => {
     expect(layoutError({ ...L, cols: 1.5 })).toMatch(/цели числа/)
     expect(layoutError({ ...L, width: -1 })).toMatch(/0 или повече/)
     expect(layoutError({ ...L, width: 10 })).toMatch(/по-малък/)
+    expect(layoutError({ ...L, offsetY: -2.5 })).toBeNull()
+    expect(layoutError({ ...L, offsetX: 21 })).toMatch(/Отместването/)
   })
 
   it('fills pages and pads the last one', () => {

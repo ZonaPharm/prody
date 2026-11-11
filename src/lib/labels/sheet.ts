@@ -16,16 +16,19 @@ export type SheetLayout = {
   /** Gaps between labels, mm. */
   gapX: number
   gapY: number
+  /** The whole print moved right / down, mm (negative: left / up), for a printer that prints off. */
+  offsetX: number
+  offsetY: number
 }
 
 export const A4 = { width: 210, height: 297 }
 
 /** The Office1 sheets used in the stores (24, 40, 44 and 65 a sheet), labels centred on A4. */
 export const SHEET_PRESETS: { id: string; name: string; layout: SheetLayout }[] = [
-  { id: '3x8', name: '24 на лист (70 × 37 мм)', layout: { cols: 3, rows: 8, width: 70, height: 37, top: 0.5, left: 0, gapX: 0, gapY: 0 } },
-  { id: '4x10', name: '40 на лист (52,5 × 29,7 мм)', layout: { cols: 4, rows: 10, width: 52.5, height: 29.7, top: 0, left: 0, gapX: 0, gapY: 0 } },
-  { id: '4x11', name: '44 на лист (48,5 × 25,4 мм)', layout: { cols: 4, rows: 11, width: 48.5, height: 25.4, top: 8.8, left: 8, gapX: 0, gapY: 0 } },
-  { id: '5x13', name: '65 на лист (38,1 × 21,2 мм)', layout: { cols: 5, rows: 13, width: 38.1, height: 21.2, top: 10.7, left: 4.75, gapX: 2.5, gapY: 0 } },
+  { id: '3x8', name: '24 на лист (70 × 37 мм)', layout: { cols: 3, rows: 8, width: 70, height: 37, top: 0.5, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
+  { id: '4x10', name: '40 на лист (52,5 × 29,7 мм)', layout: { cols: 4, rows: 10, width: 52.5, height: 29.7, top: 0, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
+  { id: '4x11', name: '44 на лист (48,5 × 25,4 мм)', layout: { cols: 4, rows: 11, width: 48.5, height: 25.4, top: 8.8, left: 8, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
+  { id: '5x13', name: '65 на лист (38,1 × 21,2 мм)', layout: { cols: 5, rows: 13, width: 38.1, height: 21.2, top: 10.7, left: 4.75, gapX: 2.5, gapY: 0, offsetX: 0, offsetY: 0 } },
 ]
 
 export const DEFAULT_LAYOUT: SheetLayout = SHEET_PRESETS[0].layout
@@ -38,6 +41,8 @@ export function perSheet(l: SheetLayout): number {
 export function layoutError(l: SheetLayout): string | null {
   const nums = [l.cols, l.rows, l.width, l.height, l.top, l.left, l.gapX, l.gapY]
   if (nums.some(n => !Number.isFinite(n) || n < 0)) return 'Числата трябва да са 0 или повече'
+  const offsets = [l.offsetX ?? 0, l.offsetY ?? 0]
+  if (offsets.some(n => !Number.isFinite(n) || Math.abs(n) > 20)) return 'Отместването е от −20 до 20 мм'
   if (!Number.isInteger(l.cols) || !Number.isInteger(l.rows) || l.cols < 1 || l.rows < 1) return 'Колоните и редовете са цели числа от 1 нагоре'
   if (l.width < 15 || l.height < 10) return 'Етикетът е по-малък от 15 × 10 мм'
   const w = l.left + l.cols * l.width + (l.cols - 1) * l.gapX
