@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { getStoreOptions } from '@/lib/deliveries/queries'
+import { isUuid } from '@/lib/deliveries/api'
 import { countOpenProblems, getOpenPlanRows } from '@/lib/deliveries/work'
 import { labelQueue } from '@/lib/deliveries/queue'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
@@ -8,8 +9,9 @@ import { LabelChecklist } from '@/components/deliveries/label-checklist'
 
 export const dynamic = 'force-dynamic'
 
-export default async function LabelsChecklistPage() {
+export default async function LabelsChecklistPage({ searchParams }: { searchParams: Promise<{ delivery?: string }> }) {
   const user = await requireDeliveriesAdmin()
+  const { delivery } = await searchParams
   const supabase = await createServerSupabaseClient()
   const [plan, stores, problems] = await Promise.all([getOpenPlanRows(supabase), getStoreOptions(supabase), countOpenProblems(supabase)])
   const storeName = new Map(stores.map(s => [s.id, s.name]))
@@ -25,7 +27,7 @@ export default async function LabelsChecklistPage() {
           Отметнете редовете, които са етикетирани и опаковани за магазина. Неотметнатото остава за по-късно. Число се пише само при „Не е наред“.
         </p>
       </div>
-      <LabelChecklist rows={rows} userName={user.display_name} />
+      <LabelChecklist rows={rows} userName={user.display_name} initialDelivery={delivery && isUuid(delivery) ? delivery : undefined} />
     </div>
   )
 }

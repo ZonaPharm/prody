@@ -98,3 +98,23 @@ export function daysWaiting(sentAt: string | null, now: Date = new Date()): numb
   if (!sentAt) return 0
   return Math.max(0, Math.floor((now.getTime() - new Date(sentAt).getTime()) / 86_400_000))
 }
+
+/**
+ * What a delivery that is in work still needs after receiving, for the buttons on its page:
+ * units received but not yet ready (→ "Етикетиране") and units ready but not yet sent (→ "Курсове").
+ * "To label" is capped per line by both the plan and what arrived.
+ */
+export function deliveryNextSteps(items: {
+  received_qty: number
+  plan: { planned_qty: number; ready_qty: number; shipped_qty: number }[]
+}[]): { toLabel: number; toShip: number } {
+  let toLabel = 0
+  let toShip = 0
+  for (const i of items) {
+    const ready = i.plan.reduce((s, p) => s + p.ready_qty, 0)
+    const planLeft = i.plan.reduce((s, p) => s + Math.max(0, p.planned_qty - p.ready_qty), 0)
+    toLabel += Math.max(0, Math.min(planLeft, i.received_qty - ready))
+    toShip += i.plan.reduce((s, p) => s + Math.max(0, p.ready_qty - p.shipped_qty), 0)
+  }
+  return { toLabel, toShip }
+}

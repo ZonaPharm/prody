@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Tag, Truck } from 'lucide-react'
+import { deliveryNextSteps } from '@/lib/deliveries/queue'
 import type { DeliveryDetail, DetailItem } from '@/lib/deliveries/queries'
 import {
   LINE_STATUS_LABEL,
@@ -49,6 +50,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
   const value = delivery.items.reduce((s, i) => s + i.quantity * i.unit_cost, 0)
   const waiting = units - received
   const openSignals = delivery.signals.filter(s => s.status === 'open').length
+  const next = deliveryNextSteps(delivery.items)
 
   return (
     <div className="space-y-4 max-w-7xl">
@@ -70,14 +72,24 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
             )}
           </div>
         </div>
-        {open && (
-          <div className="flex gap-2">
-            {waiting > 0 && (
+        {(open || next.toLabel > 0 || next.toShip > 0) && delivery.status !== 'cancelled' && (
+          <div className="flex flex-wrap gap-2">
+            {open && waiting > 0 && (
               <Button asChild>
                 <Link href={`/deliveries/${delivery.id}/receive`}><ClipboardCheck className="mr-2 h-4 w-4" />Получаване</Link>
               </Button>
             )}
-            <Button variant="outline" onClick={() => setCancelOpen(true)}>Откажи</Button>
+            {next.toLabel > 0 && (
+              <Button asChild variant={open && waiting > 0 ? 'outline' : 'default'}>
+                <Link href={`/deliveries/labels?delivery=${delivery.id}`}><Tag className="mr-2 h-4 w-4" />Етикетиране ({next.toLabel} бр.)</Link>
+              </Button>
+            )}
+            {next.toShip > 0 && (
+              <Button asChild variant={next.toLabel > 0 || (open && waiting > 0) ? 'outline' : 'default'}>
+                <Link href="/deliveries/trips"><Truck className="mr-2 h-4 w-4" />Курс ({next.toShip} бр. готови)</Link>
+              </Button>
+            )}
+            {open && <Button variant="outline" onClick={() => setCancelOpen(true)}>Откажи</Button>}
           </div>
         )}
       </div>

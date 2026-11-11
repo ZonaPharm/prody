@@ -27,11 +27,11 @@ export type LabelRowView = LabelQueueRow & { store_name: string }
  * Unticked rows stay for later. The signature makes the ticked units ready
  * for the next trip.
  */
-export function LabelChecklist({ rows, userName }: { rows: LabelRowView[]; userName: string }) {
+export function LabelChecklist({ rows, userName, initialDelivery }: { rows: LabelRowView[]; userName: string; initialDelivery?: string }) {
   const router = useRouter()
   const [state, setState] = useState<Record<string, RowState>>({})
   const [filter, setFilter] = useState('')
-  const [delivery, setDelivery] = useState('')
+  const [delivery, setDelivery] = useState(() => (initialDelivery && rows.some(r => r.delivery_id === initialDelivery) ? initialDelivery : ''))
   const [store, setStore] = useState('')
   const [problemFor, setProblemFor] = useState<LabelRowView | null>(null)
   const [signing, setSigning] = useState(false)
@@ -115,7 +115,7 @@ export function LabelChecklist({ rows, userName }: { rows: LabelRowView[]; userN
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Търсене на продукт" className="pl-8 bg-white" />
             </div>
-            {deliveries.length > 1 && (
+            {(deliveries.length > 1 || delivery) && (
               <select className="h-10 rounded-md border border-input bg-white px-2 text-sm" value={delivery} onChange={e => setDelivery(e.target.value)} aria-label="Доставка">
                 <option value="">Всички доставки</option>
                 {deliveries.map(([id, n]) => <option key={id} value={id}>{formatDeliveryNumber(n)}</option>)}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysWaiting, labelQueue, readyByStore, storeReadyText, type QueuePlanRow } from './queue'
+import { daysWaiting, deliveryNextSteps, labelQueue, readyByStore, storeReadyText, type QueuePlanRow } from './queue'
 
 function row(p: Partial<QueuePlanRow> & Pick<QueuePlanRow, 'plan_id' | 'item_id' | 'store_id'>): QueuePlanRow {
   return {
@@ -55,5 +55,20 @@ describe('daysWaiting', () => {
     expect(daysWaiting('2026-11-11T09:00:00Z', now)).toBe(3)
     expect(daysWaiting('2026-11-14T08:00:00Z', now)).toBe(0)
     expect(daysWaiting(null, now)).toBe(0)
+  })
+})
+
+describe('deliveryNextSteps', () => {
+  it('counts received units still to label, capped by the plan, and ready units not yet sent', () => {
+    expect(deliveryNextSteps([
+      { received_qty: 10, plan: [{ planned_qty: 6, ready_qty: 2, shipped_qty: 0 }, { planned_qty: 4, ready_qty: 0, shipped_qty: 0 }] },
+      { received_qty: 3, plan: [{ planned_qty: 5, ready_qty: 0, shipped_qty: 0 }] },
+      { received_qty: 4, plan: [{ planned_qty: 4, ready_qty: 4, shipped_qty: 1 }] },
+    ])).toEqual({ toLabel: 8 + 3, toShip: 2 + 3 })
+  })
+
+  it('is zero for nothing received and for everything sent', () => {
+    expect(deliveryNextSteps([{ received_qty: 0, plan: [{ planned_qty: 5, ready_qty: 0, shipped_qty: 0 }] }])).toEqual({ toLabel: 0, toShip: 0 })
+    expect(deliveryNextSteps([{ received_qty: 5, plan: [{ planned_qty: 5, ready_qty: 5, shipped_qty: 5 }] }])).toEqual({ toLabel: 0, toShip: 0 })
   })
 })
