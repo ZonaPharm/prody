@@ -30,3 +30,14 @@ export function deliveriesEnabledFor(email: string | null | undefined, env: Feat
   if (!who) return false
   return raw.split(/[\s,;]+/).filter(Boolean).includes(who)
 }
+
+/**
+ * For the stores' side ("Пратки" for sellers): on whenever any admin can work
+ * with deliveries, so the pilot's shipments reach the stores they go to.
+ * Off only when the switch is off (or unset in production).
+ */
+export function deliveriesActive(env: FeatureEnv = process.env): boolean {
+  const raw = (env.DELIVERIES_ENABLED ?? '').trim().toLowerCase()
+  if (!raw) return env.VERCEL_ENV === 'preview' || env.NODE_ENV === 'development'
+  return !OFF.has(raw)
+}

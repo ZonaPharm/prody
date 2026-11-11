@@ -5,13 +5,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/ui/header'
 
-import { X, ShoppingBag, BarChart3, Bell } from 'lucide-react'
+import { X, ShoppingBag, BarChart3, Bell, Truck } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   '/record-sale': ShoppingBag,
   '/my-sales': BarChart3,
   '/my-requests': Bell,
+  '/my-shipments': Truck,
 }
 
 interface NavItem {
@@ -25,12 +26,14 @@ export function SellerLayoutClient({
   isAdminImpersonating,
   children,
   requestBadge,
+  shipmentBadge,
 }: {
   navItems: NavItem[]
   displayName: string
   isAdminImpersonating: boolean
   children: React.ReactNode
   requestBadge?: number
+  shipmentBadge?: number
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
@@ -43,7 +46,7 @@ export function SellerLayoutClient({
       <div className="flex flex-1 min-h-0">
         {/* Desktop sidebar — sticky, doesn't scroll */}
         <aside className="hidden lg:flex w-56 flex-col border-r bg-slate-900 text-white shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
-          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} requestBadge={requestBadge} />
+          <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} router={router} requestBadge={requestBadge} shipmentBadge={shipmentBadge} />
         </aside>
 
         {/* Mobile overlay */}
@@ -68,7 +71,7 @@ export function SellerLayoutClient({
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} router={router} requestBadge={requestBadge} />
+              <SidebarContent navItems={navItems} pathname={pathname} displayName={displayName} isAdminImpersonating={isAdminImpersonating} onNavClick={() => setSidebarOpen(false)} router={router} requestBadge={requestBadge} shipmentBadge={shipmentBadge} />
             </aside>
           </div>
         )}
@@ -87,6 +90,7 @@ function SidebarContent({
   onNavClick,
   router,
   requestBadge,
+  shipmentBadge,
 }: {
   navItems: NavItem[]
   pathname: string
@@ -95,6 +99,7 @@ function SidebarContent({
   onNavClick?: () => void
   router: ReturnType<typeof useRouter>
   requestBadge?: number
+  shipmentBadge?: number
 }) {
   return (
     <>
@@ -122,6 +127,9 @@ function SidebarContent({
               {item.label}
               {item.href === '/my-requests' && requestBadge ? (
                 <span className="ml-auto bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{requestBadge}</span>
+              ) : null}
+              {item.href === '/my-shipments' && shipmentBadge ? (
+                <span className="ml-auto bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{shipmentBadge}</span>
               ) : null}
             </Button>
           )

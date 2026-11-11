@@ -1,6 +1,8 @@
 import { requireAdmin } from '@/lib/auth'
 import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 import { AdminLayoutClient } from './layout-client'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { countOpenProblems } from '@/lib/deliveries/work'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +23,16 @@ const DELIVERIES_ITEM = { href: '/deliveries', label: 'Доставки' }
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin()
 
-  const items = deliveriesEnabledFor(user.email)
-    ? navItems.flatMap(item => (item.href === '/requests' ? [DELIVERIES_ITEM, item] : [item]))
+  const deliveries = deliveriesEnabledFor(user.email)
+  // Open "Не е наред" signals: a red count beside "Доставки".
+  let problems = 0
+  if (deliveries) {
+    try {
+      problems = await countOpenProblems(await createServerSupabaseClient())
+    } catch {}
+  }
+  const items = deliveries
+    ? navItems.flatMap(item => (item.href === '/requests' ? [{ ...DELIVERIES_ITEM, badge: problems }, item] : [item]))
     : navItems
 
   return (
