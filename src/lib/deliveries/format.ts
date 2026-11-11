@@ -135,6 +135,18 @@ export type EventForText = {
   details: Record<string, unknown> | null
   product_name?: string | null
   store_name?: string | null
+  /** For plan_changed: store id → name, to say what moved. */
+  store_names?: Map<string, string>
+}
+
+/** "Пловдив 20 → 0, Ботев 0 → 10" from a plan_changed event's before/after. */
+function planChangeText(d: Record<string, unknown>, names?: Map<string, string>): string {
+  const before = (d.before ?? {}) as Record<string, number>
+  const after = (d.after ?? {}) as Record<string, number>
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter(id => (before[id] ?? 0) !== (after[id] ?? 0))
+    .map(id => `${names?.get(id) ?? '?'} ${before[id] ?? 0} → ${after[id] ?? 0}`)
+    .join(', ')
 }
 
 function signalReasonText(reason: unknown): string {
@@ -156,8 +168,10 @@ export function eventText(e: EventForText): string {
     }
     case 'received':
       return `Получени ${qty} бр. ${product} в ${store || 'Офис'}`.trim()
-    case 'plan_changed':
-      return `Променено разпределение на ${product}`.trim()
+    case 'plan_changed': {
+      const change = planChangeText(d, e.store_names)
+      return `Променено разпределение на ${product}${change ? `: ${change}` : ''}`.trim()
+    }
     case 'ready':
       return `${d.auto ? 'Готови без етикет' : 'Готови'} ${qty} бр. ${product}${store ? ` за ${store}` : ''}`
     case 'trip_created':
