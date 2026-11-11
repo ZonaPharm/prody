@@ -1,6 +1,6 @@
 import { fetchAll } from '@/lib/fetch-all'
 import { primaryImage } from './products'
-import type { QueuePlanRow, UnsentLine } from './queue'
+import type { LabelItemRow, QueuePlanRow, UnsentLine } from './queue'
 
 /**
  * Reads for the phase 3 pages (labelling, trips, packing, problems, the
@@ -50,6 +50,45 @@ export async function getOpenPlanRows(supabase: any): Promise<QueuePlanRow[]> {
       product_price: r.item.product?.price == null ? null : Number(r.item.product.price),
       needs_label: r.item.product?.needs_label !== false,
       image: primaryImage(r.item.product?.images),
+    }))
+}
+
+/**
+ * Delivery lines with received units still without a label ("Етикетиране"), of any
+ * delivery that is not a draft or cancelled: units staying in Офис get labelled too,
+ * also after the stores have their shipments. unlabelled_qty is generated in the
+ * database (received − labelled), so the filter runs there.
+ */
+export async function getLabelItems(supabase: any): Promise<LabelItemRow[]> {
+  const rows = await fetchAll<any>(() =>
+    supabase
+      .from('delivery_items')
+      .select(
+        'id, received_qty, labelled_qty, sort_order, product_id, ' +
+          'delivery:deliveries!delivery_items_delivery_id_fkey!inner(id, number, status), ' +
+          'product:products(name, sku, price, needs_label, images:product_images(url, is_primary, sort_order)), ' +
+          'plan:delivery_item_plan!delivery_item_plan_delivery_item_id_fkey(store_id, planned_qty, ready_qty)',
+      )
+      .gt('unlabelled_qty', 0)
+      .in('delivery.status', ['expected', 'in_progress', 'completed'])
+      .order('id'),
+  )
+  return rows
+    .filter(r => r.delivery && r.delivery.status !== 'cancelled' && r.delivery.status !== 'draft')
+    .map(r => ({
+      item_id: r.id,
+      delivery_id: r.delivery.id,
+      delivery_number: r.delivery.number,
+      sort_order: r.sort_order ?? 0,
+      product_id: r.product_id,
+      product_name: r.product?.name ?? '—',
+      product_sku: r.product?.sku ?? null,
+      product_price: r.product?.price == null ? null : Number(r.product.price),
+      needs_label: r.product?.needs_label !== false,
+      image: primaryImage(r.product?.images),
+      received_qty: r.received_qty,
+      labelled_qty: r.labelled_qty ?? 0,
+      plan: (r.plan ?? []).map((p: any) => ({ store_id: p.store_id, planned_qty: p.planned_qty, ready_qty: p.ready_qty })),
     }))
 }
 

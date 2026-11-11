@@ -37,6 +37,11 @@ backup runs, they are skipped and the email's details say `още няма: …`
   restore, disable its triggers for the duration of the restore and enable them
   again afterwards (`alter table public.delivery_events disable trigger user;` …
   `enable trigger user;`). `TRUNCATE` is blocked by a statement trigger too.
+- **`delivery_items.unlabelled_qty` is a generated column** (`received_qty − labelled_qty`).
+  Leave it out of the restored rows: Postgres refuses a value for it. Restore
+  `delivery_items` before `delivery_item_plan`, with the triggers of both tables disabled
+  (`alter table … disable trigger user;` … `enable trigger user;`), so `labelled_qty`
+  comes back exactly as backed up.
 - `trips.number`, `shipments.number` and `deliveries.number` come from sequences.
   After a restore set each sequence past the highest number restored, e.g.
   `select setval('public.delivery_number_seq', coalesce((select max(number) from public.deliveries), 0) + 1, false);`

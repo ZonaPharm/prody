@@ -3,8 +3,8 @@
  * system already knows what should be there, the person ticks a row when it is
  * right, and types a number only after "Не е наред". There is no "tick all".
  *
- *   label — "Етикетиране": plan rows "product → store", ticked = labelled and packed
- *           for that store (ready).
+ *   label — "Етикетиране": delivery lines with received units still without a label
+ *           (also those staying in Офис), ticked = labelled.
  *   pack  — the packing checklist of one shipment (П-…), ticked = in the boxes.
  *   store — the store's checklist of a shipment that arrived, ticked = received.
  *
@@ -57,9 +57,9 @@ export const KIND_LABEL: Record<Step, Partial<Record<ProblemKind, string>>> = {
 /** The question above the number, per step and kind. */
 export function qtyQuestion(step: Step, kind: ProblemKind): string {
   if (kind === 'damaged') {
-    return step === 'store' ? 'Колко са здрави (остават за продажба)' : step === 'pack' ? 'Колко здрави сложихте в кашона' : 'Колко са здрави и готови'
+    return step === 'store' ? 'Колко са здрави (остават за продажба)' : step === 'pack' ? 'Колко здрави сложихте в кашона' : 'Колко са здрави и етикетирани'
   }
-  if (step === 'label') return 'Колко са готови'
+  if (step === 'label') return 'Колко етикетирахте'
   if (step === 'pack') return 'Колко сложихте в кашона'
   return 'Колко пристигнаха'
 }
@@ -120,53 +120,27 @@ function signalFor(problem: Problem, expected: number): SignalBody | null {
 // ---------------------------------------------------------------------------
 
 export type LabelRow = {
-  plan_id: string
   item_id: string
-  product_name: string
-  /** What this row can still become ready: planned − ready, at most what the item has received and not yet made ready. */
+  /** received − labelled: what a tick labels. */
   expected: number
-  /** received − Σ ready over the item's plan rows: shared by every row of the item. */
-  item_free: number
 }
 
 export type LabelBody = {
-  rows: { plan_id: string; qty: number }[]
-  signals: ({ plan_id: string } & SignalBody)[]
+  rows: { item_id: string; qty: number }[]
+  signals: ({ item_id: string } & SignalBody)[]
 }
 
 export function buildLabelBody(rows: LabelRow[], state: Record<string, RowState>): LabelBody {
   const body: LabelBody = { rows: [], signals: [] }
   for (const row of rows) {
-    const s = state[row.plan_id]
+    const s = state[row.item_id]
     const qty = rowQty(s, row.expected)
     if (qty == null) continue
-    if (qty > 0) body.rows.push({ plan_id: row.plan_id, qty })
+    if (qty > 0) body.rows.push({ item_id: row.item_id, qty })
     const sig = s?.problem ? signalFor(s.problem, row.expected) : null
-    if (sig) body.signals.push({ plan_id: row.plan_id, ...sig })
+    if (sig) body.signals.push({ item_id: row.item_id, ...sig })
   }
   return body
-}
-
-/**
- * Rows of one product share what was received: 30 received and two stores
- * ticked for 20 each cannot both be ready. Returns one sentence per product
- * that is over, so the person marks one row "Частично".
- */
-export function labelOverages(rows: LabelRow[], body: LabelBody): string[] {
-  const want = new Map<string, number>()
-  for (const r of body.rows) {
-    const row = rows.find(x => x.plan_id === r.plan_id)
-    if (!row) continue
-    want.set(row.item_id, (want.get(row.item_id) ?? 0) + r.qty)
-  }
-  const out: string[] = []
-  for (const [itemId, qty] of want) {
-    const row = rows.find(x => x.item_id === itemId)!
-    if (qty > row.item_free) {
-      out.push(`„${row.product_name}“: в Офис има ${row.item_free} бр. без етикет, а отметнатите редове са за ${qty} бр. Отбележете един ред „Частично“.`)
-    }
-  }
-  return out
 }
 
 // ---------------------------------------------------------------------------

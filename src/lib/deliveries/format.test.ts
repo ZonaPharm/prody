@@ -23,7 +23,7 @@ describe('numbers', () => {
 describe('lineStatus follows the counters', () => {
   const plan = (planned: number, ready: number, shipped: number) => [{ planned_qty: planned, ready_qty: ready, shipped_qty: shipped }]
 
-  it('walks Очаква се → Частично получен → Чака преопаковане → Готов → Частично изпратен → Изпратен', () => {
+  it('walks Очаква се → Частично получен → Чака етикет → Готов → Частично изпратен → Изпратен', () => {
     expect(lineStatus({ quantity: 100, received_qty: 0, plan: plan(100, 0, 0) })).toBe('expected')
     expect(lineStatus({ quantity: 100, received_qty: 40, plan: plan(100, 0, 0) })).toBe('partially_received')
     expect(lineStatus({ quantity: 100, received_qty: 100, plan: plan(100, 30, 0) })).toBe('waiting_label')
@@ -34,6 +34,12 @@ describe('lineStatus follows the counters', () => {
 
   it('a received line with no plan stays in Офис', () => {
     expect(lineStatus({ quantity: 10, received_qty: 10, plan: [] })).toBe('received')
+  })
+
+  it('received units without a label make the line wait for a label, Офис units too', () => {
+    expect(lineStatus({ quantity: 10, received_qty: 10, labelled_qty: 4, plan: [] })).toBe('waiting_label')
+    expect(lineStatus({ quantity: 10, received_qty: 10, labelled_qty: 10, plan: [] })).toBe('received')
+    expect(lineStatus({ quantity: 20, received_qty: 20, labelled_qty: 10, plan: plan(10, 10, 10) })).toBe('waiting_label')
   })
 })
 
@@ -46,5 +52,9 @@ describe('eventText', () => {
     expect(eventText({ type: 'signal_raised', qty: 8, details: { step: 'receive', reason: 'short', qty_expected: 10, qty_actual: 8 }, product_name: 'Крем' }))
       .toBe('Не е наред при получаване: По-малко „Крем“ (очаквани 10, реално 8)')
     expect(eventText({ type: 'cancelled', qty: null, details: { reason: 'грешка' } })).toBe('Отказана: грешка')
+    expect(eventText({ type: 'labelled', qty: 20, details: {}, product_name: 'Крем' })).toBe('Етикетирани 20 бр. „Крем“')
+    expect(eventText({ type: 'ready', qty: 10, details: { auto: 'label' }, product_name: 'Крем', store_name: 'Ботев' })).toBe('Готови 10 бр. „Крем“ за Ботев')
+    expect(eventText({ type: 'ready', qty: -4, details: { plan: true }, product_name: 'Крем', store_name: 'Ботев' }))
+      .toBe('Махнати от готовите 4 бр. „Крем“ за Ботев (променен план)')
   })
 })

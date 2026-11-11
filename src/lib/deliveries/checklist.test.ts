@@ -4,7 +4,6 @@ import {
   buildLabelBody,
   buildPackBody,
   checklistSummary,
-  labelOverages,
   problemError,
   rowQty,
   type LabelRow,
@@ -47,33 +46,26 @@ describe('rowQty', () => {
 })
 
 const labelRows: LabelRow[] = [
-  { plan_id: 'pa', item_id: 'i1', product_name: 'Крем', expected: 20, item_free: 30 },
-  { plan_id: 'pb', item_id: 'i1', product_name: 'Крем', expected: 20, item_free: 30 },
-  { plan_id: 'pc', item_id: 'i2', product_name: 'Чай', expected: 5, item_free: 5 },
+  { item_id: 'i1', expected: 20 },
+  { item_id: 'i2', expected: 20 },
+  { item_id: 'i3', expected: 5 },
 ]
 
 describe('labelling', () => {
-  it('ticked rows become ready, a damaged row its good units plus a signal, "Частично" no signal', () => {
+  it('ticked lines are labelled whole, a damaged line its good units plus a signal, "Частично" no signal', () => {
     const body = buildLabelBody(labelRows, {
-      pa: tick,
-      pb: { checked: false, problem: { kind: 'damaged', qty: 8, note: ' смачкани ' } },
-      pc: { checked: false, problem: { kind: 'partial', qty: 3 } },
+      i1: tick,
+      i2: { checked: false, problem: { kind: 'damaged', qty: 8, note: ' смачкани ' } },
+      i3: { checked: false, problem: { kind: 'partial', qty: 3 } },
     })
-    expect(body.rows).toEqual([{ plan_id: 'pa', qty: 20 }, { plan_id: 'pb', qty: 8 }, { plan_id: 'pc', qty: 3 }])
-    expect(body.signals).toEqual([{ plan_id: 'pb', reason: 'damaged', qty_expected: 20, qty_actual: 8, note: 'смачкани' }])
+    expect(body.rows).toEqual([{ item_id: 'i1', qty: 20 }, { item_id: 'i2', qty: 8 }, { item_id: 'i3', qty: 3 }])
+    expect(body.signals).toEqual([{ item_id: 'i2', reason: 'damaged', qty_expected: 20, qty_actual: 8, note: 'смачкани' }])
   })
 
-  it('"Липсва" raises a signal and makes nothing ready', () => {
-    const body = buildLabelBody(labelRows, { pc: { checked: false, problem: { kind: 'missing', qty: 0 } } })
+  it('"Липсва" raises a signal and labels nothing', () => {
+    const body = buildLabelBody(labelRows, { i3: { checked: false, problem: { kind: 'missing', qty: 0 } } })
     expect(body.rows).toEqual([])
-    expect(body.signals).toEqual([{ plan_id: 'pc', reason: 'missing', qty_expected: 5, qty_actual: 0, note: null }])
-  })
-
-  it('rows of one product cannot together pass what was received', () => {
-    const over = buildLabelBody(labelRows, { pa: tick, pb: tick })
-    expect(labelOverages(labelRows, over)).toEqual([expect.stringMatching(/„Крем“: в Офис има 30 бр\..*40 бр\./)])
-    const ok = buildLabelBody(labelRows, { pa: tick, pb: { checked: false, problem: { kind: 'partial', qty: 10 } } })
-    expect(labelOverages(labelRows, ok)).toEqual([])
+    expect(body.signals).toEqual([{ item_id: 'i3', reason: 'missing', qty_expected: 5, qty_actual: 0, note: null }])
   })
 })
 

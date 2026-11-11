@@ -22,37 +22,82 @@ export type QueuePlanRow = {
   image: string | null
 }
 
-export type LabelQueueRow = QueuePlanRow & {
-  /** planned − ready: what this store still needs ready. */
-  open: number
-  /** received − Σ ready over the item: units in Офис not yet labelled for anyone. */
-  item_free: number
-  /** What a tick makes ready: min(open, item_free). */
+/** One delivery line as "Етикетиране" reads it. */
+export type LabelItemRow = {
+  item_id: string
+  delivery_id: string
+  delivery_number: number | null
+  sort_order: number
+  product_id: string
+  product_name: string
+  product_sku: string | null
+  product_price: number | null
+  needs_label: boolean
+  image: string | null
+  received_qty: number
+  labelled_qty: number
+  plan: { store_id: string; planned_qty: number; ready_qty: number }[]
+}
+
+export type LabelItem = LabelItemRow & {
+  /** received − labelled: what a tick labels now. */
   expected: number
+  /** Where the units of this tick go: stores of the plan still short of ready units (store-name order), then Офис. */
+  split: { store_id: string | null; qty: number }[]
 }
 
 /**
- * "Етикетиране": plan rows that still need ready units and whose product has
- * received units nobody has labelled yet. Ordered by delivery, line, store
- * name (given), so one product's stores sit together.
+ * Where `units` newly labelled units of a line go, the same way _auto_ready_item gives
+ * them out: labelled units that no store has yet first, then the stores still short of
+ * ready units in store-name order; the rest stay in Офис (store_id null).
  */
-export function labelQueue(rows: QueuePlanRow[], storeName: (id: string) => string): LabelQueueRow[] {
-  const readyByItem = new Map<string, number>()
-  for (const r of rows) readyByItem.set(r.item_id, (readyByItem.get(r.item_id) ?? 0) + r.ready_qty)
+export function labelSplit(
+  item: Pick<LabelItemRow, 'labelled_qty' | 'plan'>,
+  units: number,
+  storeName: (id: string) => string,
+): { store_id: string | null; qty: number }[] {
+  const ready = item.plan.reduce((s, p) => s + p.ready_qty, 0)
+  let waiting = Math.max(0, item.labelled_qty - ready)
+  let left = units
+  const out: { store_id: string | null; qty: number }[] = []
+  const rows = [...item.plan].sort((a, b) => storeName(a.store_id).localeCompare(storeName(b.store_id), 'bg'))
+  for (const p of rows) {
+    let need = Math.max(0, p.planned_qty - p.ready_qty)
+    const old = Math.min(need, waiting)
+    waiting -= old
+    need -= old
+    const add = Math.min(need, left)
+    if (add > 0) {
+      out.push({ store_id: p.store_id, qty: add })
+      left -= add
+    }
+  }
+  if (left > 0) out.push({ store_id: null, qty: left })
+  return out
+}
 
+/**
+ * "Етикетиране": every received unit waits for a label, whatever store it goes to;
+ * also those that stay in Офис (Офис sells online too). One row per delivery line with
+ * received − labelled > 0, ordered by delivery and line.
+ */
+export function labelItems(rows: LabelItemRow[], storeName: (id: string) => string): LabelItem[] {
   return rows
     .map(r => {
-      const open = Math.max(0, r.planned_qty - r.ready_qty)
-      const item_free = Math.max(0, r.received_qty - (readyByItem.get(r.item_id) ?? 0))
-      return { ...r, open, item_free, expected: Math.min(open, item_free) }
+      const expected = Math.max(0, r.received_qty - r.labelled_qty)
+      return { ...r, expected, split: labelSplit(r, expected, storeName) }
     })
     .filter(r => r.expected > 0)
     .sort((a, b) =>
       (a.delivery_number ?? 0) - (b.delivery_number ?? 0) ||
       a.sort_order - b.sort_order ||
-      a.item_id.localeCompare(b.item_id) ||
-      storeName(a.store_id).localeCompare(storeName(b.store_id), 'bg'),
+      a.item_id.localeCompare(b.item_id),
     )
+}
+
+/** "Ботев 10 · Офис 10" */
+export function splitText(split: { store_id: string | null; qty: number }[], storeName: (id: string) => string): string {
+  return split.map(s => `${s.store_id ? storeName(s.store_id) : 'Офис'} ${s.qty}`).join(' · ')
 }
 
 export type UnsentLine = { plan_id: string; qty: number }
@@ -100,20 +145,19 @@ export function daysWaiting(sentAt: string | null, now: Date = new Date()): numb
 }
 
 /**
- * What a delivery that is in work still needs after receiving, for the buttons on its page:
- * units received but not yet ready (→ "Етикетиране") and units ready but not yet sent (→ "Курсове").
- * "To label" is capped per line by both the plan and what arrived.
+ * What a delivery still needs after receiving, for the buttons on its page: received
+ * units without a label (→ "Етикетиране", also those staying in Офис) and units ready
+ * for a store but not yet sent (→ "Курсове").
  */
 export function deliveryNextSteps(items: {
   received_qty: number
+  labelled_qty: number
   plan: { planned_qty: number; ready_qty: number; shipped_qty: number }[]
 }[]): { toLabel: number; toShip: number } {
   let toLabel = 0
   let toShip = 0
   for (const i of items) {
-    const ready = i.plan.reduce((s, p) => s + p.ready_qty, 0)
-    const planLeft = i.plan.reduce((s, p) => s + Math.max(0, p.planned_qty - p.ready_qty), 0)
-    toLabel += Math.max(0, Math.min(planLeft, i.received_qty - ready))
+    toLabel += Math.max(0, i.received_qty - i.labelled_qty)
     toShip += i.plan.reduce((s, p) => s + Math.max(0, p.ready_qty - p.shipped_qty), 0)
   }
   return { toLabel, toShip }

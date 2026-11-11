@@ -4,13 +4,14 @@ import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { getStoreOptions } from '@/lib/deliveries/queries'
 import {
   countOpenProblems,
+  getLabelItems,
   getOpenPlanRows,
   getTrips,
   getUnsentLines,
   getWaitingAtStores,
   getWaitingToReceive,
 } from '@/lib/deliveries/work'
-import { daysWaiting, labelQueue, readyByStore, storeReadyText } from '@/lib/deliveries/queue'
+import { daysWaiting, labelItems, readyByStore, storeReadyText } from '@/lib/deliveries/queue'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import { TRIP_STATUS_LABEL } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
@@ -25,9 +26,10 @@ export const dynamic = 'force-dynamic'
 export default async function WorkPage() {
   await requireDeliveriesAdmin()
   const supabase = await createServerSupabaseClient()
-  const [toReceive, plan, unsent, trips, atStores, stores, problems] = await Promise.all([
+  const [toReceive, plan, toLabel, unsent, trips, atStores, stores, problems] = await Promise.all([
     getWaitingToReceive(supabase),
     getOpenPlanRows(supabase),
+    getLabelItems(supabase),
     getUnsentLines(supabase),
     getTrips(supabase, 'active'),
     getWaitingAtStores(supabase),
@@ -36,7 +38,7 @@ export default async function WorkPage() {
   ])
   const storeName = new Map(stores.map(s => [s.id, s.name]))
   const name = (id: string) => storeName.get(id) ?? '?'
-  const label = labelQueue(plan, name)
+  const label = labelItems(toLabel, name)
   const labelUnits = label.reduce((n, r) => n + r.expected, 0)
   const ready = readyByStore(plan, unsent)
     .filter(s => storeName.has(s.store_id))
@@ -59,7 +61,7 @@ export default async function WorkPage() {
         </Card>
 
         <Card title="За етикет" count={label.length} unit={label.length === 1 ? 'ред' : 'реда'} href="/deliveries/labels" action="Етикетиране">
-          {label.length > 0 && <p className="px-4 py-2 text-sm text-muted-foreground">{labelUnits} бр. в Офис чакат етикет и опаковане за магазините.</p>}
+          {label.length > 0 && <p className="px-4 py-2 text-sm text-muted-foreground">{labelUnits} бр. в Офис чакат етикет, за магазините и за Офис.</p>}
         </Card>
 
         <Card title="За изпращане" count={ready.length} unit={ready.length === 1 ? 'магазин' : 'магазина'} href="/deliveries/trips" action="Нов курс" empty={ready.length === 0 && openTrips.length === 0}>

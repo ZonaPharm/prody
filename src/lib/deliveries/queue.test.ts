@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysWaiting, deliveryNextSteps, labelQueue, readyByStore, storeReadyText, type QueuePlanRow } from './queue'
+import { daysWaiting, deliveryNextSteps, labelItems, labelSplit, readyByStore, splitText, storeReadyText, type LabelItemRow, type QueuePlanRow } from './queue'
 
 function row(p: Partial<QueuePlanRow> & Pick<QueuePlanRow, 'plan_id' | 'item_id' | 'store_id'>): QueuePlanRow {
   return {
@@ -12,27 +12,50 @@ function row(p: Partial<QueuePlanRow> & Pick<QueuePlanRow, 'plan_id' | 'item_id'
 const names: Record<string, string> = { a: 'Ботев', b: 'Варна', c: 'Заимов' }
 const name = (id: string) => names[id]
 
-describe('labelQueue', () => {
-  it('offers each store what it still needs, at most what was received and not labelled', () => {
-    // 100 creams, 20 per store; 30 received, 10 already ready for Ботев.
-    const q = labelQueue([
-      row({ plan_id: 'p1', item_id: 'i', store_id: 'c', planned_qty: 20, received_qty: 30 }),
-      row({ plan_id: 'p2', item_id: 'i', store_id: 'a', planned_qty: 20, ready_qty: 10, received_qty: 30 }),
-      row({ plan_id: 'p3', item_id: 'i', store_id: 'b', planned_qty: 20, received_qty: 30 }),
+function item(p: Partial<LabelItemRow> & Pick<LabelItemRow, 'item_id'>): LabelItemRow {
+  return {
+    delivery_id: 'd1', delivery_number: 29, sort_order: 0, product_id: 'p', product_name: 'Крем', product_sku: null,
+    product_price: 8.9, needs_label: true, image: null, received_qty: 0, labelled_qty: 0, plan: [], ...p,
+  }
+}
+
+describe('labelItems', () => {
+  it('every received unit waits for a label, also those staying in Офис', () => {
+    // Д-000029: 20 creams received, 10 for Ботев, nothing for the rest.
+    const q = labelItems([
+      item({ item_id: 'i', received_qty: 20, plan: [{ store_id: 'a', planned_qty: 10, ready_qty: 0 }, { store_id: 'c', planned_qty: 0, ready_qty: 0 }] }),
+      item({ item_id: 'j', received_qty: 5, sort_order: 1 }),
     ], name)
-    expect(q.map(r => [name(r.store_id), r.open, r.item_free, r.expected])).toEqual([
-      ['Ботев', 10, 20, 10],
-      ['Варна', 20, 20, 20],
-      ['Заимов', 20, 20, 20],
+    expect(q.map(r => [r.item_id, r.expected, splitText(r.split, name)])).toEqual([
+      ['i', 20, 'Ботев 10 · Офис 10'],
+      ['j', 5, 'Офис 5'],
     ])
   })
 
-  it('leaves out rows that are fully ready and products with nothing received', () => {
-    const q = labelQueue([
-      row({ plan_id: 'p1', item_id: 'i1', store_id: 'a', planned_qty: 5, ready_qty: 5, received_qty: 5 }),
-      row({ plan_id: 'p2', item_id: 'i2', store_id: 'a', planned_qty: 5, received_qty: 0 }),
-    ], name)
-    expect(q).toEqual([])
+  it('leaves out lines fully labelled and lines with nothing received', () => {
+    expect(labelItems([
+      item({ item_id: 'i', received_qty: 5, labelled_qty: 5 }),
+      item({ item_id: 'j', received_qty: 0 }),
+    ], name)).toEqual([])
+  })
+})
+
+describe('labelSplit', () => {
+  it('fills the stores in name order, after the labelled units that already wait in Офис', () => {
+    // 8 labelled, 6 of them ready for Заимов; 2 labelled wait; Ботев and Варна need 4 each.
+    const line = {
+      labelled_qty: 8,
+      plan: [
+        { store_id: 'c', planned_qty: 6, ready_qty: 6 },
+        { store_id: 'b', planned_qty: 4, ready_qty: 0 },
+        { store_id: 'a', planned_qty: 4, ready_qty: 0 },
+      ],
+    }
+    expect(labelSplit(line, 10, name)).toEqual([
+      { store_id: 'a', qty: 2 },
+      { store_id: 'b', qty: 4 },
+      { store_id: null, qty: 4 },
+    ])
   })
 })
 
@@ -59,16 +82,16 @@ describe('daysWaiting', () => {
 })
 
 describe('deliveryNextSteps', () => {
-  it('counts received units still to label, capped by the plan, and ready units not yet sent', () => {
+  it('counts every received unit without a label, Офис included, and ready units not yet sent', () => {
     expect(deliveryNextSteps([
-      { received_qty: 10, plan: [{ planned_qty: 6, ready_qty: 2, shipped_qty: 0 }, { planned_qty: 4, ready_qty: 0, shipped_qty: 0 }] },
-      { received_qty: 3, plan: [{ planned_qty: 5, ready_qty: 0, shipped_qty: 0 }] },
-      { received_qty: 4, plan: [{ planned_qty: 4, ready_qty: 4, shipped_qty: 1 }] },
-    ])).toEqual({ toLabel: 8 + 3, toShip: 2 + 3 })
+      { received_qty: 20, labelled_qty: 2, plan: [{ planned_qty: 6, ready_qty: 2, shipped_qty: 0 }, { planned_qty: 4, ready_qty: 0, shipped_qty: 0 }] },
+      { received_qty: 3, labelled_qty: 0, plan: [] },
+      { received_qty: 4, labelled_qty: 4, plan: [{ planned_qty: 4, ready_qty: 4, shipped_qty: 1 }] },
+    ])).toEqual({ toLabel: 18 + 3, toShip: 2 + 3 })
   })
 
   it('is zero for nothing received and for everything sent', () => {
-    expect(deliveryNextSteps([{ received_qty: 0, plan: [{ planned_qty: 5, ready_qty: 0, shipped_qty: 0 }] }])).toEqual({ toLabel: 0, toShip: 0 })
-    expect(deliveryNextSteps([{ received_qty: 5, plan: [{ planned_qty: 5, ready_qty: 5, shipped_qty: 5 }] }])).toEqual({ toLabel: 0, toShip: 0 })
+    expect(deliveryNextSteps([{ received_qty: 0, labelled_qty: 0, plan: [{ planned_qty: 5, ready_qty: 0, shipped_qty: 0 }] }])).toEqual({ toLabel: 0, toShip: 0 })
+    expect(deliveryNextSteps([{ received_qty: 5, labelled_qty: 5, plan: [{ planned_qty: 5, ready_qty: 5, shipped_qty: 5 }] }])).toEqual({ toLabel: 0, toShip: 0 })
   })
 })

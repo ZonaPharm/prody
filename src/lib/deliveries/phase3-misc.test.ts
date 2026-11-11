@@ -41,9 +41,9 @@ describe('trip format', () => {
 describe('phase 3 schemas', () => {
   it('readySchema needs something and a note for "Друго"', () => {
     expect(readySchema.safeParse({ rows: [], signals: [] }).success).toBe(false)
-    expect(readySchema.safeParse({ signals: [{ plan_id: ID, reason: 'other' }] }).success).toBe(false)
-    expect(readySchema.safeParse({ rows: [{ plan_id: ID, qty: 2 }] }).success).toBe(true)
-    expect(readySchema.safeParse({ rows: [{ plan_id: ID, qty: 0 }] }).success).toBe(false)
+    expect(readySchema.safeParse({ signals: [{ item_id: ID, reason: 'other' }] }).success).toBe(false)
+    expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 2 }] }).success).toBe(true)
+    expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 0 }] }).success).toBe(false)
   })
   it('packSchema needs at least one box', () => {
     expect(packSchema.safeParse({ lines: [{ line_id: ID, qty: 1 }], box_count: 0 }).success).toBe(false)

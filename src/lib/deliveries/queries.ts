@@ -102,6 +102,8 @@ export type DetailItem = {
   quantity: number
   unit_cost: number
   received_qty: number
+  /** Units labelled (or needing no label); the rest of received_qty waits in "Етикетиране". */
+  labelled_qty: number
   sort_order: number
   plan: { id: string; store_id: string; planned_qty: number; ready_qty: number; shipped_qty: number }[]
 }
@@ -165,7 +167,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
       supabase
         .from('delivery_items')
         .select(
-          'id, product_id, supplier_id, doc_number, pack_size, quantity, unit_cost, received_qty, sort_order, ' +
+          'id, product_id, supplier_id, doc_number, pack_size, quantity, unit_cost, received_qty, labelled_qty, sort_order, ' +
             'product:products(name, sku, price, status, needs_label, images:product_images(url, is_primary, sort_order)), ' +
             'supplier:suppliers(name)',
         )
@@ -236,6 +238,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
       quantity: i.quantity,
       unit_cost: Number(i.unit_cost),
       received_qty: i.received_qty,
+      labelled_qty: i.labelled_qty ?? 0,
       sort_order: i.sort_order,
       plan: planByItem.get(i.id) ?? [],
     })),

@@ -308,9 +308,12 @@ begin
     return next;
   end;
 
-  -- T7 update_plan: below ready raises; a store not in the plan is added from
-  -- the unallocated remainder; beyond it raises; the warehouse raises; a
-  -- 'plan_changed' event keeps before and after; closed deliveries raise.
+  -- T7 update_plan: below ready lowers the ready units with it (since
+  -- 20261111_deliveries_label_items; below what left or sits on a trip still
+  -- raises, see deliveries_label_items.test.sql L6); a store not in the plan is
+  -- added from the unallocated remainder and gets the labelled unit freed above;
+  -- beyond the remainder raises; the warehouse raises; a 'plan_changed' event
+  -- keeps before and after; closed deliveries raise.
   begin
     v_p1 := pg_temp.dt_product();
     v_pl1 := pg_temp.dt_ready(v_admin, v_p1, 10, 1, v_sa, 5, 5, 3);
@@ -321,27 +324,29 @@ begin
     perform public.update_plan(v_i1, v_admin, jsonb_build_array(jsonb_build_object('store_id', v_sb, 'planned_qty', 4)));
     select string_agg(planned_qty::text, ',' order by (store_id = v_sa) desc) into v_txt
       from public.delivery_item_plan where delivery_item_id = v_i1;
-    begin perform public.update_plan(v_i1, v_admin, jsonb_build_array(jsonb_build_object('store_id', v_sb, 'planned_qty', 6))); v_err2 := 'no error';
+    begin perform public.update_plan(v_i1, v_admin, jsonb_build_array(jsonb_build_object('store_id', v_sb, 'planned_qty', 9))); v_err2 := 'no error';
     exception when others then v_err2 := sqlerrm; end;
     begin perform public.update_plan(v_i1, v_admin, jsonb_build_array(jsonb_build_object('store_id', v_wh, 'planned_qty', 1))); v_err3 := 'no error';
     exception when others then v_err3 := sqlerrm; end;
-    select details into v_j from public.delivery_events where delivery_item_id = v_i1 and type = 'plan_changed';
+    select details into v_j from public.delivery_events
+      where delivery_item_id = v_i1 and type = 'plan_changed' and details -> 'after' ? v_sb::text;
+    select string_agg(ready_qty::text, ',' order by (store_id = v_sa) desc) into v_txt2
+      from public.delivery_item_plan where delivery_item_id = v_i1;
     update public.deliveries set status = 'completed' where id = v_d1;
     begin perform public.update_plan(v_i1, v_admin, jsonb_build_array(jsonb_build_object('store_id', v_sb, 'planned_qty', 1))); v_err4 := 'no error';
     exception when others then v_err4 := sqlerrm; end;
     raise exception 'ROLLBACK';
   exception when others then
-    test := 'T7 update_plan below ready raises, off-plan store from remainder works';
+    test := 'T7 update_plan below ready lowers it, off-plan store from remainder works';
     if sqlerrm = 'ROLLBACK' then
-      passed := v_err like 'Планът за „TEST deliveries“ към % не може да е под готовите: готови 3 бр., нов план 2 бр.'
-                and v_txt = '5,4'
+      passed := v_err = 'no error' and v_txt = '2,4' and v_txt2 = '2,1'
                 and v_err2 like 'Планът за „TEST deliveries“ става 11 бр., а в доставката има 10 бр.%'
                 and v_err3 like 'Складът%не може да е в плана%'
-                and v_j -> 'before' = jsonb_build_object(v_sa::text, 5)
-                and v_j -> 'after' = jsonb_build_object(v_sa::text, 5, v_sb::text, 4)
+                and v_j -> 'before' = jsonb_build_object(v_sa::text, 2)
+                and v_j -> 'after' = jsonb_build_object(v_sa::text, 2, v_sb::text, 4)
                 and v_err4 like 'Планът не може да се променя%приключена%';
-      detail := format('below ready=%s | plan=%s | over=%s | warehouse=%s | event=%s | closed=%s',
-                       v_err, v_txt, v_err2, v_err3, v_j, v_err4);
+      detail := format('below ready=%s | plan=%s ready=%s | over=%s | warehouse=%s | event=%s | closed=%s',
+                       v_err, v_txt, v_txt2, v_err2, v_err3, v_j, v_err4);
     else passed := false; detail := 'unexpected: ' || sqlerrm; end if;
     return next;
   end;

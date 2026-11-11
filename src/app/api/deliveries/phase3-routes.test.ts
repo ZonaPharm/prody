@@ -90,24 +90,24 @@ describe('phase 3 delivery routes', () => {
     })
   })
 
-  it('labelling sends rows and signals to mark_ready_checked as the signed-in admin', async () => {
+  it('labelling sends delivery lines and signals to label_items_checked as the signed-in admin', async () => {
     const res = await readyPOST(req({
-      rows: [{ plan_id: PLAN, qty: 3 }],
-      signals: [{ plan_id: PLAN, reason: 'damaged', qty_expected: 5, qty_actual: 3 }],
+      rows: [{ item_id: PLAN, qty: 3 }],
+      signals: [{ item_id: PLAN, reason: 'damaged', qty_expected: 5, qty_actual: 3 }],
     }))
     expect(res.status).toBe(200)
-    expect(mocks.adminRpc).toHaveBeenCalledWith('mark_ready_checked', {
+    expect(mocks.adminRpc).toHaveBeenCalledWith('label_items_checked', {
       p_user: ADMIN.id,
-      p_rows: [{ plan_id: PLAN, qty: 3 }],
-      p_signals: [{ plan_id: PLAN, reason: 'damaged', qty_expected: 5, qty_actual: 3, note: null }],
+      p_rows: [{ item_id: PLAN, qty: 3 }],
+      p_signals: [{ item_id: PLAN, reason: 'damaged', qty_expected: 5, qty_actual: 3, note: null }],
     })
   })
 
   it('a refusal from the database reaches the screen as 400 with its message', async () => {
-    mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Готови 6 бр. от „Крем“, а са приети само 5 бр.' } })
-    const res = await readyPOST(req({ rows: [{ plan_id: PLAN, qty: 6 }] }))
+    mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'За „Крем“ чакат етикет 5 бр., а отметнатите са 6 бр.' } })
+    const res = await readyPOST(req({ rows: [{ item_id: PLAN, qty: 6 }] }))
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toMatch(/приети само 5/)
+    expect((await res.json()).error).toMatch(/чакат етикет 5 бр/)
   })
 
   it('a new trip passes each store once', async () => {

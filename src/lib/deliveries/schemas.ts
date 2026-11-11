@@ -107,11 +107,11 @@ const stepSignal = {
 
 export const readySchema = z
   .object({
-    rows: z.array(z.object({ plan_id: id, qty: z.number().int().min(1).max(1_000_000) })).max(5000).default([]),
-    signals: z.array(z.object({ plan_id: id, ...stepSignal }).refine(needsNote, OTHER_NOTE)).max(5000).default([]),
+    rows: z.array(z.object({ item_id: id, qty: z.number().int().min(1).max(1_000_000) })).max(5000).default([]),
+    signals: z.array(z.object({ item_id: id, ...stepSignal }).refine(needsNote, OTHER_NOTE)).max(5000).default([]),
   })
   .refine(v => v.rows.length > 0 || v.signals.length > 0, {
-    message: 'Нищо не е отметнато: отметнете готовите редове или отбележете „Не е наред“',
+    message: 'Нищо не е отметнато: отметнете етикетираните редове или отбележете „Не е наред“',
   })
 
 export const tripCreateSchema = z.object({

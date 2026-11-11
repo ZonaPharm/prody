@@ -80,12 +80,12 @@ test.describe('Доставки, фаза 3', () => {
     await sign(page)
     await expect(page.getByText('В работа').first()).toBeVisible({ timeout: 15_000 })
 
-    // 3. Label: tick every store row of this product.
+    // 3. Label: tick the line of this product (all 40 received units).
     await page.goto('/deliveries/labels')
     await page.getByPlaceholder('Търсене на продукт').fill(name)
     await tickAll(page, 'label-row')
     await sign(page)
-    await expect(page.getByText(/Готови \d+ бр\./)).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/Етикетирани \d+ бр\./)).toBeVisible({ timeout: 15_000 })
 
     // 4. A trip to every store with something ready.
     await page.goto('/deliveries/trips')

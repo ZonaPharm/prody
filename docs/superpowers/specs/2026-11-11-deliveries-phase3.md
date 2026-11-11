@@ -20,14 +20,35 @@ to take back a trip:
 - Schema: `trips_status_check` and `shipments_status_check` gain `cancelled` (new, empty tables in prod).
 - All three service_role only. Tests: `supabase/tests/deliveries_phase3.test.sql` (staging, rolled back).
 
+## Labelling per delivery line (migration `20261111_deliveries_label_items.sql`)
+
+Decided by Владимир on 11.11: every received unit gets a label, also the units that stay in
+Офис (Офис sells online). So "Етикетиране" is per delivery line, not per "product → store":
+
+- `delivery_items.labelled_qty` (+ generated `unlabelled_qty = received − labelled`). Products
+  "Без етикет" count as labelled when received (trigger). A trigger keeps
+  `labelled_qty ≥ Σ ready_qty`, so the older `mark_ready` paths stay consistent.
+- `label_items_checked(p_user, p_rows [{item_id, qty}], p_signals [{item_id, …}])` labels units
+  and calls `_auto_ready_item`: labelled units nobody has yet go to the plan rows still short
+  of ready units, in store-name order; the rest stay labelled in Офис. Allowed on any delivery
+  that is not a draft or cancelled, so Офис units can be labelled after the stores have theirs.
+- `update_plan` (replaced): a row may go below its ready units, down to shipped + on a trip
+  that has not left; the freed labelled units go to other stores. Then `_auto_ready_item`.
+- `pack_shipment_checked` (replaced): units missing at packing are also un-labelled.
+- Completion of a delivery is unchanged; Офис units without a label stay in "Етикетиране".
+- Event type `labelled`. Tests: `supabase/tests/deliveries_label_items.test.sql`; T7 of
+  `deliveries.test.sql` updated to the new plan rule.
+- Restore note in `docs/BACKUP-RESTORE.md` (generated column, triggers).
+
+`mark_ready_checked` from the first migration stays in the database but the app no longer calls it.
+
 ## Screens (admin, behind the switch; one row of tabs: Доставки · За работа · Етикетиране · Курсове · Проблеми)
 
 - `/deliveries/work` — "За работа": to receive, to label, ready per store and open trips, shipments waiting for a
   store (amber after 3 days), open problems.
-- `/deliveries/labels` — checklist of "product → store, N бр." rows from every open delivery. N = planned − ready,
-  at most what was received and not labelled. Rows of one product share the received units; ticking more than that
-  is blocked until one row is marked "Частично". "Не е наред": Частично (no signal) / Повредено / Грешен етикет /
-  Липсва в Офис / Друго. "Етикет" opens the existing "Етикети" page with name and price.
+- `/deliveries/labels` — checklist of delivery lines with received units still without a label: "Крем, 20 бр. →
+  Ботев 10 · Офис 10". `?delivery=` filters one delivery. "Не е наред": Частично (no signal) / Повредено / Грешен
+  етикет / Липсва в Офис / Друго. "Етикет" opens the existing "Етикети" page with name and price.
 - `/deliveries/trips` — "Нов курс": tick the stores ("готови 5 реда, 86 бр., от 5 доставки"), one shipment per store
   with everything ready now (`create_trip`). List of trips (В ход / Всички).
 - `/deliveries/trips/[id]` — shipments by store, "Опаковай" per shipment, "Шофьорът подписва", "Откажи курса",
