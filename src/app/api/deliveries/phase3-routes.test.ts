@@ -103,6 +103,18 @@ describe('phase 3 delivery routes', () => {
     })
   })
 
+  it('a row labelled in part passes its split; whole rows go without one', async () => {
+    const res = await readyPOST(req({
+      rows: [{ item_id: PLAN, qty: 5, split: [{ store_id: STORE, qty: 3 }, { store_id: null, qty: 2 }] }, { item_id: TRIP, qty: 4 }],
+    }))
+    expect(res.status).toBe(200)
+    expect(mocks.adminRpc).toHaveBeenCalledWith('label_items_checked', {
+      p_user: ADMIN.id,
+      p_rows: [{ item_id: PLAN, qty: 5, split: [{ store_id: STORE, qty: 3 }, { store_id: null, qty: 2 }] }, { item_id: TRIP, qty: 4 }],
+      p_signals: [],
+    })
+  })
+
   it('a refusal from the database reaches the screen as 400 with its message', async () => {
     mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'За „Крем“ чакат етикет 5 бр., а отметнатите са 6 бр.' } })
     const res = await readyPOST(req({ rows: [{ item_id: PLAN, qty: 6 }] }))

@@ -31,7 +31,7 @@ export const STEP_KINDS: Record<Step, ProblemKind[]> = {
 
 export const KIND_LABEL: Record<Step, Partial<Record<ProblemKind, string>>> = {
   label: {
-    partial: 'Частично (останалото по-късно)',
+    partial: 'Само част (останалото по-късно)',
     damaged: 'Повредено',
     wrong_label: 'Грешен етикет',
     missing: 'Липсва в Офис',
@@ -59,7 +59,7 @@ export function qtyQuestion(step: Step, kind: ProblemKind): string {
   if (kind === 'damaged') {
     return step === 'store' ? 'Колко са здрави (остават за продажба)' : step === 'pack' ? 'Колко здрави сложихте в кашона' : 'Колко са здрави и етикетирани'
   }
-  if (step === 'label') return 'Колко етикетирахте'
+  if (step === 'label') return 'Колко са готови (преопаковани, ако трябва, и с етикет)'
   if (step === 'pack') return 'Колко сложихте в кашона'
   return 'Колко пристигнаха'
 }
@@ -125,18 +125,25 @@ export type LabelRow = {
   expected: number
 }
 
+export type Split = { store_id: string | null; qty: number }[]
+
 export type LabelBody = {
-  rows: { item_id: string; qty: number }[]
+  rows: { item_id: string; qty: number; split?: Split }[]
   signals: ({ item_id: string } & SignalBody)[]
 }
 
-export function buildLabelBody(rows: LabelRow[], state: Record<string, RowState>): LabelBody {
+/**
+ * `splits`: for a row labelled only in part, where those units go (inside the plan);
+ * sent only when fewer than all units are labelled. Parts of 0 are left out.
+ */
+export function buildLabelBody(rows: LabelRow[], state: Record<string, RowState>, splits: Record<string, Split> = {}): LabelBody {
   const body: LabelBody = { rows: [], signals: [] }
   for (const row of rows) {
     const s = state[row.item_id]
     const qty = rowQty(s, row.expected)
     if (qty == null) continue
-    if (qty > 0) body.rows.push({ item_id: row.item_id, qty })
+    const split = qty > 0 && qty < row.expected ? (splits[row.item_id] ?? []).filter(p => p.qty > 0) : []
+    if (qty > 0) body.rows.push(split.length ? { item_id: row.item_id, qty, split } : { item_id: row.item_id, qty })
     const sig = s?.problem ? signalFor(s.problem, row.expected) : null
     if (sig) body.signals.push({ item_id: row.item_id, ...sig })
   }

@@ -45,6 +45,13 @@ describe('phase 3 schemas', () => {
     expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 2 }] }).success).toBe(true)
     expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 0 }] }).success).toBe(false)
   })
+  it('readySchema: a split adds up to the qty, a store once, Офис as null', () => {
+    const ok = { rows: [{ item_id: ID, qty: 5, split: [{ store_id: ID, qty: 3 }, { store_id: null, qty: 2 }] }] }
+    expect(readySchema.safeParse(ok).success).toBe(true)
+    expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 5, split: [{ store_id: ID, qty: 3 }] }] }).error?.issues[0].message).toMatch(/точно колкото/)
+    expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 2, split: [{ store_id: ID, qty: 1 }, { store_id: ID, qty: 1 }] }] }).error?.issues[0].message).toMatch(/повтаря/)
+    expect(readySchema.safeParse({ rows: [{ item_id: ID, qty: 1, split: [{ store_id: null, qty: 0 }, { store_id: ID, qty: 1 }] }] }).success).toBe(false)
+  })
   it('packSchema needs at least one box', () => {
     expect(packSchema.safeParse({ lines: [{ line_id: ID, qty: 1 }], box_count: 0 }).success).toBe(false)
     expect(packSchema.safeParse({ lines: [{ line_id: ID, qty: 1 }], box_count: 2 }).success).toBe(true)

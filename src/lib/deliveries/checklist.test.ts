@@ -62,6 +62,22 @@ describe('labelling', () => {
     expect(body.signals).toEqual([{ item_id: 'i2', reason: 'damaged', qty_expected: 20, qty_actual: 8, note: 'смачкани' }])
   })
 
+  it('a row done in part carries where its units go; a whole row or an empty split none', () => {
+    const body = buildLabelBody(labelRows, {
+      i1: tick,
+      i2: { checked: false, problem: { kind: 'partial', qty: 5 } },
+      i3: { checked: false, problem: { kind: 'partial', qty: 2 } },
+    }, {
+      i1: [{ store_id: 'a', qty: 20 }],
+      i2: [{ store_id: 'a', qty: 3 }, { store_id: null, qty: 2 }, { store_id: 'b', qty: 0 }],
+    })
+    expect(body.rows).toEqual([
+      { item_id: 'i1', qty: 20 },
+      { item_id: 'i2', qty: 5, split: [{ store_id: 'a', qty: 3 }, { store_id: null, qty: 2 }] },
+      { item_id: 'i3', qty: 2 },
+    ])
+  })
+
   it('"Липсва" raises a signal and labels nothing', () => {
     const body = buildLabelBody(labelRows, { i3: { checked: false, problem: { kind: 'missing', qty: 0 } } })
     expect(body.rows).toEqual([])

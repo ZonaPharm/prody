@@ -76,6 +76,61 @@ export function labelSplit(
   return out
 }
 
+/** Where part of a line may go when only part is labelled: a store of the plan or Офис (store_id null). */
+export type SplitTarget = { store_id: string | null; cap: number }
+
+/**
+ * The places part of a line may go, inside the plan (the same limits as
+ * label_items_checked): each store of the plan up to what it still needs
+ * (planned − ready), Офис up to its share not yet labelled. Stores by name, Офис last.
+ */
+export function splitTargets(
+  item: Pick<LabelItemRow, 'received_qty' | 'labelled_qty' | 'plan'>,
+  storeName: (id: string) => string,
+): SplitTarget[] {
+  const ready = item.plan.reduce((n, p) => n + p.ready_qty, 0)
+  const planned = item.plan.reduce((n, p) => n + Math.max(p.planned_qty, p.ready_qty), 0)
+  const waiting = Math.max(0, item.labelled_qty - ready)
+  const out: SplitTarget[] = [...item.plan]
+    .sort((a, b) => storeName(a.store_id).localeCompare(storeName(b.store_id), 'bg'))
+    .map(p => ({ store_id: p.store_id, cap: Math.max(0, p.planned_qty - p.ready_qty) }))
+    .filter(t => t.cap > 0)
+  const office = Math.max(0, item.received_qty - planned - waiting)
+  if (office > 0) out.push({ store_id: null, cap: office })
+  return out
+}
+
+/** A first split of `qty` units to start from: the stores by name up to their need, then Офис. */
+export function defaultSplit(targets: SplitTarget[], qty: number): { store_id: string | null; qty: number }[] {
+  let left = qty
+  const out: { store_id: string | null; qty: number }[] = []
+  for (const t of targets) {
+    const q = Math.min(t.cap, left)
+    if (q > 0) out.push({ store_id: t.store_id, qty: q })
+    left -= q
+  }
+  return out
+}
+
+/** What is wrong with a split of `qty` units, or null. */
+export function splitError(
+  targets: SplitTarget[],
+  split: { store_id: string | null; qty: number }[],
+  qty: number,
+  storeName: (id: string) => string,
+): string | null {
+  const name = (id: string | null) => (id ? storeName(id) : 'Офис')
+  for (const s of split) {
+    if (!Number.isInteger(s.qty) || s.qty < 0) return 'Въведете цели бройки'
+    const t = targets.find(x => x.store_id === s.store_id)
+    if (!t) return `${name(s.store_id)} не е в плана`
+    if (s.qty > t.cap) return `Към ${name(s.store_id)} остават по план ${t.cap} бр.`
+  }
+  const sum = split.reduce((n, s) => n + s.qty, 0)
+  if (sum !== qty) return `Разпределете точно ${qty} бр. (сега ${sum} бр.)`
+  return null
+}
+
 /**
  * "Етикетиране": every received unit waits for a label, whatever store it goes to;
  * also those that stay in Офис (Офис sells online too). One row per delivery line with

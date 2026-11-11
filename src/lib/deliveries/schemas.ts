@@ -107,7 +107,27 @@ const stepSignal = {
 
 export const readySchema = z
   .object({
-    rows: z.array(z.object({ item_id: id, qty: z.number().int().min(1).max(1_000_000) })).max(5000).default([]),
+    rows: z
+      .array(
+        z
+          .object({
+            item_id: id,
+            qty: z.number().int().min(1).max(1_000_000),
+            // Part of a line: where these units go (store_id null = Офис), inside the plan.
+            split: z
+              .array(z.object({ store_id: id.nullable(), qty: z.number().int().min(1, 'Всяка част е поне 1 бр.').max(1_000_000) }))
+              .max(100)
+              .optional(),
+          })
+          .refine(r => !r.split?.length || r.split.reduce((n, p) => n + p.qty, 0) === r.qty, {
+            message: 'Разпределението трябва да е точно колкото етикетираните бройки',
+          })
+          .refine(r => !r.split || new Set(r.split.map(p => p.store_id ?? 'office')).size === r.split.length, {
+            message: 'Обект се повтаря в разпределението',
+          }),
+      )
+      .max(5000)
+      .default([]),
     signals: z.array(z.object({ item_id: id, ...stepSignal }).refine(needsNote, OTHER_NOTE)).max(5000).default([]),
   })
   .refine(v => v.rows.length > 0 || v.signals.length > 0, {

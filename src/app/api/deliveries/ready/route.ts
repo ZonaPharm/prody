@@ -8,7 +8,8 @@ import { readySchema } from '@/lib/deliveries/schemas'
  * The signed "Етикетиране" checklist: ticked delivery lines are labelled (also the
  * units staying in Офис), the labelled units go to the stores of the plan that still
  * need some, and the "Не е наред" rows become signals for the admins, in one
- * transaction (label_items_checked). The signature is the signed-in account.
+ * transaction (label_items_checked). The signature is the signed-in account. A row
+ * labelled only in part may say where its units go, inside the plan.
  */
 export async function POST(request: Request) {
   const gate = await deliveriesGate()
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const { data, error } = await (admin as any).rpc('label_items_checked', {
     p_user: gate.user.id,
-    p_rows: rows,
+    p_rows: rows.map(r => (r.split?.length ? { item_id: r.item_id, qty: r.qty, split: r.split } : { item_id: r.item_id, qty: r.qty })),
     p_signals: signals.map(s => ({
       item_id: s.item_id,
       reason: s.reason,

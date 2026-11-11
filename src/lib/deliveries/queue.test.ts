@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysWaiting, deliveryNextSteps, labelItems, labelSplit, readyByStore, splitText, storeReadyText, type LabelItemRow, type QueuePlanRow } from './queue'
+import { daysWaiting, defaultSplit, deliveryNextSteps, labelItems, labelSplit, readyByStore, splitError, splitTargets, splitText, storeReadyText, type LabelItemRow, type QueuePlanRow } from './queue'
 
 function row(p: Partial<QueuePlanRow> & Pick<QueuePlanRow, 'plan_id' | 'item_id' | 'store_id'>): QueuePlanRow {
   return {
@@ -56,6 +56,45 @@ describe('labelSplit', () => {
       { store_id: 'b', qty: 4 },
       { store_id: null, qty: 4 },
     ])
+  })
+})
+
+describe('labelling in part: where the units go', () => {
+  // 20 received: Ботев 6, Варна 4 planned, Офис 10.
+  const line = item({ item_id: 'i', received_qty: 20, plan: [{ store_id: 'b', planned_qty: 4, ready_qty: 0 }, { store_id: 'a', planned_qty: 6, ready_qty: 0 }] })
+
+  it('each store up to what it still needs, Офис up to its share, stores by name', () => {
+    expect(splitTargets(line, name)).toEqual([
+      { store_id: 'a', cap: 6 },
+      { store_id: 'b', cap: 4 },
+      { store_id: null, cap: 10 },
+    ])
+  })
+
+  it('Офис share less the labelled units no store has; full stores left out', () => {
+    // 5 labelled earlier: 3 ready for Варна, 2 kept in Офис.
+    const l = item({ item_id: 'i', received_qty: 20, labelled_qty: 5, plan: [{ store_id: 'b', planned_qty: 4, ready_qty: 3 }, { store_id: 'a', planned_qty: 6, ready_qty: 0 }] })
+    expect(splitTargets(l, name)).toEqual([
+      { store_id: 'a', cap: 6 },
+      { store_id: 'b', cap: 1 },
+      { store_id: null, cap: 8 },
+    ])
+    expect(splitTargets(l, name).reduce((n, t) => n + t.cap, 0)).toBe(15)
+  })
+
+  it('starts from the stores by name, then Офис', () => {
+    const t = splitTargets(line, name)
+    expect(defaultSplit(t, 8)).toEqual([{ store_id: 'a', qty: 6 }, { store_id: 'b', qty: 2 }])
+    expect(defaultSplit(t, 12)).toEqual([{ store_id: 'a', qty: 6 }, { store_id: 'b', qty: 4 }, { store_id: null, qty: 2 }])
+  })
+
+  it('says what is wrong: over a store, outside the plan, not adding up', () => {
+    const t = splitTargets(line, name)
+    expect(splitError(t, [{ store_id: 'b', qty: 3 }, { store_id: null, qty: 2 }], 5, name)).toBeNull()
+    expect(splitError(t, [{ store_id: 'b', qty: 5 }], 5, name)).toBe('Към Варна остават по план 4 бр.')
+    expect(splitError(t, [{ store_id: 'c', qty: 1 }], 1, name)).toBe('Заимов не е в плана')
+    expect(splitError(t, [{ store_id: 'a', qty: 2 }], 5, name)).toBe('Разпределете точно 5 бр. (сега 2 бр.)')
+    expect(splitError(t, [{ store_id: 'a', qty: NaN }], 5, name)).toBe('Въведете цели бройки')
   })
 })
 
