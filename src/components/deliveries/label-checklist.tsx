@@ -5,13 +5,18 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Tag, Truck } from 'lucide-react'
+import { Printer, Search, Tag, Truck } from 'lucide-react'
 import { buildLabelBody, checklistSummary, type RowState } from '@/lib/deliveries/checklist'
 import { formatDeliveryNumber, formatMoney } from '@/lib/deliveries/format'
 import { splitText, type LabelItem } from '@/lib/deliveries/queue'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
 import { ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
+
+/** The label sheets for these lines (at most 300 in one go), in a new tab. */
+function printHref(itemIds: string[]): string {
+  return `/print/labels?items=${itemIds.slice(0, 300).join(',')}`
+}
 
 /**
  * "Етикетиране": one row per delivery line with received units still without a
@@ -106,6 +111,11 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
               </select>
             )}
             <Button variant="outline" onClick={() => setState({})}>Махни отметките</Button>
+            {shown.length > 0 && (
+              <Button asChild>
+                <Link href={printHref(shown.map(r => r.item_id))} target="_blank"><Printer className="mr-2 h-4 w-4" />Печат на етикетите ({shown.reduce((n, r) => n + r.expected, 0)} бр.)</Link>
+              </Button>
+            )}
           </div>
 
           <ul className="rounded-lg border bg-white divide-y">
@@ -131,7 +141,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
                     {s?.problem && <ProblemText step="label" problem={s.problem} />}
                   </div>
                   <Button asChild variant="ghost" size="sm">
-                    <Link href={`/labels?title=${encodeURIComponent(r.product_name)}&text=${encodeURIComponent(formatMoney(r.product_price))}`} target="_blank">
+                    <Link href={printHref([r.item_id])} target="_blank">
                       <Tag className="mr-1 h-4 w-4" />Етикет
                     </Link>
                   </Button>
