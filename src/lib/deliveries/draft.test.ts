@@ -57,10 +57,15 @@ describe('a line', () => {
         pack_size: 1,
         quantity: 100,
         unit_cost: 5.4,
-        needs_label: true,
+        needs_label: null,
         plan: [{ store_id: 'a', planned_qty: 20 }, { store_id: 'c', planned_qty: 10 }],
       }],
     })
+  })
+
+  it('sends "Без етикет" only when it was changed on this screen', () => {
+    expect(toDraftPayload({ order_ref: '', notes: '' }, [line({ needs_label: false })]).items[0].needs_label).toBeNull()
+    expect(toDraftPayload({ order_ref: '', notes: '' }, [line({ needs_label: false, label_changed: true })]).items[0].needs_label).toBe(false)
   })
 })
 

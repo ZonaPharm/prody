@@ -23,7 +23,7 @@ export const draftItemSchema = z.object({
 
 export const draftSaveSchema = z.object({
   id: id.nullable().optional(),
-  expected_updated_at: z.string().max(64).nullable().optional(),
+  expected_updated_at: z.iso.datetime({ offset: true }).nullable().optional(),
   draft: z.object({
     order_ref: z.string().trim().max(100).nullable().optional(),
     notes: z.string().trim().max(2000).nullable().optional(),

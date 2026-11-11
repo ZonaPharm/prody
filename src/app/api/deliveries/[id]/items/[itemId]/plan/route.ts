@@ -22,6 +22,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .select('id').eq('id', itemId).eq('delivery_id', id).maybeSingle()
   if (!item) return NextResponse.json({ error: 'Редът не е от тази доставка' }, { status: 404 })
 
+  // A draft's plan is part of the draft and changes through its autosave; a
+  // plan_changed event here would block deleting that line later.
+  const { data: delivery } = await (gate.supabase.from('deliveries') as any)
+    .select('status').eq('id', id).maybeSingle()
+  if (delivery?.status === 'draft') {
+    return NextResponse.json({ error: 'Планът на чернова се променя от екрана на черновата' }, { status: 409 })
+  }
+
   const admin = createAdminClient()
   const { error } = await (admin as any).rpc('update_plan', {
     p_item_id: itemId,

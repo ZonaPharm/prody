@@ -106,7 +106,7 @@ export async function loadSuggestions(
           .from('delivery_items')
           .select('product_id, supplier_id, unit_cost, pack_size, created_at, delivery:deliveries!inner(status)')
           .in('product_id', productIds)
-          .neq('delivery.status', 'cancelled')
+          .not('delivery.status', 'in', '(cancelled,draft)') // a draft is not a delivery yet
           .order('created_at', { ascending: false })
           .limit(500)
       : Promise.resolve({ data: [] }),

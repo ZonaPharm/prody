@@ -12,7 +12,7 @@ const STORE = '55555555-5555-4555-8555-555555555555'
 
 function query(result: unknown) {
   const q: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'order', 'limit', 'or', 'in', 'neq']) q[m] = () => q
+  for (const m of ['select', 'eq', 'order', 'limit', 'or', 'in', 'neq', 'not']) q[m] = () => q
   q.single = () => Promise.resolve(result)
   q.maybeSingle = () => Promise.resolve(result)
   return q
@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   user: null as null | { id: string },
   profile: null as null | Record<string, unknown>,
   itemInDelivery: true,
+  deliveryStatus: 'expected',
   adminRpc: vi.fn(),
   adminInsert: vi.fn(),
   logAction: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('@/lib/supabase/server', () => ({
       if (table === 'users') return query({ data: mocks.profile })
       if (table === 'delivery_items') return query({ data: mocks.itemInDelivery ? { id: ITEM } : null })
       if (table === 'suppliers') return query({ data: { name: 'Temu' } })
+      if (table === 'deliveries') return query({ data: { status: mocks.deliveryStatus } })
       throw new Error(`unexpected table ${table}`)
     },
   }),
@@ -72,6 +74,7 @@ describe('delivery API routes', () => {
     mocks.user = { id: ADMIN.id }
     mocks.profile = { ...ADMIN }
     mocks.itemInDelivery = true
+    mocks.deliveryStatus = 'expected'
     mocks.adminRpc.mockResolvedValue({ data: { id: DELIVERY, updated_at: 't', items: [] }, error: null })
   })
   afterEach(() => vi.unstubAllEnvs())
@@ -133,6 +136,13 @@ describe('delivery API routes', () => {
       bad2.draft.items[0].unit_cost = -1
       expect((await draftPOST(req(bad2))).status).toBe(400)
       expect(mocks.adminRpc).not.toHaveBeenCalled()
+    })
+
+    it('takes the version it read only as a timestamp', async () => {
+      const ok = await draftPOST(req({ ...draftBody, id: DELIVERY, expected_updated_at: '2026-11-11T07:20:00.123456+00:00' }))
+      expect(ok.status).toBe(200)
+      const bad = await draftPOST(req({ ...draftBody, id: DELIVERY, expected_updated_at: 'вчера' }))
+      expect(bad.status).toBe(400)
     })
 
     it('passes a conflict raised by the function to the screen as 400', async () => {
@@ -198,6 +208,13 @@ describe('delivery API routes', () => {
       mocks.itemInDelivery = false
       const other = await planPATCH(req({ rows: [{ store_id: STORE, planned_qty: 3 }] }), params({ id: DELIVERY, itemId: ITEM }))
       expect(other.status).toBe(404)
+      expect(mocks.adminRpc).not.toHaveBeenCalled()
+    })
+
+    it('leaves the plan of a draft to the draft screen', async () => {
+      mocks.deliveryStatus = 'draft'
+      const res = await planPATCH(req({ rows: [{ store_id: STORE, planned_qty: 3 }] }), params({ id: DELIVERY, itemId: ITEM }))
+      expect(res.status).toBe(409)
       expect(mocks.adminRpc).not.toHaveBeenCalled()
     })
 

@@ -41,6 +41,11 @@ export function PlanEditor({
   const nums = planNumbers(plan)
   const rest = unallocated(quantity, nums)
   const over = overPlanned(quantity, nums)
+  // Rows for stores not shown here (e.g. a store switched off since) stay as
+  // they are when the buttons below rewrite the plan.
+  const shown = new Set(stores.map(s => s.id))
+  const hidden: PlanText = Object.fromEntries(Object.entries(plan).filter(([k]) => !shown.has(k)))
+  const hiddenQty = Object.entries(nums).reduce((s, [k, v]) => (shown.has(k) ? s : s + v), 0)
 
   return (
     <div className="space-y-2">
@@ -75,15 +80,15 @@ export function PlanEditor({
             type="button"
             size="sm"
             variant="ghost"
-            disabled={disabled || !(quantity > 0)}
+            disabled={disabled || !(quantity - hiddenQty > 0)}
             onClick={() => {
-              const split = equalSplit(quantity, stores.map(s => s.id))
-              onChange(Object.fromEntries(Object.entries(split).map(([k, v]) => [k, v ? String(v) : ''])))
+              const split = equalSplit(quantity - hiddenQty, stores.map(s => s.id))
+              onChange({ ...hidden, ...Object.fromEntries(Object.entries(split).map(([k, v]) => [k, v ? String(v) : ''])) })
             }}
           >
             Равно по всички
           </Button>
-          <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={() => onChange({})}>
+          <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={() => onChange(hidden)}>
             Изчисти
           </Button>
         </div>

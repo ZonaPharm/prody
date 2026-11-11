@@ -110,11 +110,19 @@ export function DeliveryEditor({
     setSave(s => (s.kind === 'error' && s.fatal ? s : { kind: 'pending' }))
   }, [])
 
+  // Whether the editor is still on screen; a save that ends after the person
+  // left must not rewrite the address bar.
+  const mounted = useRef(false)
+
   const doSave = useCallback(async (): Promise<boolean> => {
-    if (inFlight.current) {
+    // One save at a time: two in parallel would race on updated_at and could
+    // create two drafts. Several callers may be waiting; each checks again.
+    let waited = false
+    while (inFlight.current) {
+      waited = true
       await inFlight.current
-      if (savedVersion.current === version.current) return true
     }
+    if (waited && savedVersion.current === version.current) return true
     const { deliveryId: id, updatedAt: seen, header: h, lines: ls } = stateRef.current
     const blocker = ls.map(lineProblem).findIndex(p => p != null)
     if (blocker >= 0) {
@@ -152,7 +160,9 @@ export function DeliveryEditor({
         if (!id) {
           stateRef.current.deliveryId = data.id
           setDeliveryId(data.id)
-          window.history.replaceState(null, '', `/deliveries/${data.id}`)
+          if (mounted.current && window.location.pathname === '/deliveries/new') {
+            window.history.replaceState(null, '', `/deliveries/${data.id}`)
+          }
         }
         savedVersion.current = carried
         setSave(version.current === carried ? { kind: 'saved', at: new Date() } : { kind: 'pending' })
@@ -176,6 +186,17 @@ export function DeliveryEditor({
     return () => { if (timer.current) clearTimeout(timer.current) }
   }, [save, lines, header, doSave, fatal])
 
+  // Leaving the screen inside the app (a menu link) does not fire
+  // beforeunload: save what is pending right away instead.
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      if (timer.current) clearTimeout(timer.current)
+      if (version.current !== savedVersion.current) void doSave()
+    }
+  }, [doSave])
+
   // Warn before leaving with unsaved edits.
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -193,8 +214,16 @@ export function DeliveryEditor({
     touch()
   }
 
+  /** "Без етикет" belongs to the product, so every line of that product follows. */
+  function setNeedsLabel(productId: string, needs: boolean) {
+    setLines(prev => prev.map(l => (l.product.id === productId ? { ...l, needs_label: needs, label_changed: true } : l)))
+    touch()
+  }
+
   function addProducts(products: DeliveryProduct[]) {
     if (!products.length) return
+    // A product already on the draft keeps the "Без етикет" choice made there.
+    const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.needs_label]))
     const added: DraftLineState[] = products.map(p => ({
       key: newKey(),
       id: null,
@@ -204,7 +233,8 @@ export function DeliveryEditor({
       quantity: '',
       pack_size: p.suggested.pack_size > 1 ? String(p.suggested.pack_size) : '',
       unit_cost: p.suggested.unit_cost != null ? String(p.suggested.unit_cost).replace('.', ',') : '',
-      needs_label: p.needs_label,
+      needs_label: changed.get(p.id) ?? p.needs_label,
+      label_changed: changed.has(p.id),
       plan: {},
     }))
     setLines(prev => [...prev, ...added])
@@ -257,8 +287,12 @@ export function DeliveryEditor({
   }
 
   async function discard() {
+    // Let a save that is on its way finish first, so its draft is the one cancelled.
+    if (timer.current) clearTimeout(timer.current)
+    while (inFlight.current) await inFlight.current
     const id = stateRef.current.deliveryId
     if (!id) {
+      savedVersion.current = version.current // nothing to keep
       router.push('/deliveries')
       return
     }
@@ -377,7 +411,7 @@ export function DeliveryEditor({
                       </div>
                       <label className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-600">
                         <input type="checkbox" className="h-3.5 w-3.5" checked={!l.needs_label} disabled={fatal}
-                          onChange={e => updateLine(l.key, { needs_label: !e.target.checked })} />
+                          onChange={e => setNeedsLabel(l.product.id, !e.target.checked)} />
                         Без етикет
                       </label>
                     </div>

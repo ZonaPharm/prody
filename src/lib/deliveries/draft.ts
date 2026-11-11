@@ -21,6 +21,8 @@ export type DraftLineState = {
   pack_size: string
   unit_cost: string
   needs_label: boolean
+  /** Set when the person changed "Без етикет" on this screen; only then is it written to the product. */
+  label_changed?: boolean
   plan: Record<string, string>
 }
 
@@ -79,7 +81,9 @@ export function toDraftPayload(header: DraftHeaderState, lines: DraftLineState[]
       pack_size: l.pack_size.trim() === '' ? 1 : (parseQty(l.pack_size) ?? 1),
       quantity: parseQty(l.quantity) ?? 0,
       unit_cost: parseMoney(l.unit_cost) ?? 0,
-      needs_label: l.needs_label,
+      // Sent only when changed here, so an autosave never overwrites a value
+      // someone else set on the product meanwhile.
+      needs_label: l.label_changed ? l.needs_label : null,
       plan: planOf(l),
     })),
   }
