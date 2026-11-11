@@ -170,6 +170,12 @@ export function eventText(e: EventForText): string {
       return 'Създаден курс'
     case 'packed':
       return 'Опакована пратка'
+    case 'unpacked':
+      return 'Опаковането е отворено отново'
+    case 'trip_changed':
+      return d.action === 'removed'
+        ? `Пратката е махната от курса${store ? ` (${store})` : ''}${typeof d.reason === 'string' && d.reason ? `: ${d.reason}` : ''}`
+        : `Добавени ${qty} бр. в курса`
     case 'sent':
       return `Изпратена пратка${store ? ` към ${store}` : ''}`
     case 'store_received':

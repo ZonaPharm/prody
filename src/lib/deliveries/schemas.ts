@@ -141,6 +141,14 @@ export const tripCreateSchema = z.object({
 
 export const tripCancelSchema = cancelSchema
 
+/** "Добави в курса": the stores whose newly ready units go into an open trip. */
+export const tripAddSchema = z.object({
+  store_ids: z.array(id).min(1, 'Изберете поне един обект').max(100),
+})
+
+/** "Махни от курса": one store's shipment leaves a trip that has not left. */
+export const shipmentRemoveSchema = cancelSchema
+
 export const tripSendSchema = z.object({
   driver_id: id,
   password: z.string().min(1, 'Шофьорът въвежда паролата си').max(200),

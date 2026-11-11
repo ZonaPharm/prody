@@ -60,6 +60,9 @@ import { POST as tripPOST } from './trips/route'
 import { POST as tripCancelPOST } from './trips/[id]/cancel/route'
 import { POST as tripSendPOST } from './trips/[id]/send/route'
 import { POST as packPOST } from './shipments/[id]/pack/route'
+import { POST as tripAddPOST } from './trips/[id]/add/route'
+import { POST as removePOST } from './shipments/[id]/remove/route'
+import { POST as reopenPOST } from './shipments/[id]/reopen/route'
 import { POST as resolvePOST } from './signals/[id]/resolve/route'
 import { POST as confirmPOST } from '../shipments/[id]/confirm/route'
 
@@ -134,6 +137,45 @@ describe('phase 3 delivery routes', () => {
     mocks.adminRpc.mockResolvedValue({ data: null, error: null })
     expect((await tripCancelPOST(req({ reason: 'грешен курс' }), params({ id: TRIP }))).status).toBe(200)
     expect(mocks.adminRpc).toHaveBeenCalledWith('cancel_trip', { p_trip_id: TRIP, p_user: ADMIN.id, p_reason: 'грешен курс' })
+  })
+
+  describe('changing a trip before it leaves', () => {
+    it('adds what became ready for the chosen stores, each store once', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: { trip_id: TRIP, number: 12, units: 7, shipments: [] }, error: null })
+      expect((await tripAddPOST(req({ store_ids: [] }), params({ id: TRIP }))).status).toBe(400)
+      const res = await tripAddPOST(req({ store_ids: [STORE, STORE] }), params({ id: TRIP }))
+      expect(res.status).toBe(200)
+      expect(mocks.adminRpc).toHaveBeenCalledWith('add_to_trip', { p_trip_id: TRIP, p_user: ADMIN.id, p_store_ids: [STORE] })
+      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'trip_changed', details: 'К-000012: добавени 7 бр.' }), expect.anything())
+    })
+
+    it('removing a store from the trip needs a reason', async () => {
+      expect((await removePOST(req({ reason: ' ' }), params({ id: SHIP }))).status).toBe(400)
+      mocks.adminRpc.mockResolvedValue({ data: null, error: null })
+      expect((await removePOST(req({ reason: 'не се събра' }), params({ id: SHIP }))).status).toBe(200)
+      expect(mocks.adminRpc).toHaveBeenCalledWith('remove_shipment', { p_shipment_id: SHIP, p_user: ADMIN.id, p_reason: 'не се събра' })
+    })
+
+    it('reopens a packed shipment; the database message comes back as it is', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: null, error: null })
+      expect((await reopenPOST(req({}), params({ id: SHIP }))).status).toBe(200)
+      expect(mocks.adminRpc).toHaveBeenCalledWith('reopen_packing', { p_shipment_id: SHIP, p_user: ADMIN.id })
+      mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Курс К-000012 не се променя: той е тръгнал' } })
+      const res = await reopenPOST(req({}), params({ id: SHIP }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Курс К-000012 не се променя: той е тръгнал')
+    })
+
+    it('is for admins only and checks the id', async () => {
+      mocks.user = { id: SELLER.id }
+      mocks.profile = { ...SELLER }
+      expect((await reopenPOST(req({}), params({ id: SHIP }))).status).toBe(403)
+      expect((await tripAddPOST(req({ store_ids: [STORE] }), params({ id: TRIP }))).status).toBe(403)
+      mocks.user = { id: ADMIN.id }
+      mocks.profile = { ...ADMIN }
+      expect((await removePOST(req({ reason: 'abc' }), params({ id: 'x' }))).status).toBe(404)
+      expect(mocks.adminRpc).not.toHaveBeenCalled()
+    })
   })
 
   describe("the driver's signature", () => {

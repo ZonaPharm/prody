@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ArrowLeft, ClipboardCheck, Loader2, PackageCheck, PenLine, Printer, Truck, XCircle } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Loader2, PackageCheck, PackageOpen, PackagePlus, PenLine, Printer, Truck, X, XCircle } from 'lucide-react'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import {
   SHIPMENT_STATUS_LABEL,
@@ -16,7 +16,9 @@ import {
   boxesText,
   tripReadyToSend,
 } from '@/lib/deliveries/trip-format'
-import type { DriverOption, TripDetail } from '@/lib/deliveries/work'
+import type { DriverOption, ShipmentView, TripDetail } from '@/lib/deliveries/work'
+import { storeReadyText } from '@/lib/deliveries/queue'
+import type { StoreReadyView } from './trips-board'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson, useNow } from './checklist-ui'
@@ -24,15 +26,21 @@ import { postJson, useNow } from './checklist-ui'
 /**
  * One trip: its shipments by store, each packed with its own checklist; then
  * the driver signs for the boxes with their own password and the trip leaves
- * Офис in one go. A trip that has not left can be taken back.
+ * Офис in one go. Before it leaves the trip can change: what became ready later
+ * is added, one store's shipment is taken out (its units wait for the next trip),
+ * a packed shipment is opened to be packed and signed again, or the whole trip
+ * is taken back.
  */
-export function TripView({ trip, drivers }: { trip: TripDetail; drivers: DriverOption[] }) {
+export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; drivers: DriverOption[]; ready?: StoreReadyView[] }) {
   const live = trip.shipments.filter(s => s.status !== 'cancelled')
   const canSend = trip.status === 'open' && tripReadyToSend(live)
   const boxes = live.reduce((n, s) => n + (s.box_count ?? 0), 0)
   const units = live.reduce((n, s) => n + s.lines.reduce((m, l) => m + l.qty, 0), 0)
   const [sendOpen, setSendOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [removing, setRemoving] = useState<ShipmentView | null>(null)
+  const [reopening, setReopening] = useState<ShipmentView | null>(null)
+  const open = trip.status === 'open'
 
   return (
     <div className="space-y-4">
@@ -76,6 +84,8 @@ export function TripView({ trip, drivers }: { trip: TripDetail; drivers: DriverO
         </p>
       )}
 
+      {open && ready.length > 0 && <AddToTrip trip={trip} ready={ready} />}
+
       <div className="space-y-3">
         {trip.shipments.map(s => {
           const sUnits = s.lines.reduce((n, l) => n + l.qty, 0)
@@ -89,8 +99,14 @@ export function TripView({ trip, drivers }: { trip: TripDetail; drivers: DriverO
                   {s.lines.length} {s.lines.length === 1 ? 'ред' : 'реда'}, {sUnits} бр.{s.box_count ? `, ${boxesText(s.box_count)}` : ''}
                 </span>
                 <span className="ml-auto flex flex-wrap gap-2">
-                  {s.status === 'packing' && trip.status === 'open' && (
+                  {s.status === 'packing' && open && (
                     <Button asChild size="sm"><Link href={`/deliveries/shipments/${s.id}/pack`}><PackageCheck className="mr-1 h-4 w-4" />Опаковай</Link></Button>
+                  )}
+                  {s.status === 'packed' && open && (
+                    <Button size="sm" variant="outline" onClick={() => setReopening(s)}><PackageOpen className="mr-1 h-4 w-4" />Отвори опаковането</Button>
+                  )}
+                  {(s.status === 'packing' || s.status === 'packed') && open && live.length > 1 && (
+                    <Button size="sm" variant="ghost" onClick={() => setRemoving(s)}><X className="mr-1 h-4 w-4" />Махни от курса</Button>
                   )}
                   {s.status === 'sent' && (
                     <Button asChild size="sm" variant="outline"><Link href={`/deliveries/shipments/${s.id}/confirm`}><ClipboardCheck className="mr-1 h-4 w-4" />Приеми вместо обекта</Link></Button>
@@ -130,6 +146,28 @@ export function TripView({ trip, drivers }: { trip: TripDetail; drivers: DriverO
 
       {sendOpen && <SendDialog trip={trip} drivers={drivers} boxes={boxes} units={units} onClose={() => setSendOpen(false)} />}
       {cancelOpen && <CancelTripDialog tripId={trip.id} number={trip.number} onClose={() => setCancelOpen(false)} />}
+      {removing && (
+        <ActionDialog
+          title={`Махни ${removing.store_name} от курса`}
+          text={`Пратка ${formatShipmentNumber(removing.number)} остава в курса като „Отказана“, без редове. Готовата стока за ${removing.store_name} остава в Офис за следващ курс. Наличността не се променя.`}
+          reason
+          confirmLabel="Махни от курса"
+          destructive
+          url={`/api/deliveries/shipments/${removing.id}/remove`}
+          fallback="Пратката не беше махната"
+          onClose={() => setRemoving(null)}
+        />
+      )}
+      {reopening && (
+        <ActionDialog
+          title={`Отвори опаковането на ${formatShipmentNumber(reopening.number)}`}
+          text={`Пратката за ${reopening.store_name} се връща в опаковане: броят кашони и подписът за опаковане се махат (остават в историята). После я опаковайте и подпишете отново. Курсът не тръгва, докато не е опакована.`}
+          confirmLabel="Отвори опаковането"
+          url={`/api/deliveries/shipments/${reopening.id}/reopen`}
+          fallback="Опаковането не беше отворено"
+          onClose={() => setReopening(null)}
+        />
+      )}
     </div>
   )
 }
@@ -232,6 +270,130 @@ function CancelTripDialog({ tripId, number, onClose }: { tripId: string; number:
           <Button variant="ghost" onClick={onClose}>Назад</Button>
           <Button variant="destructive" onClick={submit} disabled={reason.trim().length < 3 || busy}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Откажи курса
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * "Добави в курса": what became ready after the trip was made (labelled later)
+ * goes into this trip. A packed shipment must be opened first, so its packer
+ * signs again for what is in the boxes.
+ */
+function AddToTrip({ trip, ready }: { trip: TripDetail; ready: StoreReadyView[] }) {
+  const router = useRouter()
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const shipmentOf = (storeId: string) => trip.shipments.find(s => s.store_id === storeId)
+
+  async function add() {
+    setBusy(true)
+    setError('')
+    try {
+      await postJson(`/api/deliveries/trips/${trip.id}/add`, { store_ids: [...picked] }, 'Нищо не беше добавено')
+      setPicked(new Set())
+      setBusy(false)
+      router.refresh()
+    } catch (e: any) {
+      setError(e.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-lg border bg-white">
+      <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+        <PackagePlus className="h-4 w-4" />
+        <h2 className="font-semibold">Готово след създаването на курса</h2>
+        <span className="text-sm text-muted-foreground">Още не е в нито един курс.</span>
+      </header>
+      <div className="p-4 space-y-3">
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {ready.map(r => {
+            const sh = shipmentOf(r.store_id)
+            const packed = sh?.status === 'packed'
+            const note = !sh || sh.status === 'cancelled'
+              ? 'нова пратка в този курс'
+              : packed ? `${formatShipmentNumber(sh.number)} е опакована: първо „Отвори опаковането“` : `добавя се към ${formatShipmentNumber(sh.number)}`
+            return (
+              <li key={r.store_id}>
+                <label className={cn('flex items-start gap-3 rounded-md border p-3', packed ? 'opacity-60' : 'cursor-pointer', picked.has(r.store_id) && 'border-slate-900 bg-slate-50')}>
+                  <input type="checkbox" className="mt-0.5 h-5 w-5" disabled={packed} checked={picked.has(r.store_id)} aria-label={r.name}
+                    onChange={e => setPicked(prev => {
+                      const next = new Set(prev)
+                      if (e.target.checked) next.add(r.store_id)
+                      else next.delete(r.store_id)
+                      return next
+                    })} />
+                  <span>
+                    <span className="font-medium">{r.name}</span>
+                    <span className="block text-sm text-muted-foreground">{storeReadyText(r)}</span>
+                    <span className="block text-xs text-muted-foreground">{note}</span>
+                  </span>
+                </label>
+              </li>
+            )
+          })}
+        </ul>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={add} disabled={picked.size === 0 || busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackagePlus className="mr-2 h-4 w-4" />}Добави в курса
+          </Button>
+          {error && <span className="text-sm text-red-600">{error}</span>}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** A yes/no step on the trip, with a reason when the log needs one. */
+function ActionDialog({ title, text, reason: needsReason, confirmLabel, destructive, url, fallback, onClose }: {
+  title: string
+  text: string
+  reason?: boolean
+  confirmLabel: string
+  destructive?: boolean
+  url: string
+  fallback: string
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit() {
+    setBusy(true)
+    setError('')
+    try {
+      await postJson(url, needsReason ? { reason } : {}, fallback)
+      onClose()
+      router.refresh()
+    } catch (e: any) {
+      setError(e.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={o => { if (!o) onClose() }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{text}</p>
+        {needsReason && (
+          <label className="block text-sm space-y-1">
+            <span>Причина</span>
+            <Input value={reason} onChange={e => setReason(e.target.value)} autoFocus aria-label="Причина" />
+          </label>
+        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Назад</Button>
+          <Button variant={destructive ? 'destructive' : 'default'} onClick={submit} disabled={(needsReason && reason.trim().length < 3) || busy}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{confirmLabel}
           </Button>
         </div>
       </DialogContent>
