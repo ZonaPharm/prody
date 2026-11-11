@@ -7,6 +7,7 @@ import { plainText } from '@/lib/labels/sheet'
 import { LabelSheets, type PrintLabel } from '@/components/labels/label-sheets'
 
 export const dynamic = 'force-dynamic'
+export const metadata = { title: 'Етикети' }
 
 const MAX_ITEMS = 300
 

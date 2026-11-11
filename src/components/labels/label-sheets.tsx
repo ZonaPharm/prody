@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Printer } from 'lucide-react'
+import { FileDown, Printer } from 'lucide-react'
 import { formatMoney } from '@/lib/deliveries/format'
 import { code128Bars } from '@/lib/labels/code128'
 import { A4, DEFAULT_LAYOUT, LINE_HEIGHT, SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
@@ -64,6 +64,7 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
   const [counts, setCounts] = useState<Record<string, number>>(() => Object.fromEntries(labels.map(l => [l.key, l.count])))
   const [start, setStart] = useState(1)
   const [outline, setOutline] = useState(false)
+  const [pdfHint, setPdfHint] = useState(false)
 
   // The remembered sheet is in this browser only, so it is read after hydration.
   useEffect(() => {
@@ -123,11 +124,18 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
         <aside className="w-full shrink-0 space-y-4 rounded-lg border bg-white p-4 text-sm lg:sticky lg:top-4 lg:w-80 print:hidden">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-base font-semibold">Печат на етикети</h1>
-            <Button onClick={() => window.print()} disabled={list.length === 0}><Printer className="mr-2 h-4 w-4" />Печат</Button>
           </div>
           <p className="text-muted-foreground">
             {list.length} {list.length === 1 ? 'етикет' : 'етикета'} на {pages.length} {pages.length === 1 ? 'лист' : 'листа'}.
-            При печат избери полета „Няма“ и мащаб 100 %.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => { setPdfHint(false); window.print() }} disabled={list.length === 0}><Printer className="mr-2 h-4 w-4" />Печат</Button>
+            <Button variant="outline" onClick={() => { setPdfHint(true); window.print() }} disabled={list.length === 0}><FileDown className="mr-2 h-4 w-4" />PDF</Button>
+          </div>
+          <p className={pdfHint ? 'rounded-md bg-amber-50 p-2 text-amber-900' : 'text-muted-foreground'}>
+            {pdfHint
+              ? 'В прозореца за печат избери принтер „Запази като PDF“ (Save as PDF), полета „Няма“ и мащаб 100 %.'
+              : 'В прозореца за печат избери полета „Няма“ и мащаб 100 %. За PDF файл избери „Запази като PDF“.'}
           </p>
 
           <div className="space-y-2">
