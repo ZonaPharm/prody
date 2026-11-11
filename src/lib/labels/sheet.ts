@@ -20,12 +20,12 @@ export type SheetLayout = {
 
 export const A4 = { width: 210, height: 297 }
 
+/** The Office1 sheets used in the stores (24, 40, 44 and 65 a sheet), labels centred on A4. */
 export const SHEET_PRESETS: { id: string; name: string; layout: SheetLayout }[] = [
-  { id: '3x8', name: '24 на лист (3 × 8, 70 × 37 мм)', layout: { cols: 3, rows: 8, width: 70, height: 37, top: 0.5, left: 0, gapX: 0, gapY: 0 } },
-  { id: '3x7', name: '21 на лист (3 × 7, 70 × 42,4 мм)', layout: { cols: 3, rows: 7, width: 70, height: 42.4, top: 0, left: 0, gapX: 0, gapY: 0 } },
-  { id: '2x7', name: '14 на лист (2 × 7, 99,1 × 38,1 мм)', layout: { cols: 2, rows: 7, width: 99.1, height: 38.1, top: 15.1, left: 4.7, gapX: 2.5, gapY: 0 } },
-  { id: '4x10', name: '40 на лист (4 × 10, 48,5 × 25,4 мм)', layout: { cols: 4, rows: 10, width: 48.5, height: 25.4, top: 21.5, left: 8, gapX: 0, gapY: 0 } },
-  { id: '5x13', name: '65 на лист (5 × 13, 38,1 × 21,2 мм)', layout: { cols: 5, rows: 13, width: 38.1, height: 21.2, top: 10.7, left: 4.7, gapX: 2.5, gapY: 0 } },
+  { id: '3x8', name: '24 на лист (70 × 37 мм)', layout: { cols: 3, rows: 8, width: 70, height: 37, top: 0.5, left: 0, gapX: 0, gapY: 0 } },
+  { id: '4x10', name: '40 на лист (52,5 × 29,7 мм)', layout: { cols: 4, rows: 10, width: 52.5, height: 29.7, top: 0, left: 0, gapX: 0, gapY: 0 } },
+  { id: '4x11', name: '44 на лист (48,5 × 25,4 мм)', layout: { cols: 4, rows: 11, width: 48.5, height: 25.4, top: 8.8, left: 8, gapX: 0, gapY: 0 } },
+  { id: '5x13', name: '65 на лист (38,1 × 21,2 мм)', layout: { cols: 5, rows: 13, width: 38.1, height: 21.2, top: 10.7, left: 4.75, gapX: 2.5, gapY: 0 } },
 ]
 
 export const DEFAULT_LAYOUT: SheetLayout = SHEET_PRESETS[0].layout
@@ -82,4 +82,46 @@ export function plainText(html: string | null | undefined): string {
     .replace(/&#39;|&apos;/g, "'")
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** 1 pt in mm. */
+const PT = 25.4 / 72
+export const LINE_HEIGHT = 1.15
+
+export type LabelMetrics = {
+  /** Inner margin, mm. */
+  pad: number
+  gap: number
+  namePt: number
+  descPt: number
+  /** How many lines of description fit; the rest is cut. */
+  descLines: number
+  /** Height of the bars, mm (0 without a barcode). */
+  barH: number
+  /** Size of the digits under the bars; 0 on small labels, where they are left out. */
+  codePt: number
+  pricePt: number
+}
+
+/**
+ * Sizes on a label of width × height mm, scaled from a 70 × 37 mm label, with a
+ * floor so the smallest labels stay readable. Two lines are kept for the name; the
+ * description gets whatever height is left.
+ */
+export function labelMetrics(width: number, height: number, hasCode: boolean): LabelMetrics {
+  const k = Math.max(0.5, Math.min(1.4, Math.min(width / 70, height / 37)))
+  const pad = Math.max(1, 1.8 * k)
+  const gap = Math.max(0.6, 0.5 * k)
+  const namePt = Math.max(6, 9 * k)
+  const descPt = Math.max(5, 6.5 * k)
+  const pricePt = Math.max(7, 11 * k)
+  const codePt = hasCode && height >= 25 ? Math.max(5, 6 * k) : 0
+  const barH = hasCode ? Math.max(4, Math.min(10, 7 * k)) : 0
+  const used =
+    2 * pad +
+    2 * namePt * PT * LINE_HEIGHT +
+    (hasCode ? barH + (codePt ? 0.3 + codePt * PT * 1.1 : 0) : 0) +
+    gap + pricePt * PT
+  const descLines = Math.max(0, Math.floor((height - used - gap) / (descPt * PT * LINE_HEIGHT)))
+  return { pad, gap, namePt, descPt, descLines, barH, codePt, pricePt }
 }

@@ -1,11 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { SHEET_PRESETS, layoutError, paginate, perSheet, plainText, type SheetLayout } from './sheet'
+import { SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, plainText, type SheetLayout } from './sheet'
 
 const L: SheetLayout = { cols: 3, rows: 8, width: 70, height: 37, top: 0, left: 0, gapX: 0, gapY: 0 }
 
 describe('sheet', () => {
   it('every preset fits on A4', () => {
     for (const p of SHEET_PRESETS) expect(layoutError(p.layout), p.id).toBeNull()
+  })
+
+  it('has the Office1 sheets: 24, 40, 44 and 65 a sheet', () => {
+    expect(SHEET_PRESETS.map(p => perSheet(p.layout))).toEqual([24, 40, 44, 65])
+  })
+
+  it('sizes the label text: smaller on small labels, never below the floor', () => {
+    const big = labelMetrics(70, 37, true)
+    const small = labelMetrics(38.1, 21.2, true)
+    expect(big.namePt).toBe(9)
+    expect(big.codePt).toBeGreaterThan(0)
+    expect(big.descLines).toBeGreaterThanOrEqual(3)
+    expect(small.namePt).toBe(6)
+    expect(small.pricePt).toBe(7)
+    expect(small.codePt).toBe(0)
+    expect(small.descLines).toBeGreaterThanOrEqual(1)
+    const noCode = labelMetrics(38.1, 21.2, false)
+    expect(noCode.barH).toBe(0)
+    expect(noCode.descLines).toBeGreaterThan(small.descLines)
+    expect(labelMetrics(20, 10, true).descLines).toBe(0)
   })
 
   it('counts the labels on a sheet', () => {

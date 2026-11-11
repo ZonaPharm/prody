@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Printer } from 'lucide-react'
 import { formatMoney } from '@/lib/deliveries/format'
 import { code128Bars } from '@/lib/labels/code128'
-import { A4, DEFAULT_LAYOUT, SHEET_PRESETS, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
+import { A4, DEFAULT_LAYOUT, LINE_HEIGHT, SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
 
 export type PrintLabel = {
   key: string
@@ -224,43 +224,47 @@ export function LabelSheets({ labels }: { labels: PrintLabel[] }) {
   )
 }
 
-/** One label: the name in bold, the description right after it, price and barcode at the bottom. */
+/**
+ * One label, everything centred: the name in bold, the description under it,
+ * then the barcode and the price under the barcode.
+ */
 function LabelFace({ label, width, height }: { label: PrintLabel; width: number; height: number }) {
-  // Sizes follow a 70 × 37 mm label, scaled to the sheet's label.
-  const k = Math.max(0.55, Math.min(1.4, Math.min(width / 70, height / 37)))
-  const pad = 1.8 * k
-  const barH = Math.max(5, 8 * k)
+  const m = labelMetrics(width, height, Boolean(label.code))
+  const line = (pt: number) => `${pt}pt`
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden text-black" style={{ padding: `${pad}mm`, fontFamily: 'Arial, Helvetica, sans-serif' }}>
-      <div className="min-h-0 flex-1 overflow-hidden" style={{ lineHeight: 1.15 }}>
-        <div className="font-bold" style={{ fontSize: `${9 * k}pt`, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {label.name}
-        </div>
-        {label.description && (
-          <div style={{ fontSize: `${6.5 * k}pt`, marginTop: `${0.4 * k}mm` }}>{label.description}</div>
+    <div
+      className="flex h-full w-full flex-col items-center overflow-hidden text-center text-black"
+      style={{ padding: `${m.pad}mm`, fontFamily: 'Arial, Helvetica, sans-serif', lineHeight: LINE_HEIGHT }}
+    >
+      <div className="w-full font-bold" style={{ fontSize: line(m.namePt), display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {label.name}
+      </div>
+      <div className="min-h-0 w-full flex-1 overflow-hidden">
+        {label.description && m.descLines > 0 && (
+          <div style={{ fontSize: line(m.descPt), marginTop: `${m.gap}mm`, display: '-webkit-box', WebkitLineClamp: m.descLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {label.description}
+          </div>
         )}
       </div>
-      <div className="flex items-end justify-between gap-[1mm]" style={{ marginTop: `${0.8 * k}mm` }}>
-        <div className="whitespace-nowrap font-bold" style={{ fontSize: `${11 * k}pt`, lineHeight: 1 }}>{formatMoney(label.price)}</div>
-        {label.code && <Barcode code={label.code} height={barH} maxWidth={width - 2 * pad - 18 * k} k={k} />}
-      </div>
+      {label.code && <Barcode code={label.code} height={m.barH} maxWidth={width - 2 * m.pad} textPt={m.codePt} />}
+      <div className="whitespace-nowrap font-bold" style={{ fontSize: line(m.pricePt), lineHeight: 1, marginTop: `${m.gap}mm` }}>{formatMoney(label.price)}</div>
     </div>
   )
 }
 
-function Barcode({ code, height, maxWidth, k }: { code: string; height: number; maxWidth: number; k: number }) {
+function Barcode({ code, height, maxWidth, textPt }: { code: string; height: number; maxWidth: number; textPt: number }) {
   const bars = code128Bars(code)
-  if (!bars) return <div style={{ fontSize: `${7 * k}pt` }}>{code}</div>
+  if (!bars) return <div style={{ fontSize: `${Math.max(textPt, 6)}pt` }}>{code}</div>
   const quiet = 6
   const total = bars.total + quiet * 2
   // About 0.33 mm a module reads well on any scanner; narrower only when the label is small.
   const width = Math.min(maxWidth, total * 0.33)
   return (
-    <div className="flex flex-col items-center" style={{ width: `${width}mm` }}>
+    <div className="flex shrink-0 flex-col items-center" style={{ width: `${width}mm` }}>
       <svg viewBox={`0 0 ${total} 10`} preserveAspectRatio="none" style={{ width: `${width}mm`, height: `${height}mm`, display: 'block' }} shapeRendering="crispEdges" aria-label={code}>
         {bars.bars.map(([x, w], i) => <rect key={i} x={x + quiet} y={0} width={w} height={10} fill="#000" />)}
       </svg>
-      <div style={{ fontSize: `${6 * k}pt`, lineHeight: 1.1, letterSpacing: '0.04em', marginTop: `${0.4 * k}mm` }}>{code}</div>
+      {textPt > 0 && <div style={{ fontSize: `${textPt}pt`, lineHeight: 1.1, letterSpacing: '0.04em', marginTop: '0.3mm' }}>{code}</div>}
     </div>
   )
 }
