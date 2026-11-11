@@ -209,6 +209,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
                       details: e.details,
                       product_name: e.delivery_item_id ? itemName.get(e.delivery_item_id) : null,
                       store_name: e.store_id ? storeName.get(e.store_id) : null,
+                      store_names: storeName,
                     })}
                   </span>
                 </li>

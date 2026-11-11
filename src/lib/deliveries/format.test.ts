@@ -51,6 +51,8 @@ describe('eventText', () => {
     expect(eventText({ type: 'ready', qty: 6, details: { auto: true }, product_name: 'Чай', store_name: 'Варна' })).toBe('Готови без етикет 6 бр. „Чай“ за Варна')
     expect(eventText({ type: 'signal_raised', qty: 8, details: { step: 'receive', reason: 'short', qty_expected: 10, qty_actual: 8 }, product_name: 'Крем' }))
       .toBe('Не е наред при получаване: По-малко „Крем“ (очаквани 10, реално 8)')
+    expect(eventText({ type: 'plan_changed', qty: null, details: { before: { a: 20 }, after: { a: 0, b: 10 } }, product_name: 'Крем', store_names: new Map([['a', 'Пловдив'], ['b', 'Ботев']]) }))
+      .toBe('Променено разпределение на „Крем“: Пловдив 20 → 0, Ботев 0 → 10')
     expect(eventText({ type: 'cancelled', qty: null, details: { reason: 'грешка' } })).toBe('Отказана: грешка')
     expect(eventText({ type: 'labelled', qty: 20, details: {}, product_name: 'Крем' })).toBe('Етикетирани 20 бр. „Крем“')
     expect(eventText({ type: 'ready', qty: 10, details: { auto: 'label' }, product_name: 'Крем', store_name: 'Ботев' })).toBe('Готови 10 бр. „Крем“ за Ботев')
