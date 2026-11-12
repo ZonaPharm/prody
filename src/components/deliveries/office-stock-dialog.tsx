@@ -10,6 +10,7 @@ import { officeStockText, type OfficeStockRow } from '@/lib/deliveries/office'
 import { formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import { postJson } from './checklist-ui'
 import { ProductThumb } from './product-picker'
+import { Hint, Note } from '@/components/ui/text'
 
 export type StoreChoice = { id: string; name: string }
 
@@ -132,26 +133,24 @@ function OfficeStockDialog({ tripId, stores, store, packed, onClose }: {
 
         {done ? (
           <div className="space-y-3 text-sm">
-            <p>
+            <Note tone="success">
               Добавени {done.units} бр. в пратка {formatShipmentNumber(done.shipment_number)} за {storeName}
               {done.new_trip ? `, нов курс ${formatTripNumber(done.trip_number)}` : ''}.
-            </p>
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-900">
-              {done.reopened
-                ? 'Пратката беше опакована, затова е отворена отново: сложете новото в кашона, после „Опаковай“ и подпишете пак.'
-                : 'Сложете го в кашона и при „Опаковай“ го отметнете като останалото.'}
-            </p>
+            </Note>
+            {done.reopened
+              ? <Note tone="warn">Пратката беше опакована, затова е отворена отново: сложете новото в кашона, после „Опаковай“ и подпишете пак.</Note>
+              : <Hint>Сложете го в кашона и при „Опаковай“ го отметнете като останалото.</Hint>}
             <div className="flex justify-end"><Button onClick={onClose}>Готово</Button></div>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
+            <Note small>
               Стока, която вече е в Офис, без доставка. Тръгва с курса и излиза от Офис, когато шофьорът подпише. Магазинът я приема с пратката.
-            </p>
+            </Note>
             {packed && (
-              <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <Note tone="warn">
                 Пратката вече е опакована. След добавянето тя се отваря отново и трябва да се опакова и подпише пак.
-              </p>
+              </Note>
             )}
 
             {!store && (
@@ -239,7 +238,7 @@ function OfficeStockDialog({ tripId, stores, store, packed, onClose }: {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {disabledReason && <span className="mr-auto text-xs text-muted-foreground">{disabledReason}</span>}
+              {disabledReason && <Hint small className="mr-auto">{disabledReason}</Hint>}
               <Button variant="ghost" onClick={onClose}>Назад</Button>
               <Button onClick={save} disabled={!!disabledReason || busy}>
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackagePlus className="mr-2 h-4 w-4" />}

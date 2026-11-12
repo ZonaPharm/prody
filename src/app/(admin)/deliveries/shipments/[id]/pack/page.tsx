@@ -8,6 +8,7 @@ import { formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { ShipmentChecklist } from '@/components/deliveries/shipment-checklist'
+import { PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,15 +23,11 @@ export default async function PackShipmentPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-4 max-w-5xl">
-      <div className="flex items-start gap-3">
-        <Button asChild variant="ghost" size="icon"><Link href={`/deliveries/trips/${shipment.trip_id}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-        <div>
-          <h1 className="text-2xl font-bold">Опаковане · {shipment.store_name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Пратка {formatShipmentNumber(shipment.number)} в курс {formatTripNumber(shipment.trip_number)}. Отметнете всеки ред, който е в кашоните. Ако нещо липсва или е повредено, „Не е наред“.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href={`/deliveries/trips/${shipment.trip_id}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={<>Опаковане · {shipment.store_name}</>}
+        intro={<>Пратка {formatShipmentNumber(shipment.number)} в курс {formatTripNumber(shipment.trip_number)}. Отметнете всеки ред, който е в кашоните. Ако нещо липсва или е повредено, „Не е наред“.</>}
+      />
       <ShipmentChecklist
         mode="pack"
         shipmentId={shipment.id}
