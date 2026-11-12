@@ -154,7 +154,8 @@ export function buildLabelBody(rows: LabelRow[], state: Record<string, RowState>
 // Packing one shipment
 // ---------------------------------------------------------------------------
 
-export type PackRow = { line_id: string; qty: number }
+/** office: a line of Office stock (no delivery): packing less only lowers it, no signal. */
+export type PackRow = { line_id: string; qty: number; office?: boolean }
 
 export type PackBody = {
   lines: { line_id: string; qty: number }[]
@@ -173,7 +174,7 @@ export function buildPackBody(rows: PackRow[], state: Record<string, RowState>):
       continue
     }
     body.lines.push({ line_id: row.line_id, qty })
-    const sig = s?.problem ? signalFor(s.problem, row.qty) : null
+    const sig = s?.problem && !row.office ? signalFor(s.problem, row.qty) : null
     if (sig) body.signals.push({ line_id: row.line_id, ...sig })
   }
   return { body, missing }

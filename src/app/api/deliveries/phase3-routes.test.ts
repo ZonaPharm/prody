@@ -63,6 +63,7 @@ import { POST as packPOST } from './shipments/[id]/pack/route'
 import { POST as tripAddPOST } from './trips/[id]/add/route'
 import { POST as removePOST } from './shipments/[id]/remove/route'
 import { POST as reopenPOST } from './shipments/[id]/reopen/route'
+import { POST as officePOST } from './trips/office/route'
 import { POST as resolvePOST } from './signals/[id]/resolve/route'
 import { POST as confirmPOST } from '../shipments/[id]/confirm/route'
 
@@ -158,6 +159,28 @@ describe('phase 3 delivery routes', () => {
       expect(res.status).toBe(200)
       expect(mocks.adminRpc).toHaveBeenCalledWith('add_to_trip', { p_trip_id: TRIP, p_user: ADMIN.id, p_store_ids: [STORE] })
       expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'trip_changed', details: 'К-000012: добавени 7 бр.' }), expect.anything())
+    })
+
+    it('"Добави от Офис": checks the body, calls add_office_stock, returns the touched shipment', async () => {
+      const PROD = '99999999-9999-4999-8999-999999999999'
+      mocks.adminRpc.mockResolvedValue({
+        data: { trip_id: TRIP, trip_number: 12, new_trip: false, shipment_id: SHIP, shipment_number: 45, reopened: true, units: 3 },
+        error: null,
+      })
+      expect((await officePOST(req({ store_id: STORE, lines: [] }))).status).toBe(400)
+      expect((await officePOST(req({ store_id: STORE, lines: [{ product_id: PROD, qty: 1 }, { product_id: PROD, qty: 2 }] }))).status).toBe(400)
+      const res = await officePOST(req({ trip_id: TRIP, store_id: STORE, lines: [{ product_id: PROD, qty: 3 }] }))
+      expect(res.status).toBe(200)
+      expect((await res.json()).shipment_ids).toEqual([SHIP])
+      expect(mocks.adminRpc).toHaveBeenCalledWith('add_office_stock', {
+        p_trip_id: TRIP, p_store_id: STORE, p_user: ADMIN.id, p_lines: [{ product_id: PROD, qty: 3 }],
+      })
+      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({
+        action: 'trip_changed', details: 'К-000012, П-000045: от Офис 3 бр., пратката е отворена за ново опаковане',
+      }), expect.anything())
+      // No trip: a new one.
+      await officePOST(req({ store_id: STORE, lines: [{ product_id: PROD, qty: 1 }] }))
+      expect(mocks.adminRpc).toHaveBeenLastCalledWith('add_office_stock', expect.objectContaining({ p_trip_id: null }))
     })
 
     it('removing a store from the trip needs a reason', async () => {

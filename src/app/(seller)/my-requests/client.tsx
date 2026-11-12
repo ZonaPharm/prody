@@ -9,9 +9,12 @@ import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package, T
 import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
+import { NOT_REQUESTABLE_TEXT, type NotRequestable } from '@/lib/requests/office-stock'
 
 interface Product {
-  id: string; name: string; price: number | null; quantity_on_hand: number; category_id?: string | null
+  id: string; name: string; price: number | null; category_id?: string | null
+  /** Free in Офис: the most this store can ask for now. */
+  office_qty: number
 }
 
 interface MyRequest {
@@ -23,17 +26,22 @@ interface MyRequest {
 interface LowStockItem {
   id: string; name: string; price: number | null
   category: string | null; min_quantity: number; current_qty: number
+  office_qty: number; office_reason: string | null
 }
 
 interface Props {
+  /** Only what Офис can send now. */
   products: Product[]
+  /** The rest of the active catalog: named with the reason when searched for. */
+  unavailable?: { id: string; name: string; why: NotRequestable }[]
+  /** Офис stock could not be read: nothing can be asked for right now. */
+  officeFailed?: boolean
   categories: { id: string; name: string }[]
   imageMap: Record<string, string>
   myRequests: MyRequest[]
   activeTab: string
   storeId: string | null | undefined
   lowStockItems: LowStockItem[]
-  lowStockAllProducts: any[]
   lowStockImageMap: Record<string, string>
   /** Opens the request form with this product already in the basket. */
   initialProductId?: string
@@ -60,7 +68,7 @@ const TABS = [
   { key: 'low', label: 'Ниски наличности' },
 ]
 
-export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap, initialProductId, incoming = {} }: Props) {
+export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockImageMap, initialProductId, incoming = {}, unavailable = [], officeFailed = false }: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const [tab, setTab] = useState(activeTab)
@@ -117,18 +125,32 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     if (selectedCategory && p.category_id !== selectedCategory) return false
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false
     return true
-  }).sort((a, b) => (a.quantity_on_hand || 0) - (b.quantity_on_hand || 0)).slice(0, 100)
+  }).slice(0, 100)
+
+  // Searched for something Офис cannot send: say so and why, instead of nothing.
+  const q = search.trim().toLowerCase()
+  const blocked = q.length >= 2 ? unavailable.filter(p => p.name.toLowerCase().includes(q)).slice(0, 6) : []
+  const presetBlocked = initialProductId && !products.some(p => p.id === initialProductId)
+    ? unavailable.find(p => p.id === initialProductId)
+    : undefined
+
+  const tooMany = (p: Product) =>
+    toast({ title: `В Офис има ${p.office_qty} бр. от „${p.name}“`, description: 'Толкова е най-много, което може да се заяви сега.' })
 
   const addToBasket = (product: Product) => {
+    const existing = basket.find(i => i.product.id === product.id)
+    if (existing && existing.qty >= product.office_qty) { tooMany(product); return }
     setBasket(prev => {
       const existing = prev.find(i => i.product.id === product.id)
-      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
+      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: Math.min(i.qty + 1, product.office_qty) } : i)
       return [...prev, { product, qty: 1 }]
     })
   }
 
   const updateQty = (productId: string, qty: number) => {
     if (qty <= 0) { setBasket(prev => prev.filter(i => i.product.id !== productId)); return }
+    const item = basket.find(i => i.product.id === productId)
+    if (item && qty > item.product.office_qty) { tooMany(item.product); return }
     setBasket(prev => prev.map(i => i.product.id === productId ? { ...i, qty } : i))
   }
 
@@ -187,7 +209,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
+                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'} · в Офис {item.product.office_qty} бр.
                           </p>
                           {incoming[item.product.id] && (
                             <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
@@ -200,6 +222,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                             onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
                           <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
                           <Button variant="outline" size="icon" className="h-9 w-9 lg:h-7 lg:w-7"
+                            disabled={item.qty >= item.product.office_qty}
                             onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
                         </div>
                         <Button variant="ghost" size="icon" className="h-9 w-9 lg:h-7 lg:w-7 text-red-400 hover:text-red-600"
@@ -242,6 +265,26 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
               </div>
             )}
 
+            <p className="mb-3 text-sm text-muted-foreground">
+              Тук са само продуктите, които Офис може да изпрати сега. Броят е колко има свободни в Офис.
+            </p>
+
+            {officeFailed && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 mb-4">
+                Не успяхме да прочетем наличността в Офис. Опитайте пак след малко.
+              </div>
+            )}
+
+            {presetBlocked && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <b>{presetBlocked.name}</b> не може да се заяви: {NOT_REQUESTABLE_TEXT[presetBlocked.why].toLowerCase()}.
+                  {incoming[presetBlocked.id] ? ` ${incoming[presetBlocked.id]}` : ''}
+                </span>
+              </div>
+            )}
+
             {/* Category pills */}
             <div className="flex gap-2 overflow-x-auto pb-1 mb-3">
               <Button
@@ -269,10 +312,32 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                 onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
 
+            {/* Not requestable: named with the reason, so nobody hunts for it. */}
+            {blocked.length > 0 && (
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Не може да се заяви сега</p>
+                <ul className="space-y-1">
+                  {blocked.map(p => (
+                    <li key={p.id} className="text-sm">
+                      <span className="font-medium">{p.name}</span>
+                      <span className="text-muted-foreground"> · {NOT_REQUESTABLE_TEXT[p.why]}</span>
+                      {incoming[p.id] && (
+                        <span className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                          <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Product grid */}
             {filteredProducts.length === 0 ? (
               <p className="text-muted-foreground text-center py-12">
-                {search ? `Няма съвпадения за "${search}"` : 'Няма продукти'}
+                {search
+                  ? (blocked.length > 0 ? 'Няма други съвпадения, които Офис може да изпрати.' : `Няма съвпадения за "${search}"`)
+                  : products.length === 0 ? 'В момента Офис няма стока, която може да се заяви.' : 'Няма продукти в тази категория'}
               </p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
@@ -302,7 +367,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                           {p.price != null ? `${p.price.toFixed(2)} €` : '—'}
                         </span>
                         <span className="text-xs text-muted-foreground tabular-nums">
-                          {p.quantity_on_hand} бр.
+                          в Офис {p.office_qty}
                         </span>
                       </div>
                       {incoming[p.id] && (
@@ -450,12 +515,23 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                     <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm' : 'text-amber-600 font-bold text-sm'}>
                       {p.current_qty} бр.
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setBasket([{ product: { id: p.id, name: p.name, price: p.price, quantity_on_hand: p.current_qty }, qty: p.min_quantity || 5 }])
-                      switchTab('request')
-                    }}>
-                      Заяви
-                    </Button>
+                    {p.office_qty > 0 ? (
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const product = products.find(x => x.id === p.id)
+                          ?? { id: p.id, name: p.name, price: p.price, office_qty: p.office_qty }
+                        setBasket(prev => [
+                          ...prev.filter(i => i.product.id !== p.id),
+                          { product, qty: Math.max(1, Math.min(p.min_quantity || 5, product.office_qty)) },
+                        ])
+                        switchTab('request')
+                      }}>
+                        Заяви
+                      </Button>
+                    ) : (
+                      <span className="max-w-[9rem] text-right text-[11px] leading-tight text-muted-foreground">
+                        {p.office_reason ?? 'Няма го в Офис'}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

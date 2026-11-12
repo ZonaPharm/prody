@@ -60,3 +60,28 @@ export async function shipmentProducts(supabase: any, ids: string[]): Promise<Ma
   }
   return out
 }
+
+/** A shipment for the store that is still in Офис: being packed, or packed and waiting for the driver. */
+export type UpcomingShipment = { id: string; number: number; status: 'packing' | 'packed'; units: number }
+
+/**
+ * What Офис is already preparing for the store, so the sellers know it is coming
+ * (and do not request it again) before the driver leaves. Seller's own session:
+ * RLS gives only their store.
+ */
+export async function upcomingShipments(supabase: any, storeId: string): Promise<UpcomingShipment[]> {
+  const { data, error } = await supabase
+    .from('shipments')
+    .select('id, number, status, lines:shipment_lines!shipment_lines_shipment_id_fkey(qty)')
+    .eq('store_id', storeId)
+    .in('status', ['packing', 'packed'])
+    .order('number', { ascending: false })
+    .limit(20)
+  if (error) throw error
+  return ((data ?? []) as any[]).map(r => ({
+    id: r.id,
+    number: r.number,
+    status: r.status,
+    units: (r.lines ?? []).reduce((n: number, l: any) => n + l.qty, 0),
+  }))
+}
