@@ -21,6 +21,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RestockForm } from '@/components/inventory/restock-form'
 import { Loader2, Upload, Star, ScanBarcode } from 'lucide-react'
 import { factoryBarcodeProblem, normalizeCode } from '@/lib/barcodes'
+import { labelKindOf, type LabelKind } from '@/lib/label-kind'
+import { LabelKindSelect } from '@/components/deliveries/label-kind-select'
 
 type CategoryOption = { id: string; name: string }
 
@@ -35,6 +37,8 @@ interface ProductFormProps {
     barcode?: string | null
     internal_barcode?: string | null
     small_item?: boolean | null
+    label_kind?: string | null
+    needs_label?: boolean | null
     category_id?: string | null
     source?: string | null
     source_url?: string | null
@@ -80,6 +84,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   )
   const [barcode, setBarcode] = useState(initialData?.barcode || '')
   const [smallItem, setSmallItem] = useState(Boolean(initialData?.small_item))
+  const [labelKind, setLabelKind] = useState<LabelKind>(initialData ? labelKindOf(initialData) : 'full')
   const barcodeProblem = factoryBarcodeProblem(barcode)
 
   const [files, setFiles] = useState<File[]>([])
@@ -187,6 +192,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         // The internal code is the database's; only the factory barcode is ours to set.
         barcode: normalizeCode(barcode) || null,
         small_item: smallItem,
+        // The database derives needs_label from label_kind (migration
+        // 20261112_product_label_kind); needs_label is sent too for a database without it.
+        label_kind: labelKind,
+        needs_label: labelKind === 'full',
         wp_title: wpTitle.trim() || null,
         wp_short_description: wpShortDescription.trim() || null,
         wp_description: wpDescription.trim() || null,
@@ -197,10 +206,6 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         wp_category_ids: wpCategoryIds.length > 0 ? wpCategoryIds : null,
       }
 
-      // A small product has no room for a label: it goes on the barcode card at the
-      // till instead, so it does not wait in "Етикетиране". Set when the box is ticked.
-      if (smallItem && !initialData?.small_item) payload.needs_label = false
-
       // Only set quantity_on_hand for new products; edits go through inventory system
       if (!isEdit) {
         payload.quantity_on_hand = quantityOnHand ? parseInt(quantityOnHand, 10) : 0
@@ -208,22 +213,29 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
       let productId: string
 
+      // Until migration 20261112_product_label_kind runs, the database has no
+      // label_kind: save without it rather than not at all.
+      const withoutMissingLabelKind = (error: { code?: string; message?: string } | null) => {
+        if (error?.code === 'PGRST204' && /label_kind/.test(error.message ?? '') && 'label_kind' in payload) {
+          delete payload.label_kind
+          return true
+        }
+        return false
+      }
+
       if (initialData?.id) {
-        const { error } = await (supabase
-          .from('products') as any)
-          .update(payload)
-          .eq('id', initialData.id)
+        const update = () => (supabase.from('products') as any).update(payload).eq('id', initialData.id)
+        let { error } = await update()
+        if (withoutMissingLabelKind(error)) ({ error } = await update())
 
         if (error) throw error
         productId = initialData.id
         // Audit: update product
         supabase.from('audit_logs').insert({ type: 'action', action: 'update_product', details: payload.name, entity_id: productId } as any).then(() => {})
       } else {
-        const { data, error } = await (supabase
-          .from('products') as any)
-          .insert(payload)
-          .select('id')
-          .single()
+        const insert = () => (supabase.from('products') as any).insert(payload).select('id').single()
+        let { data, error } = await insert()
+        if (withoutMissingLabelKind(error)) ({ data, error } = await insert())
 
         if (error) throw error
         productId = data.id
@@ -482,7 +494,15 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           </div>
         </div>
         <label className="flex items-start gap-3 cursor-pointer">
-          <Checkbox checked={smallItem} onCheckedChange={(v) => setSmallItem(v === true)} className="mt-0.5" />
+          <Checkbox
+            checked={smallItem}
+            onCheckedChange={(v) => {
+              setSmallItem(v === true)
+              // No room for a label: it goes on the barcode card instead of "Етикетиране".
+              if (v === true) setLabelKind('none')
+            }}
+            className="mt-0.5"
+          />
           <span>
             <span className="text-sm font-medium">Малък продукт, няма място за етикет</span>
             <span className="block text-xs text-muted-foreground">
@@ -490,6 +510,15 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             </span>
           </span>
         </label>
+        <div className="space-y-2">
+          <Label>Етикет</Label>
+          <LabelKindSelect id="label_kind" value={labelKind} onChange={setLabelKind} />
+          {smallItem && labelKind === 'full' && (
+            <p className="text-xs text-amber-700">
+              Малък продукт обикновено е „Готов“: няма място за етикет и се сканира от картата на касата.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Row 4: Source, Source URL — 2 cols */}
