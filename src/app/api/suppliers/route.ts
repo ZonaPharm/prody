@@ -4,13 +4,13 @@ import { logAction } from '@/lib/audit'
 import { deliveriesGate, parseBody } from '@/lib/deliveries/api'
 import { supplierCreateSchema } from '@/lib/deliveries/schemas'
 
-/** Suppliers belong to the deliveries feature: same gate (admins, switch on). */
+/** Suppliers belong to the deliveries feature: same gate (admins, switch on). '*': the order contact columns come with migration 20261112_supplier_orders. */
 export async function GET() {
   const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const { data, error } = await (gate.supabase.from('suppliers') as any)
-    .select('id, name, is_active, notes, created_at')
+    .select('*')
     .order('name')
     .limit(1000)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const { data, error } = await (admin.from('suppliers') as any)
     .insert({ name: body.data.name.replace(/\s+/g, ' '), notes: body.data.notes ?? null })
-    .select('id, name, is_active, notes, created_at')
+    .select('*')
     .single()
   if (error) {
     if (error.code === '23505') return NextResponse.json({ error: 'Вече има доставчик с това име' }, { status: 400 })

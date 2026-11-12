@@ -6,7 +6,7 @@ import { DeliveriesList } from '@/components/deliveries/deliveries-list'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { countOpenProblems } from '@/lib/deliveries/work'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, Send } from 'lucide-react'
 import { PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +27,10 @@ export default async function DeliveriesPage({ searchParams }: { searchParams: P
       <PageHeader
         title="Доставки"
         intro="Стоката от доставчиците: въвеждане, получаване в Офис и дневник."
-        actions={<Button asChild><Link href="/deliveries/new"><Plus className="mr-2 h-4 w-4" />Нова доставка</Link></Button>}
+        actions={<>
+          <Button asChild variant="outline"><Link href="/deliveries/orders/new"><Send className="mr-2 h-4 w-4" />Поръчай от доставчик</Link></Button>
+          <Button asChild><Link href="/deliveries/new"><Plus className="mr-2 h-4 w-4" />Нова доставка</Link></Button>
+        </>}
       />
       <DeliveriesList rows={rows} filter={filter} />
     </div>

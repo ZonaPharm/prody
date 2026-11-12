@@ -32,7 +32,11 @@ import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
-import { Hint, Note, PageHeader } from '@/components/ui/text'
+import { Hint, Note, PageHeader, SectionTitle } from '@/components/ui/text'
+import { compareWithOrder, diffSentence, formatOrderNumber, type OrderedLine } from '@/lib/supplier-orders/format'
+
+/** The order this draft delivery was made from ("Пристигна"), to check what came against it. */
+export type FromOrder = { id: string; number: number; lines: OrderedLine[] }
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Option = { id: string; name: string }
@@ -71,11 +75,13 @@ export function DeliveryEditor({
   stores,
   suppliers: initialSuppliers,
   categories,
+  fromOrder = null,
 }: {
   initial: DraftInitial | null
   stores: StoreOption[]
   suppliers: SupplierOption[]
   categories: Option[]
+  fromOrder?: FromOrder | null
 }) {
   const router = useRouter()
   const warehouse = stores.find(s => s.is_warehouse)
@@ -87,6 +93,13 @@ export function DeliveryEditor({
   const [header, setHeader] = useState<DraftHeaderState>(initial?.header ?? { order_ref: '', notes: '' })
   const [lines, setLines] = useState<DraftLineState[]>(initial?.lines ?? [])
   const [suppliers, setSuppliers] = useState<SupplierOption[]>(initialSuppliers)
+  const orderedQty = useMemo(() => new Map((fromOrder?.lines ?? []).map(o => [o.product_id, o.quantity])), [fromOrder])
+  const orderDiff = useMemo(
+    () => fromOrder
+      ? compareWithOrder(fromOrder.lines, lines.map(l => ({ product_id: l.product.id, name: l.product.name, quantity: parseQty(l.quantity) ?? 0 })))
+      : null,
+    [fromOrder, lines],
+  )
   const [defaultSupplier, setDefaultSupplier] = useState<string | null>(null)
   const [defaultDoc, setDefaultDoc] = useState('')
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
@@ -387,6 +400,26 @@ export function DeliveryEditor({
         </div>
       </section>
 
+      {fromOrder && orderDiff && (
+        <section className="space-y-2 rounded-lg border bg-white p-4" aria-label="Сверете с фактурата">
+          <SectionTitle>
+            От поръчка <Link className="underline" href={`/deliveries/orders/${fromOrder.id}`}>{formatOrderNumber(fromOrder.number)}</Link>: сверете с фактурата
+          </SectionTitle>
+          <Note tone={orderDiff.same ? 'success' : 'warn'}>
+            {diffSentence(orderDiff)}
+            {orderDiff.missing.length > 0 && (
+              <span className="block text-xs">Не са в доставката: {orderDiff.missing.map(m => `${m.name} (${m.quantity} бр.)`).join(', ')}</span>
+            )}
+          </Note>
+          <ol className="list-decimal space-y-0.5 pl-5 text-sm text-sky-800 marker:text-sky-500">
+            <li>Поправете бройките, които са дошли различно (до всеки ред пише колко сме поръчали).</li>
+            <li>Махнете с кошчето каквото не е дошло.</li>
+            <li>Добавете дошлото извън поръчката: търсене, „Каталог“ или „Нов продукт“ отдолу.</li>
+            <li>Сложете цените и номера от фактурата, разпределете по магазини и запазете.</li>
+          </ol>
+        </section>
+      )}
+
       <section className="rounded-lg border bg-white">
         <div className="divide-y">
           {lines.map((l, idx) => {
@@ -419,6 +452,19 @@ export function DeliveryEditor({
                       {l.product.status !== 'active' && <span className="ml-1 text-amber-700">(неактивен)</span>}
                       {dup && <span className="ml-1 text-amber-700">· продуктът е на повече от един ред</span>}
                     </div>
+                    {fromOrder && (() => {
+                      const ordered = orderedQty.get(l.product.id)
+                      if (ordered == null) return <div className="text-xs font-medium text-blue-800">извън поръчката</div>
+                      const came = orderDiff?.changed.find(c => c.product_id === l.product.id)
+                      return (
+                        <div className={cn('text-xs font-medium', came ? 'text-amber-700' : 'text-slate-600')}>
+                          поръчани: {ordered} бр.{came ? ` · дошли общо ${came.came}` : ''}
+                        </div>
+                      )
+                    })()}
+                    {fromOrder && cost === 0 && (
+                      <div className="text-xs text-amber-700">Цената е 0: сложете я от фактурата</div>
+                    )}
                     {missing.length > 0 && (
                       <div className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-amber-700">
                         <AlertTriangle className="h-3 w-3" aria-hidden />Попълнете: {missing.join(', ')}
