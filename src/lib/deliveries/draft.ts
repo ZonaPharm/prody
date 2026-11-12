@@ -1,3 +1,5 @@
+import type { LabelKind } from '@/lib/label-kind'
+
 /**
  * The entry screen's state and how it becomes the body of an autosave.
  * Numbers are kept as the typed text until a save, so a half-typed "12," is
@@ -21,7 +23,9 @@ export type DraftLineState = {
   pack_size: string
   unit_cost: string
   needs_label: boolean
-  /** Set when the person changed "Без етикет" on this screen; only then is it written to the product. */
+  /** "Етикет" of the product: Пълен етикет / Само цена / Готов. */
+  label_kind: LabelKind
+  /** Set when the person changed "Етикет" on this screen; only then is it written to the product. */
   label_changed?: boolean
   plan: Record<string, string>
 }
@@ -84,6 +88,7 @@ export function toDraftPayload(header: DraftHeaderState, lines: DraftLineState[]
       // Sent only when changed here, so an autosave never overwrites a value
       // someone else set on the product meanwhile.
       needs_label: l.label_changed ? l.needs_label : null,
+      label_kind: l.label_changed ? l.label_kind : null,
       plan: planOf(l),
     })),
   }

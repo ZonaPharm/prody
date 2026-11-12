@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { LABEL_KIND_LABEL } from '@/lib/label-kind'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -127,7 +128,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
                     <div className="text-xs text-muted-foreground">
                       {[
                         i.product_sku,
-                        i.needs_label ? 'с етикет' : 'без етикет',
+                        LABEL_KIND_LABEL[i.label_kind].toLowerCase(),
                         i.supplier_name,
                         i.doc_number ? `Ф-ра ${i.doc_number}` : null,
                         `${formatQtyWithPacks(i.quantity, i.pack_size)} × ${formatMoney(i.unit_cost)}`,

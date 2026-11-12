@@ -31,6 +31,7 @@ export default async function ReceiveDeliveryPage({ params }: { params: Promise<
       received_qty: i.received_qty,
       remaining: i.quantity - i.received_qty,
       needs_label: i.needs_label,
+      label_kind: i.label_kind,
     }))
 
   return <ReceiveChecklist deliveryId={delivery.id} number={delivery.number} rows={rows} userName={user.display_name} />

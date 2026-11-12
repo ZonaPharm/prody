@@ -38,3 +38,14 @@ describe('Office stock for "Добави от Офис"', () => {
     expect(officeAddSchema.safeParse({ store_id: A, lines: [{ product_id: B, qty: 1 }, { product_id: B, qty: 2 }] }).success).toBe(false)
   })
 })
+
+import { labelKindOf } from '@/lib/label-kind'
+
+describe('label kind of a product', () => {
+  it('reads label_kind; before the column existed, from needs_label', () => {
+    expect(labelKindOf({ label_kind: 'price', needs_label: false })).toBe('price')
+    expect(labelKindOf({ needs_label: false })).toBe('none')
+    expect(labelKindOf({ needs_label: true })).toBe('full')
+    expect(labelKindOf({})).toBe('full')
+  })
+})

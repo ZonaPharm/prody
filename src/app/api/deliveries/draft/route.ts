@@ -17,6 +17,18 @@ export async function POST(request: Request) {
   const { id, expected_updated_at, draft } = body.data
 
   const admin = createAdminClient()
+
+  // "Етикет" belongs to the product: written before the draft, so the draft's
+  // needs_label (derived from it in the database) is left alone.
+  const kinds = new Map<string, string>()
+  for (const i of draft.items) if (i.label_kind) kinds.set(i.product_id, i.label_kind)
+  for (const kind of new Set(kinds.values())) {
+    const ids = [...kinds].filter(([, k]) => k === kind).map(([p]) => p)
+    // A draft has at most a few hundred products, changed ones far fewer: a short .in().
+    const { error: e } = await (admin.from('products') as any).update({ label_kind: kind }).in('id', ids).neq('label_kind', kind)
+    if (e) return rpcFailure('products.label_kind', e, 'Етикетът на продукта не можа да се запази')
+  }
+
   const { data, error } = await (admin as any).rpc('save_delivery_draft', {
     p_delivery_id: id ?? null,
     p_user: gate.user.id,
@@ -33,7 +45,7 @@ export async function POST(request: Request) {
         pack_size: i.pack_size,
         quantity: i.quantity,
         unit_cost: i.unit_cost,
-        needs_label: i.needs_label ?? null,
+        needs_label: i.label_kind ? null : (i.needs_label ?? null),
         plan: i.plan,
       })),
     },
