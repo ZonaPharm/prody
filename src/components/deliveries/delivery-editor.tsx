@@ -502,7 +502,7 @@ export function DeliveryEditor({
         )}
       </section>
 
-      <div className="fixed bottom-0 left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
+      <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
         <div className="max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="text-sm tabular-nums">
             <span className="font-medium">{totals.lines}</span> реда · <span className="font-medium">{totals.units}</span> бр. · <span className="font-medium">{formatMoney(totals.value)}</span>

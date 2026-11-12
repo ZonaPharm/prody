@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search } from 'lucide-react'
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Всички' },
+  { value: 'all', label: 'Всички статуси' },
   { value: 'active', label: 'Активни' },
   { value: 'inactive', label: 'Неактивни' },
 ]
@@ -142,8 +142,8 @@ export default function ProductSearch({ categories, stores }: Props) {
   }, [])
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <div className="relative flex-1 min-w-[200px]">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <div className="relative sm:flex-1 sm:min-w-[200px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Търсене на продукти..."
@@ -152,8 +152,10 @@ export default function ProductSearch({ categories, stores }: Props) {
           className="pl-9"
         />
       </div>
+      {/* Filters: one row that scrolls sideways on a phone. */}
+      <div className="no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap">
       <Select value={status} onValueChange={(v) => { setStatus(v); updateParams({ status: v }) }}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[165px]">
           <SelectValue placeholder="Статус" />
         </SelectTrigger>
         <SelectContent>
@@ -163,7 +165,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); updateParams({ category: v }) }}>
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[180px]">
           <SelectValue placeholder="Категория" />
         </SelectTrigger>
         <SelectContent>
@@ -175,7 +177,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={storeId} onValueChange={(v) => { setStoreId(v); updateParams({ store: v }) }}>
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[150px]">
           <SelectValue placeholder="Обект" />
         </SelectTrigger>
         <SelectContent>
@@ -186,7 +188,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={hasImages} onValueChange={(v) => { setHasImages(v); updateParams({ hasImages: v }) }}>
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[150px]">
           <SelectValue placeholder="Снимки" />
         </SelectTrigger>
         <SelectContent>
@@ -196,14 +198,15 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={wp} onValueChange={(v) => { setWp(v); updateParams({ wp: v }) }}>
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[150px]">
           <SelectValue placeholder="Сайт" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Всички</SelectItem>
+          <SelectItem value="all">Сайт: всички</SelectItem>
           <SelectItem value="not_synced">Не е в сайта</SelectItem>
         </SelectContent>
       </Select>
+      </div>
     </div>
   )
 }

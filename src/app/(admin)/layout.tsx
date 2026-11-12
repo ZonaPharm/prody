@@ -36,7 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     : navItems
 
   return (
-    <AdminLayoutClient navItems={items}>
+    <AdminLayoutClient navItems={items} userName={user.display_name || user.email}>
       {children}
     </AdminLayoutClient>
   )

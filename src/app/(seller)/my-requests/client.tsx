@@ -71,6 +71,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     return preset ? [{ product: preset, qty: 1 }] : []
   })
   const [sending, setSending] = useState(false)
+  const [basketOpen, setBasketOpen] = useState(false)
   const [detail, setDetail] = useState<MyRequest | null>(null)
   const [events, setEvents] = useState<any[]>([])
   const [notes, setNotes] = useState<any[]>([])
@@ -178,15 +179,38 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     } catch { toast({ title: 'Грешка при потвърждаване', variant: 'destructive' }) }
   }
 
+  const basketQty = basket.reduce((s, i) => s + i.qty, 0)
+  const basketRows = basket.map(item => (
+                      <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border border-blue-100 bg-blue-50/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="icon" className="h-9 w-9 lg:h-7 lg:w-7"
+                            onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
+                          <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
+                          <Button variant="outline" size="icon" className="h-9 w-9 lg:h-7 lg:w-7"
+                            onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 lg:h-7 lg:w-7 text-red-400 hover:text-red-600"
+                          onClick={() => removeFromBasket(item.product.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Заявки</h1>
 
       {/* Tabs — button style */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="no-scrollbar flex gap-1 bg-slate-100 rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
         {TABS.map(t => (
           <button key={t.key} onClick={() => switchTab(t.key)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-4 py-2 sm:py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               tab === t.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}>
             {t.label}
@@ -204,7 +228,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       {tab === 'request' && (
         <div className="block">
           {/* Left: product grid with right margin for basket */}
-          <div className="mr-[382px]">
+          <div className="pb-16 lg:pb-0 lg:mr-[382px]">
             {!storeId && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
                 Нямате зададен магазин. Свържете се с администратор.
@@ -244,7 +268,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                 {search ? `Няма съвпадения за "${search}"` : 'Няма продукти'}
               </p>
             ) : (
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredProducts.map(p => {
                   const inBasket = basket.find(i => i.product.id === p.id)
                   return (
@@ -287,7 +311,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           </div>
 
           {/* Right: Request basket — same positioning as POS cart */}
-          <div className="hidden lg:block fixed right-8 top-16 bottom-4 w-[350px]">
+          <div className="hidden lg:block fixed right-6 top-6 bottom-6 w-[350px]">
             <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col h-full">
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl shrink-0">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
@@ -311,27 +335,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
               ) : (
                 <>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {basket.map(item => (
-                      <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border border-blue-100 bg-blue-50/30">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="outline" size="icon" className="h-7 w-7"
-                            onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
-                          <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
-                          <Button variant="outline" size="icon" className="h-7 w-7"
-                            onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600"
-                          onClick={() => removeFromBasket(item.product.id)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
+                    {basketRows}
                   </div>
                   <div className="p-4 border-t border-blue-100 shrink-0 space-y-3">
                     <div className="flex items-center justify-between text-sm">
@@ -346,6 +350,28 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                   </div>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* Phone: the basket is a bar above the tab bar; tap it to see and change the list. */}
+          <div className="lg:hidden fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-30 border-t bg-white/95 backdrop-blur shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+            {basketOpen && basket.length > 0 && (
+              <div className="max-h-[50vh] overflow-y-auto p-3 space-y-2 border-b">{basketRows}</div>
+            )}
+            <div className="flex items-center gap-3 px-4 py-2.5">
+              <button type="button" onClick={() => setBasketOpen(o => !o)} className="flex flex-1 items-center gap-2 min-w-0 text-left" disabled={basket.length === 0}>
+                <Send className="h-5 w-5 text-blue-700 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Заявка</span>
+                  <span className="block text-xs text-muted-foreground truncate">
+                    {basket.length === 0 ? 'празна' : `${basket.length} продукта · ${basketQty} бр. · ${basketOpen ? 'скрий' : 'виж'}`}
+                  </span>
+                </span>
+              </button>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={sendRequest} disabled={sending || !storeId || basket.length === 0}>
+                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Изпрати
+              </Button>
             </div>
           </div>
         </div>

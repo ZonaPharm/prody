@@ -171,7 +171,7 @@ export function SignBar({ userName, summary, statement, disabled, disabledReason
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
+      <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
         <div className="max-w-5xl flex flex-wrap items-center gap-3">
           <div className="text-sm">
             <div className="font-medium" suppressHydrationWarning>{userName} · {sofiaDateTime(now)}</div>

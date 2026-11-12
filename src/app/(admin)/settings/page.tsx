@@ -30,7 +30,7 @@ export default async function SettingsPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Настройки</h1>
       <Tabs defaultValue="categories">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="categories">Категории</TabsTrigger>
           <TabsTrigger value="stores">Магазини</TabsTrigger>
           {deliveries && <TabsTrigger value="suppliers">Доставчици</TabsTrigger>}

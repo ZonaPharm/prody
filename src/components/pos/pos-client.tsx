@@ -128,7 +128,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             outOfStock={outOfStock}
           />
         </div>
-        <div className="hidden lg:block fixed right-8 top-16 w-[380px]" style={{ maxHeight: 'calc(100vh - 5rem)', bottom: '1rem' }}>
+        <div className="hidden lg:block fixed right-6 top-6 bottom-6 w-[380px]">
           <CartSidebar
             items={cart.items}
             onAdd={handleAdd}
@@ -143,10 +143,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div
-        className="lg:hidden pb-16"
-        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
-      >
+      <div className="lg:hidden pb-16">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-bold">Запиши продажба</h1>
           {stores.length > 1 && (
@@ -169,10 +166,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           onAddToCart={handleAddToCart}
           outOfStock={outOfStock}
         />
-        <div
-          className="fixed bottom-0 left-0 right-0 z-30"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        >
+        <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 z-30">
           <CartBottomBar
             items={cart.items}
             onAdd={handleAdd}
