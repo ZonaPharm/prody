@@ -1,5 +1,7 @@
 'use client'
 
+import type { LabelKind } from '@/lib/label-kind'
+import { LabelKindSelect } from './label-kind-select'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -214,16 +216,16 @@ export function DeliveryEditor({
     touch()
   }
 
-  /** "Без етикет" belongs to the product, so every line of that product follows. */
-  function setNeedsLabel(productId: string, needs: boolean) {
-    setLines(prev => prev.map(l => (l.product.id === productId ? { ...l, needs_label: needs, label_changed: true } : l)))
+  /** "Етикет" belongs to the product, so every line of that product follows. */
+  function setLabelKind(productId: string, kind: LabelKind) {
+    setLines(prev => prev.map(l => (l.product.id === productId ? { ...l, label_kind: kind, needs_label: kind === 'full', label_changed: true } : l)))
     touch()
   }
 
   function addProducts(products: DeliveryProduct[]) {
     if (!products.length) return
-    // A product already on the draft keeps the "Без етикет" choice made there.
-    const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.needs_label]))
+    // A product already on the draft keeps the "Етикет" choice made there.
+    const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.label_kind]))
     const added: DraftLineState[] = products.map(p => ({
       key: newKey(),
       id: null,
@@ -233,7 +235,8 @@ export function DeliveryEditor({
       quantity: '',
       pack_size: p.suggested.pack_size > 1 ? String(p.suggested.pack_size) : '',
       unit_cost: p.suggested.unit_cost != null ? String(p.suggested.unit_cost).replace('.', ',') : '',
-      needs_label: changed.get(p.id) ?? p.needs_label,
+      label_kind: changed.get(p.id) ?? p.label_kind,
+      needs_label: (changed.get(p.id) ?? p.label_kind) === 'full',
       label_changed: changed.has(p.id),
       plan: {},
     }))
@@ -410,9 +413,8 @@ export function DeliveryEditor({
                         {dup && <span className="ml-1 text-amber-700">· продуктът е на повече от един ред</span>}
                       </div>
                       <label className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-600">
-                        <input type="checkbox" className="h-3.5 w-3.5" checked={!l.needs_label} disabled={fatal}
-                          onChange={e => setNeedsLabel(l.product.id, !e.target.checked)} />
-                        Без етикет
+                        Етикет
+                        <LabelKindSelect compact value={l.label_kind} disabled={fatal} onChange={k => setLabelKind(l.product.id, k)} />
                       </label>
                     </div>
                     <div className="flex flex-wrap items-end gap-2">

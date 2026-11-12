@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const body = await parseBody(request, newProductSchema)
   if (!body.ok) return body.response
-  const { name, price, category_id, supplier_id, needs_label } = body.data
+  const { name, price, category_id, supplier_id, needs_label, label_kind } = body.data
 
   let source: string | null = null
   if (supplier_id) {
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       quantity_on_hand: 0,
       min_quantity: 5,
       needs_label,
+      ...(label_kind ? { label_kind } : {}),
     })
     .select(PRODUCT_COLUMNS)
     .single()

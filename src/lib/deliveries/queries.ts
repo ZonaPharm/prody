@@ -1,3 +1,4 @@
+import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 import { fetchAll } from '@/lib/fetch-all'
 import type { DeliveryStatus } from './format'
 import { primaryImage } from './products'
@@ -95,6 +96,7 @@ export type DetailItem = {
   product_price: number | null
   product_status: string
   needs_label: boolean
+  label_kind: LabelKind
   image: string | null
   supplier_id: string | null
   supplier_name: string | null
@@ -171,7 +173,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
         .from('delivery_items')
         .select(
           'id, product_id, supplier_id, doc_number, pack_size, quantity, unit_cost, received_qty, labelled_qty, sort_order, ' +
-            'product:products(name, sku, price, status, needs_label, images:product_images(url, is_primary, sort_order)), ' +
+            'product:products(name, sku, price, status, needs_label, label_kind, images:product_images(url, is_primary, sort_order)), ' +
             'supplier:suppliers(name)',
         )
         .eq('delivery_id', id)
@@ -240,6 +242,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
       product_price: i.product?.price == null ? null : Number(i.product.price),
       product_status: i.product?.status ?? 'active',
       needs_label: i.product?.needs_label !== false,
+      label_kind: labelKindOf(i.product ?? {}),
       image: primaryImage(i.product?.images),
       supplier_id: i.supplier_id,
       supplier_name: i.supplier?.name ?? null,

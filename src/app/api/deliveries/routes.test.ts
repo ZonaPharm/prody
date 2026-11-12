@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   deliveryStatus: 'expected',
   adminRpc: vi.fn(),
   adminInsert: vi.fn(),
+  adminUpdates: [] as { table: string; row: unknown; ids?: unknown }[],
   logAction: vi.fn(),
 }))
 
@@ -43,7 +44,15 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     rpc: mocks.adminRpc,
-    from: () => ({ insert: (row: unknown) => { mocks.adminInsert(row); return query({ data: { id: PRODUCT, ...(row as object), images: [] }, error: null }) } }),
+    from: (table: string) => ({
+      insert: (row: unknown) => { mocks.adminInsert(row); return query({ data: { id: PRODUCT, ...(row as object), images: [] }, error: null }) },
+      update: (row: unknown) => {
+        const call: { table: string; row: unknown; ids?: unknown } = { table, row }
+        mocks.adminUpdates.push(call)
+        const q = { in: (_c: string, ids: unknown) => { call.ids = ids; return q }, neq: () => Promise.resolve({ error: null }) }
+        return q
+      },
+    }),
   }),
 }))
 vi.mock('@/lib/audit', () => ({ logAction: mocks.logAction }))
@@ -70,6 +79,7 @@ const draftBody = {
 describe('delivery API routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.adminUpdates.length = 0
     vi.stubEnv('DELIVERIES_ENABLED', 'all')
     mocks.user = { id: ADMIN.id }
     mocks.profile = { ...ADMIN }
@@ -124,6 +134,17 @@ describe('delivery API routes', () => {
           }],
         },
       })
+    })
+
+    it('"Етикет" changed on the entry screen is written to the product before the draft', async () => {
+      const body = structuredClone(draftBody) as any
+      body.draft.items[0].label_kind = 'price'
+      body.draft.items[0].needs_label = false
+      const res = await draftPOST(req(body))
+      expect(res.status).toBe(200)
+      expect(mocks.adminUpdates).toEqual([{ table: 'products', row: { label_kind: 'price' }, ids: [PRODUCT] }])
+      // needs_label is left to the database (derived from the kind).
+      expect(mocks.adminRpc.mock.calls[0][1].p_draft.items[0].needs_label).toBeNull()
     })
 
     it('400 for a line without quantity or with a negative cost', async () => {
