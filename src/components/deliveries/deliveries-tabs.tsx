@@ -14,10 +14,15 @@ const TABS: { key: DeliveriesTab; href: string; label: string }[] = [
 /** The sections of "Доставки", one row of links above each page. */
 export function DeliveriesTabs({ active, problems = 0 }: { active: DeliveriesTab; problems?: number }) {
   return (
-    <nav className="flex flex-wrap gap-1 border-b pb-2" aria-label="Доставки">
+    <nav className="no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 flex gap-1 overflow-x-auto border-b" aria-label="Доставки">
       {TABS.map(t => (
         <Link key={t.key} href={t.href}
-          className={cn('rounded-md px-3 py-1.5 text-sm', active === t.key ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
+          className={cn(
+            '-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors',
+            active === t.key
+              ? 'border-primary text-primary font-semibold'
+              : 'border-transparent text-slate-500 hover:text-slate-900',
+          )}>
           {t.label}
           {t.key === 'problems' && problems > 0 && (
             <span className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{problems}</span>

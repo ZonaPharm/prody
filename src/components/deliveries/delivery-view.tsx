@@ -1,16 +1,16 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { LABEL_KIND_LABEL } from '@/lib/label-kind'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, ArrowLeft, ClipboardCheck, Loader2, Tag, Truck } from 'lucide-react'
-import { deliveryNextSteps } from '@/lib/deliveries/queue'
+import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react'
+import { deliveryJourney } from '@/lib/deliveries/journey'
 import type { DeliveryDetail, DetailItem } from '@/lib/deliveries/queries'
 import {
-  LINE_STATUS_LABEL,
   SIGNAL_REASON_LABEL,
   SIGNAL_RESOLUTION_LABEL,
   SIGNAL_STEP_LABEL,
@@ -18,7 +18,6 @@ import {
   formatDeliveryNumber,
   formatMoney,
   formatQtyWithPacks,
-  lineStatus,
   type SignalReason,
 } from '@/lib/deliveries/format'
 import { sofiaDate, sofiaDateTime } from '@/lib/date-utils'
@@ -27,6 +26,10 @@ import { DeliveryStatusBadge } from './status-badge'
 import { ProductThumb } from './product-picker'
 import { PlanEditor, planNumbers, type PlanText } from './plan-editor'
 import { ResolveButton } from './resolve-dialog'
+import { NextStep, StepTrail } from './step-trail'
+import { WhereIsIt } from './where-is-it'
+import { whereabouts } from '@/lib/deliveries/track'
+import { Empty, Note, PageHeader } from '@/components/ui/text'
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Tab = 'lines' | 'log' | 'problems'
@@ -50,49 +53,28 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
   const value = delivery.items.reduce((s, i) => s + i.quantity * i.unit_cost, 0)
   const waiting = units - received
   const openSignals = delivery.signals.filter(s => s.status === 'open').length
-  const next = deliveryNextSteps(delivery.items)
+  const journey = deliveryJourney(delivery)
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{formatDeliveryNumber(delivery.number)}</h1>
-              <DeliveryStatusBadge status={delivery.status} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Създадена {sofiaDate(delivery.created_at)}{delivery.creator ? ` от ${delivery.creator}` : ''}
-              {delivery.order_ref ? ` · поръчка ${delivery.order_ref}` : ''}
-            </p>
-            {delivery.notes && <p className="text-sm mt-1">{delivery.notes}</p>}
-            {delivery.status === 'cancelled' && delivery.cancel_reason && (
-              <p className="text-sm text-red-700 mt-1">Отказана: {delivery.cancel_reason}</p>
-            )}
-          </div>
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={<span className="inline-flex flex-wrap items-center gap-3">{formatDeliveryNumber(delivery.number)} <DeliveryStatusBadge status={delivery.status} /></span>}
+        intro={<>
+          Създадена {sofiaDate(delivery.created_at)}{delivery.creator ? ` от ${delivery.creator}` : ''}
+          {delivery.order_ref ? ` · поръчка ${delivery.order_ref}` : ''}
+        </>}
+        actions={open ? <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)}>Откажи доставката</Button> : undefined}
+      />
+      {delivery.notes && <Note>Бележка: {delivery.notes}</Note>}
+      {delivery.status === 'cancelled' && delivery.cancel_reason && <Note tone="danger">Отказана: {delivery.cancel_reason}</Note>}
+
+      {delivery.status !== 'cancelled' && (
+        <div className="space-y-2">
+          <StepTrail steps={journey.steps} />
+          <NextStep next={journey.next} doneText={journey.finished ? 'Всичко по тази доставка е минало: получено, с етикет и изпратено.' : undefined} />
         </div>
-        {(open || next.toLabel > 0 || next.toShip > 0) && delivery.status !== 'cancelled' && (
-          <div className="flex flex-wrap gap-2">
-            {open && waiting > 0 && (
-              <Button asChild>
-                <Link href={`/deliveries/${delivery.id}/receive`}><ClipboardCheck className="mr-2 h-4 w-4" />Получаване</Link>
-              </Button>
-            )}
-            {next.toLabel > 0 && (
-              <Button asChild variant={open && waiting > 0 ? 'outline' : 'default'}>
-                <Link href={`/deliveries/labels?delivery=${delivery.id}`}><Tag className="mr-2 h-4 w-4" />Етикетиране ({next.toLabel} бр.)</Link>
-              </Button>
-            )}
-            {next.toShip > 0 && (
-              <Button asChild variant={next.toLabel > 0 || (open && waiting > 0) ? 'outline' : 'default'}>
-                <Link href="/deliveries/trips"><Truck className="mr-2 h-4 w-4" />Курс ({next.toShip} бр. готови)</Link>
-              </Button>
-            )}
-            {open && <Button variant="outline" onClick={() => setCancelOpen(true)}>Откажи</Button>}
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         <Stat label="Редове" value={String(delivery.items.length)} />
@@ -110,92 +92,60 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
         </button>
       )}
 
-      <div className="inline-flex rounded-md border bg-white p-0.5">
+      <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-md border bg-white p-0.5 sm:inline-flex">
         {([
-          ['lines', `Редове (${delivery.items.length})`],
+          ['lines', `Къде е стоката (${delivery.items.length})`],
           ['log', `Дневник (${delivery.events.length})`],
           ['problems', `Проблеми (${delivery.signals.length})`],
         ] as [Tab, string][]).map(([v, label]) => (
           <button key={v} type="button" onClick={() => setTab(v)}
-            className={cn('px-3 py-1.5 text-sm rounded', tab === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
+            className={cn('shrink-0 whitespace-nowrap px-3 py-1.5 text-sm rounded', tab === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
             {label}
           </button>
         ))}
       </div>
 
       {tab === 'lines' && (
-        <div className="rounded-lg border bg-white overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Продукт</th>
-                <th className="px-3 py-2">Доставчик / фактура</th>
-                <th className="px-3 py-2 text-right">Поръчани</th>
-                <th className="px-3 py-2 text-right">Получени</th>
-                <th className="px-3 py-2 text-right">Цена/бр.</th>
-                <th className="px-3 py-2">Разпределение</th>
-                <th className="px-3 py-2">Статус</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {delivery.items.map(i => {
-                const status = lineStatus(i)
-                const planned = i.plan.reduce((s, p) => s + p.planned_qty, 0)
-                const lineSignals = delivery.signals.filter(s => s.delivery_item_id === i.id && s.status === 'open').length
-                return (
-                  <tr key={i.id} className="border-t align-top">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <ProductThumb src={i.image} />
-                        <div className="min-w-0">
-                          <Link href={`/catalog/${i.product_id}`} className="hover:underline">{i.product_name}</Link>
-                          <div className="text-xs text-muted-foreground">
-                            {i.product_sku ? `${i.product_sku} · ` : ''}{i.needs_label ? 'с етикет' : 'без етикет'}
-                            {lineSignals > 0 && <span className="ml-1 text-red-700">· {lineSignals} проблем</span>}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div>{i.supplier_name ?? '—'}</div>
-                      {i.doc_number && <div className="text-xs text-muted-foreground">Ф-ра {i.doc_number}</div>}
-                    </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">{formatQtyWithPacks(i.quantity, i.pack_size)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {i.received_qty}
-                      {i.received_qty < i.quantity && <div className="text-xs text-amber-700">чакат {i.quantity - i.received_qty}</div>}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoney(i.unit_cost)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {i.plan.filter(p => p.planned_qty > 0).map(p => (
-                          <span key={p.id} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs whitespace-nowrap"
-                            title={`план ${p.planned_qty}, готови ${p.ready_qty}, изпратени ${p.shipped_qty}`}>
-                            {storeName.get(p.store_id) ?? '?'} {p.planned_qty}
-                          </span>
-                        ))}
-                        <span className="rounded bg-slate-50 border px-1.5 py-0.5 text-xs whitespace-nowrap">
-                          {warehouseName} {Math.max(0, i.quantity - planned)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-xs whitespace-nowrap">{LINE_STATUS_LABEL[status]}</td>
-                    <td className="px-3 py-2 text-right">
-                      {open && <PlanDialog deliveryId={delivery.id} item={i} stores={shopStores} warehouseName={warehouseName} />}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y rounded-lg border bg-white">
+          {delivery.items.map(i => {
+            const lineSignals = delivery.signals.filter(s => s.delivery_item_id === i.id && s.status === 'open').length
+            const planIds = new Set(i.plan.map(p => p.id))
+            const w = whereabouts(i, delivery.ship_lines.filter(l => planIds.has(l.plan_id)))
+            return (
+              <li key={i.id} className="space-y-3 p-3 sm:p-4">
+                <div className="flex items-start gap-3">
+                  <ProductThumb src={i.image} />
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/catalog/${i.product_id}`} className="font-medium hover:underline">{i.product_name}</Link>
+                    <div className="text-xs text-muted-foreground">
+                      {[
+                        i.product_sku,
+                        LABEL_KIND_LABEL[i.label_kind].toLowerCase(),
+                        i.supplier_name,
+                        i.doc_number ? `Ф-ра ${i.doc_number}` : null,
+                        `${formatQtyWithPacks(i.quantity, i.pack_size)} × ${formatMoney(i.unit_cost)}`,
+                      ].filter(Boolean).join(' · ')}
+                      {lineSignals > 0 && <span className="ml-1 text-red-700">· {lineSignals} проблем</span>}
+                    </div>
+                  </div>
+                  {open && <PlanDialog deliveryId={delivery.id} item={i} stores={shopStores} warehouseName={warehouseName} />}
+                </div>
+                <WhereIsIt
+                  w={w}
+                  storeName={id => storeName.get(id) ?? '?'}
+                  warehouseName={warehouseName}
+                  labelHref={`/deliveries/labels?delivery=${delivery.id}`}
+                />
+              </li>
+            )
+          })}
+        </ul>
       )}
 
       {tab === 'log' && (
         <div className="rounded-lg border bg-white">
           {delivery.events.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">Няма записи.</p>
+            <Empty>Няма записи.</Empty>
           ) : (
             <ul className="divide-y">
               {delivery.events.map(e => (
@@ -216,14 +166,14 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
               ))}
             </ul>
           )}
-          <p className="border-t px-4 py-2 text-xs text-muted-foreground">Дневникът не се трие и не се редактира. Поправката е нов запис.</p>
+          <Note small className="m-3">Дневникът не се трие и не се редактира. Поправката е нов запис.</Note>
         </div>
       )}
 
       {tab === 'problems' && (
         <div className="rounded-lg border bg-white">
           {delivery.signals.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">Няма отбелязани проблеми.</p>
+            <Empty>Няма отбелязани проблеми.</Empty>
           ) : (
             <ul className="divide-y">
               {delivery.signals.map(s => (
@@ -258,7 +208,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
               ))}
             </ul>
           )}
-          <p className="border-t px-4 py-2 text-xs text-muted-foreground">Доставката не става „Завършена“, докато има отворен проблем. Всички проблеми са и в „Проблеми“.</p>
+          <Note small className="m-3">Доставката не става „Завършена“, докато има отворен проблем. Всички проблеми са и в „Проблеми“.</Note>
         </div>
       )}
 
@@ -320,9 +270,9 @@ function PlanDialog({ deliveryId, item, stores, warehouseName }: {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Разпределение: {item.product_name}</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <Note small>
             Общо {item.quantity} бр. Не може под готовите за обекта; нов обект се добавя само от неразпределения остатък.
-          </p>
+          </Note>
           <PlanEditor quantity={item.quantity} stores={stores} warehouseName={warehouseName} plan={plan} onChange={setPlan} minByStore={minByStore} />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
@@ -371,11 +321,11 @@ function CancelDialog({ open, onOpenChange, deliveryId, received }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Отказ от доставката</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <Note tone={received > 0 ? 'warn' : 'info'}>
           {received > 0
             ? `Получените ${received} бр. излизат от Офис. Може само ако нищо от доставката не е изпратено и всичко получено още е в Офис.`
             : 'Нищо не е получено, наличностите не се променят.'}
-        </p>
+        </Note>
         <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Причина" aria-label="Причина за отказа" />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">

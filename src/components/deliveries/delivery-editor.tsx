@@ -1,5 +1,7 @@
 'use client'
 
+import type { LabelKind } from '@/lib/label-kind'
+import { LabelKindSelect } from './label-kind-select'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -7,10 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, Loader2, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, Coins, FileText, Hash, Loader2, Package, Plus, Store, Tag, Trash2, Truck, type LucideIcon } from 'lucide-react'
 import type { DeliveryProduct } from '@/lib/deliveries/products'
 import {
   draftTotals,
+  lineMissing,
   lineOverPlanned,
   lineProblem,
   parseMoney,
@@ -29,6 +32,7 @@ import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
+import { Hint, Note, PageHeader } from '@/components/ui/text'
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Option = { id: string; name: string }
@@ -55,9 +59,11 @@ function newKey() {
 }
 
 /**
- * The draft of a delivery. Lines come from the search, the catalogue or a new
- * product; supplier and cost fill in from the product's last delivery; the
- * plan per store opens right under the line. Everything autosaves as one draft
+ * The draft of a delivery. Products go in row by row: under the last row there
+ * is always an empty one to click and pick the next product (search, the
+ * catalogue with ticks, or a new product); an empty row left as it is means
+ * there are no more. Supplier and cost fill in from the product's last
+ * delivery; the plan per store opens right under the line. Everything autosaves as one draft
  * (no stock moves); "Запиши доставката" gives it a number and it waits for receiving.
  */
 export function DeliveryEditor({
@@ -214,16 +220,16 @@ export function DeliveryEditor({
     touch()
   }
 
-  /** "Без етикет" belongs to the product, so every line of that product follows. */
-  function setNeedsLabel(productId: string, needs: boolean) {
-    setLines(prev => prev.map(l => (l.product.id === productId ? { ...l, needs_label: needs, label_changed: true } : l)))
+  /** "Етикет" belongs to the product, so every line of that product follows. */
+  function setLabelKind(productId: string, kind: LabelKind) {
+    setLines(prev => prev.map(l => (l.product.id === productId ? { ...l, label_kind: kind, needs_label: kind === 'full', label_changed: true } : l)))
     touch()
   }
 
   function addProducts(products: DeliveryProduct[]) {
     if (!products.length) return
-    // A product already on the draft keeps the "Без етикет" choice made there.
-    const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.needs_label]))
+    // A product already on the draft keeps the "Етикет" choice made there.
+    const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.label_kind]))
     const added: DraftLineState[] = products.map(p => ({
       key: newKey(),
       id: null,
@@ -233,7 +239,8 @@ export function DeliveryEditor({
       quantity: '',
       pack_size: p.suggested.pack_size > 1 ? String(p.suggested.pack_size) : '',
       unit_cost: p.suggested.unit_cost != null ? String(p.suggested.unit_cost).replace('.', ',') : '',
-      needs_label: changed.get(p.id) ?? p.needs_label,
+      label_kind: changed.get(p.id) ?? p.label_kind,
+      needs_label: (changed.get(p.id) ?? p.label_kind) === 'full',
       label_changed: changed.has(p.id),
       plan: {},
     }))
@@ -246,6 +253,14 @@ export function DeliveryEditor({
   function removeLine(key: string) {
     setLines(prev => prev.filter(l => l.key !== key))
     touch()
+  }
+
+  /** Enter moves on: Бройки → Цена → the empty row for the next product. */
+  function focusField(key: string, field: 'cost') {
+    document.querySelector<HTMLInputElement>(`[data-line="${key}"] [data-field="${field}"]`)?.focus()
+  }
+  function focusNextRow() {
+    document.querySelector<HTMLInputElement>('[data-testid="delivery-empty-row"] input')?.focus()
   }
 
   function toggleOpen(key: string) {
@@ -322,17 +337,13 @@ export function DeliveryEditor({
   const inDelivery = new Set(lines.map(l => l.product.id))
 
   return (
-    <div className="space-y-4 max-w-7xl pb-24">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div>
-            <h1 className="text-2xl font-bold">{deliveryId ? 'Чернова на доставка' : 'Нова доставка'}</h1>
-            <p className="text-sm text-muted-foreground">Черновата се пази сама и не променя наличностите.</p>
-          </div>
-        </div>
-        <SaveIndicator state={save} />
-      </div>
+    <div className="space-y-4 max-w-7xl pb-36 sm:pb-24">
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={deliveryId ? 'Чернова на доставка' : 'Нова доставка'}
+        intro="Черновата се пази сама и не променя наличностите."
+        actions={<SaveIndicator state={save} />}
+      />
 
       {fatal && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 flex items-center justify-between gap-3">
@@ -343,7 +354,7 @@ export function DeliveryEditor({
 
       <section className="rounded-lg border bg-white p-4 grid gap-3 md:grid-cols-4">
         <div className="space-y-1">
-          <Label>Доставчик за новите редове</Label>
+          <Label className="inline-flex items-center gap-1.5"><Truck className="h-4 w-4 text-slate-500" />Доставчик за новите редове</Label>
           <SupplierSelect
             value={defaultSupplier}
             suppliers={suppliers}
@@ -356,7 +367,7 @@ export function DeliveryEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="d-doc">Фактура № за новите редове</Label>
+          <Label htmlFor="d-doc" className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4 text-slate-500" />Фактура № за новите редове</Label>
           <Input id="d-doc" value={defaultDoc} onChange={e => setDefaultDoc(e.target.value)} placeholder="напр. 0000123456" disabled={fatal} />
           {lines.length > 0 && (defaultSupplier || defaultDoc.trim()) && (
             <button type="button" className="text-xs text-blue-700 hover:underline" onClick={applyDefaultsToAll}>
@@ -377,141 +388,171 @@ export function DeliveryEditor({
       </section>
 
       <section className="rounded-lg border bg-white">
-        <div className="flex flex-wrap items-center gap-2 border-b p-3">
-          <div className="flex-1 min-w-[260px]"><ProductPicker onPick={p => addProducts([p])} disabled={fatal} /></div>
-          <CatalogDialog categories={categories} stores={shopStores.concat(warehouse ? [warehouse] : [])} inDelivery={inDelivery} onAdd={addProducts} disabled={fatal} />
-          <NewProductDialog categories={categories} supplierId={defaultSupplier} onCreated={p => addProducts([p])} disabled={fatal} />
-        </div>
-
-        {lines.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            Няма редове. Потърсете продукт горе, изберете от „Каталог“ или създайте „Нов продукт“.
-          </p>
-        ) : (
-          <div className="divide-y">
-            {lines.map((l, idx) => {
-              const qty = parseQty(l.quantity) ?? 0
-              const cost = parseMoney(l.unit_cost)
-              const problem = lineProblem(l)
-              const over = lineOverPlanned(l)
-              const isOpen = openKeys.has(l.key)
-              const dup = (productCount.get(l.product.id) ?? 0) > 1
-              const costAbovePrice = cost != null && l.product.price != null && cost > l.product.price
-              return (
-                <div key={l.key} className={cn('p-3 space-y-2', over > 0 && 'bg-red-50/40')} data-testid="delivery-line">
-                  <div className="flex flex-wrap items-start gap-3">
-                    <span className="w-6 pt-2 text-xs text-slate-400 tabular-nums">{idx + 1}</span>
-                    <ProductThumb src={l.product.image} size={40} />
-                    <div className="min-w-[180px] flex-1">
-                      <div className="font-medium leading-tight">{l.product.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {l.product.sku ? `${l.product.sku} · ` : ''}продажна {formatMoney(l.product.price)}
-                        {l.product.status !== 'active' && <span className="ml-1 text-amber-700">(неактивен)</span>}
-                        {dup && <span className="ml-1 text-amber-700">· продуктът е на повече от един ред</span>}
-                      </div>
-                      <label className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-600">
-                        <input type="checkbox" className="h-3.5 w-3.5" checked={!l.needs_label} disabled={fatal}
-                          onChange={e => setNeedsLabel(l.product.id, !e.target.checked)} />
-                        Без етикет
-                      </label>
+        <div className="divide-y">
+          {lines.map((l, idx) => {
+            const qty = parseQty(l.quantity) ?? 0
+            const cost = parseMoney(l.unit_cost)
+            const problem = lineProblem(l)
+            const missing = lineMissing(l)
+            const over = lineOverPlanned(l)
+            const isOpen = openKeys.has(l.key)
+            const dup = (productCount.get(l.product.id) ?? 0) > 1
+            const costAbovePrice = cost != null && l.product.price != null && cost > l.product.price
+            const done = missing.length === 0 && over === 0
+            return (
+              <div key={l.key} data-line={l.key} className={cn('p-3 space-y-2', over > 0 && 'bg-red-50/40')} data-testid="delivery-line">
+                <div className="flex flex-wrap items-start gap-3">
+                  <span
+                    className={cn(
+                      'mt-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums',
+                      done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800',
+                    )}
+                    title={done ? 'Редът е попълнен' : `Попълнете: ${missing.join(', ') || 'разпределението'}`}
+                  >
+                    {done ? <Check className="h-4 w-4" aria-label={`Ред ${idx + 1} е попълнен`} /> : idx + 1}
+                  </span>
+                  <ProductThumb src={l.product.image} size={40} />
+                  <div className="min-w-[180px] flex-1">
+                    <div className="font-medium leading-tight">{l.product.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {l.product.sku ? `${l.product.sku} · ` : ''}продажна {formatMoney(l.product.price)}
+                      {l.product.status !== 'active' && <span className="ml-1 text-amber-700">(неактивен)</span>}
+                      {dup && <span className="ml-1 text-amber-700">· продуктът е на повече от един ред</span>}
                     </div>
-                    <div className="flex flex-wrap items-end gap-2">
-                      <label className="flex flex-col text-xs text-slate-600">
-                        Доставчик
-                        <SupplierSelect
-                          value={l.supplier_id}
-                          suppliers={suppliers}
-                          onChange={id => updateLine(l.key, { supplier_id: id })}
-                          onCreated={s => setSuppliers(prev => [...prev, s].sort((a, b) => a.name.localeCompare(b.name, 'bg')))}
-                          className="w-40"
-                          ariaLabel={`Доставчик на ред ${idx + 1}`}
-                          disabled={fatal}
-                        />
-                      </label>
-                      <label className="flex flex-col text-xs text-slate-600">
-                        Фактура №
-                        <Input className="h-9 w-32 bg-white" value={l.doc_number} disabled={fatal}
-                          onChange={e => updateLine(l.key, { doc_number: e.target.value })} />
-                      </label>
-                      <label className="flex flex-col text-xs text-slate-600">
-                        Бройки
-                        <Input
-                          className={cn('h-9 w-20 bg-white', problem === 'количество' && l.quantity !== '' && 'border-red-500')}
-                          inputMode="numeric"
-                          autoFocus={focusKey === l.key}
-                          aria-label={`Бройки на ред ${idx + 1}`}
-                          value={l.quantity}
-                          disabled={fatal}
-                          onChange={e => updateLine(l.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
-                        />
-                      </label>
-                      <label className="flex flex-col text-xs text-slate-600" title="Колко бройки има в една кутия (по избор)">
-                        В кутия
-                        <Input className="h-9 w-16 bg-white" inputMode="numeric" placeholder="1" value={l.pack_size} disabled={fatal}
-                          onChange={e => updateLine(l.key, { pack_size: e.target.value.replace(/[^0-9]/g, '') })} />
-                      </label>
-                      <label className="flex flex-col text-xs text-slate-600">
-                        Цена/бр. с ДДС
-                        <Input
-                          className={cn('h-9 w-24 bg-white', problem === 'доставна цена' && l.unit_cost !== '' && 'border-red-500')}
-                          inputMode="decimal"
-                          aria-label={`Доставна цена на ред ${idx + 1}`}
-                          value={l.unit_cost}
-                          disabled={fatal}
-                          onChange={e => updateLine(l.key, { unit_cost: e.target.value })}
-                        />
-                      </label>
-                      <div className="flex flex-col text-xs text-slate-600">
-                        Сума
-                        <span className="h-9 flex items-center text-sm tabular-nums">{formatMoney(qty * (cost ?? 0))}</span>
-                      </div>
-                      <Button type="button" variant="ghost" size="icon" aria-label={`Махни ред ${idx + 1}`} disabled={fatal}
-                        onClick={() => removeLine(l.key)}>
-                        <Trash2 className="h-4 w-4 text-slate-500" />
-                      </Button>
-                    </div>
-                  </div>
-                  {costAbovePrice && (
-                    <p className="ml-9 text-xs text-amber-700 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />Доставната цена е над продажната ({formatMoney(l.product.price)}).
-                    </p>
-                  )}
-                  <div className="ml-9">
-                    <button type="button" onClick={() => toggleOpen(l.key)}
-                      className={cn('inline-flex items-center gap-1 text-xs', over > 0 ? 'text-red-700' : 'text-slate-600 hover:text-slate-900')}>
-                      {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      Разпределение: {planSummary(qty, planNumbers(l.plan), shopStores, warehouseName)}
-                    </button>
-                    {isOpen && (
-                      <div className="mt-2 rounded-md bg-slate-50 p-2">
-                        <PlanEditor
-                          quantity={qty}
-                          stores={shopStores}
-                          warehouseName={warehouseName}
-                          plan={l.plan}
-                          onChange={plan => updateLine(l.key, { plan })}
-                          disabled={fatal}
-                        />
+                    {missing.length > 0 && (
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-amber-700">
+                        <AlertTriangle className="h-3 w-3" aria-hidden />Попълнете: {missing.join(', ')}
                       </div>
                     )}
+                    <label className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                      <Tag className="h-3.5 w-3.5 text-slate-500" />Етикет
+                      <LabelKindSelect compact value={l.label_kind} disabled={fatal} onChange={k => setLabelKind(l.product.id, k)} />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <Field icon={Truck} label="Доставчик">
+                      <SupplierSelect
+                        value={l.supplier_id}
+                        suppliers={suppliers}
+                        onChange={id => updateLine(l.key, { supplier_id: id })}
+                        onCreated={s => setSuppliers(prev => [...prev, s].sort((a, b) => a.name.localeCompare(b.name, 'bg')))}
+                        className="w-40"
+                        ariaLabel={`Доставчик на ред ${idx + 1}`}
+                        disabled={fatal}
+                      />
+                    </Field>
+                    <Field icon={FileText} label="Фактура №">
+                      <Input className="h-9 w-32 bg-white" value={l.doc_number} disabled={fatal}
+                        onChange={e => updateLine(l.key, { doc_number: e.target.value })} />
+                    </Field>
+                    <Field icon={Hash} label="Бройки">
+                      <Input
+                        className={cn('h-9 w-20 bg-white', problem === 'количество' && l.quantity !== '' && 'border-red-500', l.quantity === '' && 'border-amber-400')}
+                        inputMode="numeric"
+                        enterKeyHint="next"
+                        autoFocus={focusKey === l.key}
+                        aria-label={`Бройки на ред ${idx + 1}`}
+                        value={l.quantity}
+                        disabled={fatal}
+                        onChange={e => updateLine(l.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); focusField(l.key, 'cost') } }}
+                      />
+                    </Field>
+                    <Field icon={Package} label="В кутия" title="Колко бройки има в една кутия (по избор)">
+                      <Input className="h-9 w-16 bg-white" inputMode="numeric" placeholder="1" value={l.pack_size} disabled={fatal}
+                        aria-label={`Бройки в кутия на ред ${idx + 1}`}
+                        onChange={e => updateLine(l.key, { pack_size: e.target.value.replace(/[^0-9]/g, '') })} />
+                    </Field>
+                    <Field icon={Coins} label="Цена/бр. с ДДС">
+                      <Input
+                        className={cn('h-9 w-24 bg-white', problem === 'доставна цена' && l.unit_cost !== '' && 'border-red-500', l.unit_cost === '' && 'border-amber-400')}
+                        inputMode="decimal"
+                        enterKeyHint="next"
+                        data-field="cost"
+                        aria-label={`Доставна цена на ред ${idx + 1}`}
+                        value={l.unit_cost}
+                        disabled={fatal}
+                        onChange={e => updateLine(l.key, { unit_cost: e.target.value })}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); focusNextRow() } }}
+                      />
+                    </Field>
+                    <div className="flex flex-col text-xs text-slate-600">
+                      Сума
+                      <span className="h-9 flex items-center text-sm tabular-nums">{formatMoney(qty * (cost ?? 0))}</span>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" aria-label={`Махни ред ${idx + 1}`} title="Махни реда" disabled={fatal}
+                      onClick={() => removeLine(l.key)}>
+                      <Trash2 className="h-4 w-4 text-slate-500" />
+                    </Button>
                   </div>
                 </div>
-              )
-            })}
+                {costAbovePrice && (
+                  <p className="ml-10 text-xs text-amber-700 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />Доставната цена е над продажната ({formatMoney(l.product.price)}).
+                  </p>
+                )}
+                <div className="ml-10">
+                  <button type="button" onClick={() => toggleOpen(l.key)}
+                    className={cn('inline-flex items-center gap-1 text-xs', over > 0 ? 'text-red-700' : 'text-slate-600 hover:text-slate-900')}>
+                    {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                    <Store className="h-3.5 w-3.5" />
+                    Разпределение: {planSummary(qty, planNumbers(l.plan), shopStores, warehouseName)}
+                  </button>
+                  {isOpen && (
+                    <div className="mt-2 rounded-md bg-slate-50 p-2">
+                      <PlanEditor
+                        quantity={qty}
+                        stores={shopStores}
+                        warehouseName={warehouseName}
+                        plan={l.plan}
+                        onChange={plan => updateLine(l.key, { plan })}
+                        disabled={fatal}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {/* The next row: always there, empty until a product is picked. Left empty = no more products. */}
+          <div className="p-3" data-testid="delivery-empty-row">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/60 p-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-slate-500 ring-1 ring-slate-300" title={`Ред ${lines.length + 1}`}>
+                <Plus className="h-4 w-4" />
+              </span>
+              <div className="min-w-[220px] flex-1">
+                <ProductPicker
+                  onPick={p => addProducts([p])}
+                  disabled={fatal}
+                  scrollOnFocus
+                  placeholder={`Ред ${lines.length + 1}: изберете продукт (име, код, баркод)`}
+                />
+              </div>
+              <CatalogDialog categories={categories} stores={shopStores.concat(warehouse ? [warehouse] : [])} inDelivery={inDelivery} onAdd={addProducts} disabled={fatal} />
+              <NewProductDialog categories={categories} supplierId={defaultSupplier} onCreated={p => addProducts([p])} disabled={fatal} />
+            </div>
+            <Hint small className="mt-1.5 ml-1">
+              {lines.length === 0
+                ? 'Започнете оттук: изберете първия продукт. С „Каталог“ може да отметнете няколко наведнъж: всеки става отделен ред.'
+                : 'Следващ продукт? Изберете го тук. Няма повече: оставете този ред празен.'}
+            </Hint>
           </div>
-        )}
+        </div>
       </section>
 
-      <div className="fixed bottom-0 left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
+      <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
         <div className="max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="text-sm tabular-nums">
             <span className="font-medium">{totals.lines}</span> реда · <span className="font-medium">{totals.units}</span> бр. · <span className="font-medium">{formatMoney(totals.value)}</span>
           </div>
           {blocker && lines.length > 0 && <span className="text-xs text-amber-700">{blocker}</span>}
           {finishError && <span className="text-xs text-red-600">{finishError}</span>}
-          <div className="ml-auto flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => setDiscardOpen(true)} disabled={finishing || fatal}>Изтрий черновата</Button>
-            <Button type="button" onClick={() => setConfirmOpen(true)} disabled={!!blocker || finishing || fatal}>
+          <div className="ml-auto flex w-full gap-2 sm:w-auto">
+            <Button type="button" variant="ghost" className="px-3" onClick={() => setDiscardOpen(true)} disabled={finishing || fatal}>
+              <span className="sm:hidden">Изтрий</span><span className="hidden sm:inline">Изтрий черновата</span>
+            </Button>
+            <Button type="button" className="flex-1 sm:flex-none" onClick={() => setConfirmOpen(true)} disabled={!!blocker || finishing || fatal}>
               {finishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Запиши доставката
             </Button>
           </div>
@@ -523,10 +564,10 @@ export function DeliveryEditor({
           <DialogHeader><DialogTitle>Запис на доставката</DialogTitle></DialogHeader>
           <div className="space-y-2 text-sm">
             <p>{totals.lines} реда, {totals.units} бр., {formatMoney(totals.value)}.</p>
-            <p className="text-muted-foreground">
+            <Note>
               Доставката получава номер и чака получаване. Редовете вече не се променят; разпределението може да се сменя и след това.
               Наличностите се променят чак при получаването.
-            </p>
+            </Note>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>Назад</Button>
@@ -538,7 +579,7 @@ export function DeliveryEditor({
       <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Изтриване на черновата</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Черновата отива в „Отказани“, с запис в дневника. Наличностите не се променят.</p>
+          <Note>Черновата отива в „Отказани“, с запис в дневника. Наличностите не се променят.</Note>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setDiscardOpen(false)}>Назад</Button>
             <Button variant="destructive" onClick={() => void discard()} disabled={finishing}>Изтрий</Button>
@@ -546,6 +587,15 @@ export function DeliveryEditor({
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function Field({ icon: Icon, label, title, children }: { icon: LucideIcon; label: string; title?: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col text-xs font-medium text-slate-700" title={title}>
+      <span className="inline-flex items-center gap-1"><Icon className="h-3.5 w-3.5 text-slate-500" />{label}</span>
+      {children}
+    </label>
   )
 }
 

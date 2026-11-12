@@ -10,6 +10,7 @@ import { resolutionOptions, resolveError, type Resolution } from '@/lib/deliveri
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson, useNow } from './checklist-ui'
+import { Meta } from '@/components/ui/text'
 
 /** "Реши": the admin picks a decision, adds a note and signs (resolve_signal). */
 export function ResolveButton({ signalId, step, title, userName }: { signalId: string; step: string; title: string; userName: string }) {
@@ -59,7 +60,7 @@ function ResolveDialog({ signalId, step, title, userName, onClose }: {
         <div className="space-y-2">
           {options.map(o => (
             <button key={o.value} type="button" onClick={() => { setResolution(o.value); setError('') }}
-              className={cn('w-full rounded-md border px-3 py-2 text-left text-sm', resolution === o.value ? 'border-slate-900 bg-slate-900 text-white' : 'hover:bg-slate-50')}>
+              className={cn('w-full rounded-md border px-3 py-2 text-left text-sm', resolution === o.value ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-slate-50')}>
               <span className="font-medium">{o.label}</span>
               <span className={cn('block text-xs', resolution === o.value ? 'text-slate-200' : 'text-muted-foreground')}>{o.effect}</span>
             </button>
@@ -69,7 +70,7 @@ function ResolveDialog({ signalId, step, title, userName, onClose }: {
           <span>Бележка{resolution === 'other' ? '' : ' (по избор)'}</span>
           <Input value={note} onChange={e => setNote(e.target.value)} aria-label="Бележка" />
         </label>
-        <p className="text-sm text-muted-foreground">{userName} · {sofiaDateTime(now)}</p>
+        <Meta>{userName} · {sofiaDateTime(now)}</Meta>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Назад</Button>

@@ -22,6 +22,10 @@ import type { StoreReadyView } from './trips-board'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson, useNow } from './checklist-ui'
+import { tripJourney } from '@/lib/deliveries/journey'
+import { NextStep, StepTrail } from './step-trail'
+import { OfficeStockButton, type StoreChoice } from './office-stock-dialog'
+import { Meta, Note, PageHeader } from '@/components/ui/text'
 
 /**
  * One trip: its shipments by store, each packed with its own checklist; then
@@ -31,7 +35,13 @@ import { postJson, useNow } from './checklist-ui'
  * a packed shipment is opened to be packed and signed again, or the whole trip
  * is taken back.
  */
-export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; drivers: DriverOption[]; ready?: StoreReadyView[] }) {
+export function TripView({ trip, drivers, ready = [], stores = [] }: {
+  trip: TripDetail
+  drivers: DriverOption[]
+  ready?: StoreReadyView[]
+  /** Stores that can get a shipment, for "Добави от Офис". */
+  stores?: StoreChoice[]
+}) {
   const live = trip.shipments.filter(s => s.status !== 'cancelled')
   const canSend = trip.status === 'open' && tripReadyToSend(live)
   const boxes = live.reduce((n, s) => n + (s.box_count ?? 0), 0)
@@ -41,47 +51,62 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
   const [removing, setRemoving] = useState<ShipmentView | null>(null)
   const [reopening, setReopening] = useState<ShipmentView | null>(null)
   const open = trip.status === 'open'
+  const journey = tripJourney(trip)
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <Button asChild variant="ghost" size="icon"><Link href="/deliveries/trips" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">Курс {formatTripNumber(trip.number)}</h1>
-              <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[trip.status])}>{TRIP_STATUS_LABEL[trip.status]}</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Създаден {sofiaDateTime(trip.created_at)}{trip.creator ? ` от ${trip.creator}` : ''}
-              {trip.departed_at ? ` · тръгнал ${sofiaDateTime(trip.departed_at)}` : ''}
-              {trip.driver ? ` · шофьор ${trip.driver}` : ''}
-            </p>
-            {trip.notes && <p className="text-sm mt-1">{trip.notes}</p>}
-            {trip.status === 'cancelled' && (
-              <p className="text-sm text-red-700 mt-1">Отказан{trip.canceller ? ` от ${trip.canceller}` : ''}{trip.cancelled_at ? `, ${sofiaDateTime(trip.cancelled_at)}` : ''}: {trip.cancel_reason}</p>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries/trips" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+          title={<span className="inline-flex flex-wrap items-center gap-3">Курс {formatTripNumber(trip.number)}
+            <span className={cn('rounded-full border px-2 py-0.5 text-xs font-medium tracking-normal', TRIP_STATUS_TONE[trip.status])}>{TRIP_STATUS_LABEL[trip.status]}</span></span>}
+          intro={<>
+            Създаден {sofiaDateTime(trip.created_at)}{trip.creator ? ` от ${trip.creator}` : ''}
+            {trip.departed_at ? ` · тръгнал ${sofiaDateTime(trip.departed_at)}` : ''}
+            {trip.driver ? ` · шофьор ${trip.driver}` : ''}
+          </>}
+        />
         <div className="flex flex-wrap gap-2">
           {trip.status !== 'cancelled' && (
             <Button asChild variant="outline">
               <Link href={`/print/trip/${trip.id}`} target="_blank"><Printer className="mr-2 h-4 w-4" />Лист за курса</Link>
             </Button>
           )}
+          {trip.status === 'open' && stores.length > 0 && (
+            <OfficeStockButton tripId={trip.id} stores={stores} size="default" label="Добави от Офис" />
+          )}
           {trip.status === 'open' && (
-            <>
-              <Button onClick={() => setSendOpen(true)} disabled={!canSend}><Truck className="mr-2 h-4 w-4" />Шофьорът подписва</Button>
-              <Button variant="outline" onClick={() => setCancelOpen(true)}><XCircle className="mr-2 h-4 w-4" />Откажи курса</Button>
-            </>
+            <Button variant="outline" onClick={() => setCancelOpen(true)}><XCircle className="mr-2 h-4 w-4" />Откажи курса</Button>
           )}
         </div>
       </div>
+      {trip.notes && <Note>Бележка: {trip.notes}</Note>}
+      {trip.status === 'cancelled' && (
+        <Note tone="danger">Отказан{trip.canceller ? ` от ${trip.canceller}` : ''}{trip.cancelled_at ? `, ${sofiaDateTime(trip.cancelled_at)}` : ''}: {trip.cancel_reason}</Note>
+      )}
 
-      {trip.status === 'open' && !canSend && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Курсът тръгва, когато всяка пратка е опакована и подписана. Опаковайте пратките по-долу.
-        </p>
+      {trip.status !== 'cancelled' && (
+        <div className="space-y-2">
+          <StepTrail steps={journey.steps} />
+          {canSend ? (
+            <button
+              type="button"
+              onClick={() => setSendOpen(true)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl bg-primary px-4 py-3 text-left text-primary-foreground shadow-sm hover:opacity-95"
+            >
+              <span>
+                <span className="block text-xs uppercase tracking-wide opacity-75">Следваща стъпка</span>
+                <span className="block text-base font-semibold">Шофьорът подписва и тръгва ({boxes ? boxesText(boxes) : `${units} бр.`})</span>
+              </span>
+              <Truck className="h-5 w-5 shrink-0" />
+            </button>
+          ) : (
+            <NextStep
+              next={journey.next}
+              doneText={trip.status === 'departed' ? 'Курсът е на път. Всеки магазин приема своята пратка от „Пратки“.' : journey.finished ? 'Курсът е завършен: всички пратки са приети.' : undefined}
+            />
+          )}
+        </div>
       )}
 
       {open && ready.length > 0 && <AddToTrip trip={trip} ready={ready} />}
@@ -101,6 +126,9 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
                 <span className="ml-auto flex flex-wrap gap-2">
                   {s.status === 'packing' && open && (
                     <Button asChild size="sm"><Link href={`/deliveries/shipments/${s.id}/pack`}><PackageCheck className="mr-1 h-4 w-4" />Опаковай</Link></Button>
+                  )}
+                  {(s.status === 'packing' || s.status === 'packed') && open && (
+                    <OfficeStockButton tripId={trip.id} stores={stores} store={{ id: s.store_id, name: s.store_name }} packed={s.status === 'packed'} variant="ghost" />
                   )}
                   {s.status === 'packed' && open && (
                     <Button size="sm" variant="outline" onClick={() => setReopening(s)}><PackageOpen className="mr-1 h-4 w-4" />Отвори опаковането</Button>
@@ -128,7 +156,9 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
                       <tr key={l.id} className="border-t">
                         <td className="px-4 py-1.5">{l.product_name}</td>
                         <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {l.delivery_id ? <Link href={`/deliveries/${l.delivery_id}`} className="hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link> : ''}
+                          {l.delivery_id
+                            ? <Link href={`/deliveries/${l.delivery_id}`} className="hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+                            : l.plan_id == null ? 'от Офис' : ''}
                         </td>
                         <td className="px-4 py-1.5 text-right tabular-nums whitespace-nowrap">
                           {l.qty} бр.
@@ -208,9 +238,9 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
         <p className="text-sm">
           С подписа си шофьорът казва: „Взех {boxesText(boxes)} за {stores.join(', ')}.“
         </p>
-        <p className="text-xs text-muted-foreground">
+        <Note small>
           {units} бр. излизат от Офис и влизат в магазините веднага. Продават се оттам, преди продавачът да е отметнал пратката.
-        </p>
+        </Note>
         <label className="block text-sm space-y-1">
           <span>Шофьор</span>
           <select className="h-10 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
@@ -222,7 +252,7 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
           <span>Паролата на шофьора (пише я самият той)</span>
           <Input type="password" autoComplete="off" value={password} onChange={e => setPassword(e.target.value)} aria-label="Парола на шофьора" />
         </label>
-        {driverName && <p className="text-sm text-muted-foreground">{driverName} · {sofiaDateTime(now)}</p>}
+        {driverName && <Meta>{driverName} · {sofiaDateTime(now)}</Meta>}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Назад</Button>
@@ -258,9 +288,9 @@ function CancelTripDialog({ tripId, number, onClose }: { tripId: string; number:
     <Dialog open onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Откажи курс {formatTripNumber(number)}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <Note>
           Пратките се махат, а готовата стока остава в Офис за следващ курс. Наличността не се променя. Курсът остава в списъка като „Отказан“.
-        </p>
+        </Note>
         <label className="block text-sm space-y-1">
           <span>Причина</span>
           <Input value={reason} onChange={e => setReason(e.target.value)} autoFocus aria-label="Причина" />
@@ -307,8 +337,8 @@ function AddToTrip({ trip, ready }: { trip: TripDetail; ready: StoreReadyView[] 
     <section className="rounded-lg border bg-white">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
         <PackagePlus className="h-4 w-4" />
-        <h2 className="font-semibold">Готово след създаването на курса</h2>
-        <span className="text-sm text-muted-foreground">Още не е в нито един курс.</span>
+        <h2 className="text-base font-semibold text-slate-900">Готово след създаването на курса</h2>
+        <span className="text-sm text-slate-500">Още не е в нито един курс.</span>
       </header>
       <div className="p-4 space-y-3">
         <ul className="grid gap-2 sm:grid-cols-2">
@@ -382,7 +412,7 @@ function ActionDialog({ title, text, reason: needsReason, confirmLabel, destruct
     <Dialog open onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">{text}</p>
+        <Note>{text}</Note>
         {needsReason && (
           <label className="block text-sm space-y-1">
             <span>Причина</span>

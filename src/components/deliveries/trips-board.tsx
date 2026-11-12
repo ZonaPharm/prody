@@ -6,22 +6,29 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Plus, Truck } from 'lucide-react'
-import { formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
-import { storeReadyText, type StoreReady } from '@/lib/deliveries/queue'
+import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
+import { storeReadyText, type ReadyLine, type StoreReady } from '@/lib/deliveries/queue'
 import type { TripListRow } from '@/lib/deliveries/work'
 import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
+import { NextStep } from './step-trail'
+import { OfficeStockButton, type StoreChoice } from './office-stock-dialog'
+import { Empty, Hint, Note } from '@/components/ui/text'
 
-export type StoreReadyView = StoreReady & { name: string }
+export type StoreReadyView = StoreReady & { name: string; lines?: ReadyLine[] }
 
 /**
  * "Курсове": the trips (К-…) with their shipments, and "Нов курс": tick the
  * stores on the driver's way; each gets one shipment with everything ready
  * for it now, from every open delivery. A store with nothing ready is skipped.
  */
-export function TripsBoard({ trips, ready, storeName, filter }: {
+export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, stores = [] }: {
+  /** Stores that can get a shipment, for a trip with Office stock only. */
+  stores?: StoreChoice[]
+  /** Units planned for stores that still wait for "С етикет" + signature. */
+  waitingLabel?: number
   trips: TripListRow[]
   ready: StoreReadyView[]
   storeName: Record<string, string>
@@ -58,27 +65,53 @@ export function TripsBoard({ trips, ready, storeName, filter }: {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-white">
-        <header className="flex items-center gap-2 border-b px-4 py-3">
+        <header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-4 py-3">
           <Plus className="h-4 w-4" />
-          <h2 className="font-semibold">Нов курс</h2>
-          <span className="text-sm text-muted-foreground">Отметнете магазините по пътя на машината.</span>
+          <h2 className="text-base font-semibold text-slate-900">Нов курс</h2>
+          <Hint small className="w-full sm:w-auto">Отметнете магазините по пътя на машината.</Hint>
+          {stores.length > 0 && (
+            <span className="w-full sm:ml-auto sm:w-auto">
+              <OfficeStockButton stores={stores} label="Курс със стока от Офис" />
+            </span>
+          )}
         </header>
         {ready.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Няма готова стока за изпращане. Първо отметнете готовите редове в <Link href="/deliveries/labels" className="underline">„Етикетиране“</Link>.
-          </p>
+          <div className="space-y-3 p-4 text-sm">
+            <Note>
+              Още няма стока от доставки, готова за магазините.
+              {waitingLabel > 0
+                ? ` За магазините чакат етикет ${waitingLabel} бр. Те стават готови, когато в „Етикетиране“ натиснете „С етикет“ на реда и подпишете.`
+                : ' Стоката става готова, когато е получена в Офис, разпределена към магазин и подписана в „Етикетиране“.'}
+              {stores.length > 0 && ' Стока, която вече е в Офис, пратете с „Курс със стока от Офис“.'}
+            </Note>
+            {waitingLabel > 0 && <NextStep next={{ label: `Етикетирай ${waitingLabel} бр. за магазините`, href: '/deliveries/labels' }} />}
+          </div>
         ) : (
           <div className="p-4 space-y-3">
             <ul className="grid gap-2 sm:grid-cols-2">
               {ready.map(s => (
-                <li key={s.store_id}>
-                  <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', picked.has(s.store_id) && 'border-slate-900 bg-slate-50')}>
+                <li key={s.store_id} className={cn('rounded-md border', picked.has(s.store_id) && 'border-primary bg-primary/5')}>
+                  <label className="flex items-start gap-3 p-3 cursor-pointer">
                     <input type="checkbox" className="mt-0.5 h-5 w-5" checked={picked.has(s.store_id)} onChange={e => toggle(s.store_id, e.target.checked)} aria-label={s.name} />
                     <span>
                       <span className="font-medium">{s.name}</span>
                       <span className="block text-sm text-muted-foreground">{storeReadyText(s)}</span>
                     </span>
                   </label>
+                  {s.lines && s.lines.length > 0 && (
+                    <details className="border-t px-3 py-2 text-sm">
+                      <summary className="cursor-pointer text-primary">Какво чака за {s.name}</summary>
+                      <ul className="mt-1 space-y-0.5">
+                        {s.lines.map(l => (
+                          <li key={l.plan_id} className="flex gap-2">
+                            <span className="min-w-0 flex-1 truncate">{l.product_name}</span>
+                            <Link href={`/deliveries/${l.delivery_id}`} className="shrink-0 text-xs text-muted-foreground hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+                            <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{l.qty} бр.</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
@@ -96,18 +129,18 @@ export function TripsBoard({ trips, ready, storeName, filter }: {
 
       <section className="space-y-2">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold">Курсове</h2>
+          <h2 className="text-base font-semibold text-slate-900">Курсове</h2>
           <div className="inline-flex rounded-md border bg-white p-0.5 ml-auto">
             {([['active', 'В ход'], ['all', 'Всички']] as const).map(([v, label]) => (
               <Link key={v} href={v === 'active' ? '/deliveries/trips' : '/deliveries/trips?filter=all'}
-                className={cn('px-3 py-1 text-sm rounded', filter === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
+                className={cn('px-3 py-1 text-sm rounded', filter === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
                 {label}
               </Link>
             ))}
           </div>
         </div>
         {trips.length === 0 ? (
-          <p className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">Няма курсове.</p>
+          <div className="rounded-lg border bg-white"><Empty>Няма курсове.</Empty></div>
         ) : (
           <ul className="rounded-lg border bg-white divide-y">
             {trips.map(t => (

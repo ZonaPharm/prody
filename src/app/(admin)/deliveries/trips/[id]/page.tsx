@@ -31,9 +31,9 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
     .map(s => ({ ...s, name: storeName[s.store_id] }))
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="trips" problems={problems} />
-      <TripView trip={trip} drivers={drivers} ready={ready} />
+      <TripView trip={trip} drivers={drivers} ready={ready} stores={stores.filter(s => !s.is_warehouse).map(s => ({ id: s.id, name: s.name }))} />
     </div>
   )
 }

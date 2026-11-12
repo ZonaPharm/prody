@@ -154,7 +154,7 @@ export function EmailSettings() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 pt-3 border-t">
+        <div className="flex flex-wrap items-center gap-3 pt-3 border-t">
           <Button onClick={save} disabled={saving} size="sm">
             {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
             Запази

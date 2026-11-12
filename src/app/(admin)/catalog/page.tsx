@@ -63,7 +63,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Каталог</h1>
         </div>
@@ -73,14 +73,15 @@ export default async function CatalogPage({ searchParams }: PageProps) {
           </Suspense>
           <Button asChild>
             <Link href="/catalog/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Добави продукт
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Добави продукт</span>
+              <span className="sm:hidden">Нов</span>
             </Link>
           </Button>
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 bg-slate-50/95 backdrop-blur-sm">
+      <div className="sticky top-14 lg:top-0 z-20 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 bg-slate-50/95 backdrop-blur-sm">
         <Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded-md" />}>
           <ProductSearch categories={categories as { id: string; name: string }[]} stores={stores as { id: string; name: string }[]} />
         </Suspense>

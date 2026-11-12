@@ -15,8 +15,13 @@ import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SettingsPage() {
+const TABS = ['categories', 'stores', 'suppliers', 'min-qty', 'ai', 'email', 'users', 'logs', 'backup', 'images']
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await requireAdmin()
+  // Links from other screens open the right tab, e.g. /settings?tab=users.
+  const { tab } = await searchParams
+  const initialTab = tab && TABS.includes(tab) ? tab : 'categories'
   // Suppliers belong to the deliveries feature and show only where it is on.
   const deliveries = deliveriesEnabledFor(user.email)
   const supabase = await createServerSupabaseClient()
@@ -27,10 +32,10 @@ export default async function SettingsPage() {
     .order('name')
 
   return (
-    <div>
+    <div className="max-w-5xl">
       <h1 className="text-2xl font-bold mb-6">Настройки</h1>
-      <Tabs defaultValue="categories">
-        <TabsList className="flex-wrap">
+      <Tabs defaultValue={initialTab}>
+        <TabsList>
           <TabsTrigger value="categories">Категории</TabsTrigger>
           <TabsTrigger value="stores">Магазини</TabsTrigger>
           {deliveries && <TabsTrigger value="suppliers">Доставчици</TabsTrigger>}

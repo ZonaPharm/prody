@@ -1,4 +1,5 @@
 import { supplierForSource, type SupplierRef } from './suppliers'
+import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 
 /**
  * A product as the delivery entry screen needs it: what to show in the search
@@ -15,12 +16,13 @@ export type DeliveryProduct = {
   price: number | null
   quantity_on_hand: number
   needs_label: boolean
+  label_kind: LabelKind
   image: string | null
   suggested: { supplier_id: string | null; unit_cost: number | null; pack_size: number }
 }
 
 export const PRODUCT_COLUMNS =
-  'id, name, sku, status, price, cost_price, source, needs_label, quantity_on_hand, images:product_images(url, is_primary, sort_order)'
+  'id, name, sku, status, price, cost_price, source, needs_label, label_kind, quantity_on_hand, images:product_images(url, is_primary, sort_order)'
 
 type RawProduct = {
   id: string
@@ -31,6 +33,7 @@ type RawProduct = {
   cost_price: number | string | null
   source: string | null
   needs_label: boolean | null
+  label_kind?: string | null
   quantity_on_hand: number | null
   images?: { url: string; is_primary: boolean | null; sort_order: number | null }[] | null
 }
@@ -78,6 +81,7 @@ export function toDeliveryProducts(
       price: num(p.price),
       quantity_on_hand: p.quantity_on_hand ?? 0,
       needs_label: p.needs_label !== false,
+      label_kind: labelKindOf(p),
       image: primaryImage(p.images),
       suggested: {
         supplier_id: supplierId,

@@ -14,6 +14,7 @@ import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { ResolveButton } from '@/components/deliveries/resolve-dialog'
+import { Empty, PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,25 +32,24 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
   const open = filter === 'open' ? rows.length : rows.filter(r => r.status === 'open').length
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="problems" problems={open} />
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Проблеми</h1>
-          <p className="text-sm text-muted-foreground">Всичко отбелязано с „Не е наред“ при получаване, етикетиране, опаковане и в магазините.</p>
-        </div>
+      <PageHeader
+        title="Проблеми"
+        intro="Всичко отбелязано с „Не е наред“ при получаване, етикетиране, опаковане и в магазините."
+        actions={
         <div className="inline-flex rounded-md border bg-white p-0.5">
           {([['open', 'Отворени'], ['all', 'Всички']] as const).map(([v, label]) => (
             <Link key={v} href={v === 'open' ? '/deliveries/problems' : '/deliveries/problems?filter=all'}
-              className={cn('px-3 py-1 text-sm rounded', filter === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
+              className={cn('px-3 py-1 text-sm rounded', filter === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
               {label}
             </Link>
           ))}
-        </div>
-      </div>
+        </div>}
+      />
 
       {rows.length === 0 ? (
-        <p className="rounded-lg border bg-white p-6 text-sm text-muted-foreground">{filter === 'open' ? 'Няма отворени проблеми.' : 'Няма проблеми.'}</p>
+        <div className="rounded-lg border bg-white"><Empty>{filter === 'open' ? 'Няма отворени проблеми.' : 'Няма проблеми.'}</Empty></div>
       ) : (
         <ul className="rounded-lg border bg-white divide-y">
           {rows.map(r => {

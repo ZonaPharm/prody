@@ -14,6 +14,7 @@ import type { ShipmentLineView } from '@/lib/deliveries/work'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
 import { ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
+import { Empty, Note } from '@/components/ui/text'
 
 /**
  * One shipment, line by line. Two uses:
@@ -39,7 +40,7 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
   const [signing, setSigning] = useState(false)
   const [error, setError] = useState('')
 
-  const rows = lines.map(l => ({ line_id: l.id, qty: l.qty }))
+  const rows = lines.map(l => ({ line_id: l.id, qty: l.qty, office: l.plan_id == null }))
   const pack = buildPackBody(rows, state)
   const confirm = buildConfirmBody(rows, state)
   const missing = mode === 'pack' ? pack.missing : confirm.missing
@@ -85,19 +86,24 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
         {lines.map(l => {
           const s = state[l.id]
           return (
-            <li key={l.id} className={cn('flex flex-wrap items-center gap-3 px-3 py-3', rowTone(s))} data-testid="shipment-row">
-              <RowTick state={s} label={`${mode === 'pack' ? 'В кашона' : 'Получено'}: ${l.product_name}`} onChange={on => setRow(l.id, { checked: on })} />
+            <li key={l.id} className={cn('flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center', rowTone(s))} data-testid="shipment-row">
+              <div className="flex flex-1 min-w-0 gap-3">
               <ProductThumb src={l.image} size={40} />
-              <div className="flex-1 min-w-[180px]">
+              <div className="flex-1 min-w-0">
                 <div className="font-medium leading-tight">{l.product_name}</div>
                 <div className="text-xs text-muted-foreground">
                   {l.product_sku ? `${l.product_sku} · ` : ''}цена {formatMoney(l.product_price)}
                   {mode === 'pack' && l.delivery_number != null ? ` · ${formatDeliveryNumber(l.delivery_number)}` : ''}
+                  {mode === 'pack' && l.plan_id == null ? ' · от Офис' : ''}
                 </div>
                 <div className="text-sm"><span className="font-semibold">{l.qty} бр.</span></div>
                 {s?.problem && <ProblemText step={mode} problem={s.problem} />}
               </div>
-              <ProblemButton state={s} onOpen={() => setProblemFor(l)} onClear={() => setRow(l.id, { problem: null })} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <RowTick state={s} text={mode === 'pack' ? 'В кашона' : 'Получено'} blockedText={s?.problem?.kind === 'partial' ? 'Само част' : 'Не е наред'} label={`${mode === 'pack' ? 'В кашона' : 'Получено'}: ${l.product_name}`} onChange={on => setRow(l.id, { checked: on })} />
+                <ProblemButton state={s} onOpen={() => setProblemFor(l)} onClear={() => setRow(l.id, { problem: null })} />
+              </div>
             </li>
           )
         })}
@@ -128,18 +134,20 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
           step={mode}
           title={problemFor.product_name}
           expected={problemFor.qty}
-          hint={`В пратката са ${problemFor.qty} бр.`}
+          hint={problemFor.plan_id == null && mode === 'pack'
+            ? `В пратката са ${problemFor.qty} бр. от Офис. Ако слагате по-малко, редът се намалява и останалото си стои в Офис.`
+            : `В пратката са ${problemFor.qty} бр.`}
           onClose={() => setProblemFor(null)}
           onSave={p => { setRow(problemFor.id, { problem: p, checked: false }); setProblemFor(null) }}
         />
       )}
       {lines.length === 0 && (
-        <p className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">Пратката няма редове.</p>
+        <div className="rounded-lg border bg-white"><Empty>Пратката няма редове.</Empty></div>
       )}
       {mode === 'store' && (
-        <p className="text-xs text-muted-foreground">
+        <Note small>
           Стоката вече е в наличността на обекта и се продава. С отметките потвърждавате, че е пристигнала. Ако нещо липсва, натиснете „Не е наред“: липсващите бройки излизат от наличността, докато админ не реши.
-        </p>
+        </Note>
       )}
     </div>
   )

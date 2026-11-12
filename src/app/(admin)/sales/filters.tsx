@@ -74,31 +74,32 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
   const inputClass = 'border rounded px-3 py-2 text-sm'
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div>
+    // Phone: two filters per row, full width; wider screens: one row that wraps.
+    <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+      <div className="min-w-0">
         <label className="text-xs text-muted-foreground block mb-1">От</label>
         <input
           type="date"
           defaultValue={fromDate}
           onChange={e => update('from', e.target.value)}
-          className={`${inputClass} w-[140px]`}
+          className={`${inputClass} w-full sm:w-[160px]`}
         />
       </div>
-      <div>
+      <div className="min-w-0">
         <label className="text-xs text-muted-foreground block mb-1">До</label>
         <input
           type="date"
           defaultValue={toDate}
           onChange={e => update('to', e.target.value)}
-          className={`${inputClass} w-[140px]`}
+          className={`${inputClass} w-full sm:w-[160px]`}
         />
       </div>
       {stores.length > 0 && (
-        <div>
+        <div className="min-w-0">
           <label className="text-xs text-muted-foreground block mb-1">Обект</label>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="justify-between gap-2 max-w-[220px]">
+              <Button variant="outline" className="w-full justify-between gap-2 sm:w-auto sm:max-w-[220px]">
                 <span className="truncate">{storeLabel}</span>
                 <ChevronDown className={`h-4 w-4 shrink-0 opacity-50 transition-transform ${open ? 'rotate-180' : ''}`} />
               </Button>
@@ -167,12 +168,12 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
         </div>
       )}
       {categories.length > 0 && (
-        <div>
+        <div className="min-w-0">
           <label className="text-xs text-muted-foreground block mb-1">Категория</label>
           <select
             defaultValue={category || ''}
             onChange={e => update('category', e.target.value)}
-            className={`${inputClass} max-w-[180px]`}
+            className={`${inputClass} w-full sm:w-auto sm:max-w-[180px]`}
           >
             <option value="">Всички категории</option>
             <option value="__none__">Без категория</option>
@@ -181,19 +182,19 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
         </div>
       )}
       {products.length > 0 && (
-        <div>
+        <div className="col-span-2 min-w-0 sm:col-span-1">
           <label className="text-xs text-muted-foreground block mb-1">Продукт</label>
           <select
             defaultValue={product || ''}
             onChange={e => update('product', e.target.value)}
-            className={`${inputClass} max-w-[220px]`}
+            className={`${inputClass} w-full sm:w-auto sm:max-w-[220px]`}
           >
             <option value="">Всички продукти</option>
             {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
       )}
-      <div className="flex items-center gap-1.5 pb-1">
+      <div className="col-span-2 flex items-center gap-1.5 pb-1">
         <input
           type="checkbox"
           id="grouped"

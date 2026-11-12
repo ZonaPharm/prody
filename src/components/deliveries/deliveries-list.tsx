@@ -10,6 +10,7 @@ import { formatDeliveryNumber, formatMoney } from '@/lib/deliveries/format'
 import { sofiaDate } from '@/lib/date-utils'
 import type { DeliveryListRow, ListFilter } from '@/lib/deliveries/queries'
 import { cn } from '@/lib/utils'
+import { Empty } from '@/components/ui/text'
 
 const TABS: { value: ListFilter; label: string }[] = [
   { value: 'open', label: 'Отворени' },
@@ -33,23 +34,23 @@ export function DeliveriesList({ rows, filter }: { rows: DeliveryListRow[]; filt
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-md border bg-white p-0.5">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+        <div className="flex sm:inline-flex rounded-lg border bg-white p-0.5 overflow-x-auto">
           {TABS.map(t => (
             <button
               key={t.value}
               type="button"
               onClick={() => router.push(t.value === 'open' ? '/deliveries' : `/deliveries?filter=${t.value}`)}
               className={cn(
-                'px-3 py-1.5 text-sm rounded',
-                filter === t.value ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100',
+                'flex-1 sm:flex-none whitespace-nowrap px-3 py-2 sm:py-1.5 text-sm rounded-md',
+                filter === t.value ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100',
               )}
             >
               {t.label}
             </button>
           ))}
         </div>
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             value={q}
@@ -61,11 +62,48 @@ export function DeliveriesList({ rows, filter }: { rows: DeliveryListRow[]; filt
       </div>
 
       {shown.length === 0 ? (
-        <div className="rounded-lg border bg-white p-8 text-center text-sm text-muted-foreground">
-          {rows.length === 0 ? 'Няма доставки тук.' : 'Нищо не отговаря на търсенето.'}
+        <div className="rounded-lg border bg-white">
+          <Empty className="py-8">{rows.length === 0 ? 'Няма доставки тук.' : 'Нищо не отговаря на търсенето.'}</Empty>
         </div>
       ) : (
-        <div className="rounded-lg border bg-white overflow-x-auto">
+        <>
+        {/* Phone: one card per delivery */}
+        <ul className="md:hidden space-y-2">
+          {shown.map(r => {
+            const pct = r.units > 0 ? Math.round((r.received / r.units) * 100) : 0
+            return (
+              <li key={r.id}>
+                <Link href={`/deliveries/${r.id}`} className="block rounded-xl border bg-white p-3 active:bg-slate-50">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900">{formatDeliveryNumber(r.number)}</span>
+                        {r.open_signals > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-1.5 text-xs text-red-700">
+                            <AlertTriangle className="h-3 w-3" />{r.open_signals}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-slate-600 truncate">{r.suppliers.join(', ') || '—'}</div>
+                    </div>
+                    <DeliveryStatusBadge status={r.status} />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded bg-slate-100">
+                      <div className="h-1.5 rounded bg-emerald-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs tabular-nums text-slate-600">{r.received}/{r.units} бр.</span>
+                  </div>
+                  <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
+                    <span>{sofiaDate(r.created_at)}{r.order_ref ? ` · Поръчка ${r.order_ref}` : ''}</span>
+                    <span className="tabular-nums font-medium text-slate-700">{formatMoney(r.value)}</span>
+                  </div>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+        <div className="hidden md:block rounded-lg border bg-white overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
@@ -122,6 +160,7 @@ export function DeliveriesList({ rows, filter }: { rows: DeliveryListRow[]; filt
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   )
