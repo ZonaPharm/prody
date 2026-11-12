@@ -33,6 +33,10 @@ const TABLES = [
   'stock_movements',
   'stock_requests',
   'request_events',
+  // Both were missing, so a restore would have lost every stock correction
+  // and every note on a request.
+  'request_notes',
+  'stock_corrections',
   'email_settings',
   'audit_logs',
 ]
@@ -93,7 +97,9 @@ export async function runBackup(extraHtml = ''): Promise<BackupResult> {
     // the data was never in the file, and its size looked plausible anyway.
     for (const table of TABLES) {
       try {
-        backup[table] = await fetchAll<any>(() => (admin.from(table) as any).select('*'))
+        // Ordered, so the pages do not overlap or skip rows while sales are
+        // written during the backup. Every table here has an id column.
+        backup[table] = await fetchAll<any>(() => (admin.from(table) as any).select('*').order('id'))
       } catch (tableErr: any) {
         if (TABLES_PENDING_MIGRATION.has(table) && isMissingTableError(tableErr)) {
           absentTables.push(table)
