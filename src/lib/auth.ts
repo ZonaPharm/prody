@@ -1,4 +1,3 @@
-import { cache } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
@@ -11,10 +10,7 @@ export type AppUser = {
   store_id: string | null
 }
 
-// The layout and the page both ask who is signed in, and each answer is two
-// round trips (Supabase Auth, then public.users). cache() gives every caller in
-// one request the same answer, so a page load asks once.
-export const requireAuth = cache(async function requireAuth(): Promise<AppUser> {
+export async function requireAuth(): Promise<AppUser> {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -27,7 +23,7 @@ export const requireAuth = cache(async function requireAuth(): Promise<AppUser> 
 
   if (!profile) redirect('/login')
   return profile as AppUser
-})
+}
 
 export async function getEffectiveRole(user: AppUser): Promise<'admin' | 'seller'> {
   if (user.role !== 'admin') return user.role

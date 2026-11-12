@@ -1,4 +1,4 @@
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, getEffectiveRole } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -16,88 +16,14 @@ interface PageProps {
 export default async function RecordSalePage({ searchParams }: PageProps) {
   const sp = await searchParams
   const user = await requireAuth()
+  const effectiveRole = await getEffectiveRole(user)
   const admin = createAdminClient()
 
-  // PostgREST returns at most 1000 rows per request and says nothing when it
-  // stops there, so every list below that can grow past it is read page by
-  // page (fetchAll), ordered down to the id so the pages neither overlap nor
-  // skip. On 9 November 2026 90 days of sales were 1499 rows at Заимов and
-  // 1355 at Ботев, so their "most sold first" order was worked out from an
-  // arbitrary 1000; active products (777) and primary images (833) were
-  // heading for the same cut, past which products would simply have vanished
-  // from the till.
-  //
-  // Every read is a round trip to the database, and the till used to make them
-  // one after another, so it waited for the sum of them. The reads do not
-  // depend on each other, so they go out together. Only the store has to be
-  // known first: it comes from the URL or the seller's own store, and only
-  // without both does it wait for the list of stores (the first active one).
-
-  const storesRead: Promise<Store[] | null> = (admin.from('stores') as any)
+  // Fetch stores
+  const { data: stores } = await (admin.from('stores') as any)
     .select('id, name')
     .eq('is_active', true)
     .order('name')
-    .then((r: { data: Store[] | null }) => r.data)
-
-  const wantedStoreId = sp.store || user.store_id
-  const storeIdRead: Promise<string | null> = wantedStoreId
-    ? Promise.resolve(wantedStoreId)
-    : storesRead.then(s => s?.[0]?.id ?? null)
-
-  const [
-    stores,
-    storeBatches,
-    allActiveProducts,
-    storeSalesCounts,
-    { data: categories },
-    images,
-    { data: recentSales },
-  ] = await Promise.all([
-    storesRead,
-    // Products with stock in THIS store from stock_batches (admin bypasses RLS)
-    storeIdRead.then(storeId => storeId
-      ? fetchAll<{ product_id: string; quantity_remaining: number }>(() => (admin.from('stock_batches') as any)
-        .select('product_id, quantity_remaining')
-        .eq('store_id', storeId)
-        .gt('quantity_remaining', 0)
-        .order('id'))
-      : []),
-    // ALL active products (filter stock in JS to avoid PostgREST URI limit)
-    fetchAll<{ id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null }>(() => (admin.from('products') as any)
-      .select('id, name, price, quantity_on_hand, category_id')
-      .eq('status', 'active')
-      .order('name')
-      .order('id')),
-    // Sales frequency for this store (most sold first, unsold alphabetical).
-    // Only the order depends on it, so a failure leaves the till alphabetical
-    // rather than taking it down.
-    storeIdRead.then(storeId => storeId
-      ? fetchAll<{ product_id: string }>(() => (admin.from('sales') as any)
-        .select('product_id')
-        .eq('store_id', storeId)
-        .eq('voided', false)
-        .gte('sale_date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0])
-        .order('id'))
-      : [])
-      .catch((err: unknown) => { console.error('record-sale: sales counts', err); return [] as { product_id: string }[] }),
-    (admin.from('categories') as any)
-      .select('id, name')
-      .order('name'),
-    // All primary images (avoid IN filter URI limit). Pictures only: on a
-    // failure the till still sells, just without them.
-    fetchAll<{ product_id: string; url: string }>(() => (admin.from('product_images') as any)
-      .select('product_id, url')
-      .eq('is_primary', true)
-      .order('id'))
-      .catch((err: unknown) => { console.error('record-sale: images', err); return [] as { product_id: string; url: string }[] }),
-    // The seller's last sales, for "frequently sold" below.
-    (admin.from('sales') as any)
-      .select('product_id')
-      .eq('sold_by', user.id)
-      .eq('voided', false)
-      .order('created_at', { ascending: false })
-      .limit(20),
-  ])
 
   if (!stores || stores.length === 0) {
     return (
@@ -108,7 +34,34 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     )
   }
 
-  const defaultStoreId = (await storeIdRead) as string
+  // Default store resolution — URL param overrides
+  let defaultStoreId = sp.store || user.store_id
+  if (!defaultStoreId && user.role === 'admin' && effectiveRole === 'seller') {
+    defaultStoreId = stores[0].id
+  }
+  if (!defaultStoreId) {
+    defaultStoreId = stores[0].id
+  }
+
+  // Validate selected store exists and is active
+  const selectedStore = stores.find((s: any) => s.id === defaultStoreId)
+  if (selectedStore) defaultStoreId = selectedStore.id
+
+  // PostgREST returns at most 1000 rows per request and says nothing when it
+  // stops there, so every list below that can grow past it is read page by
+  // page (fetchAll), ordered down to the id so the pages neither overlap nor
+  // skip. On 9 November 2026 90 days of sales were 1499 rows at Заимов and
+  // 1355 at Ботев, so their "most sold first" order was worked out from an
+  // arbitrary 1000; active products (777) and primary images (833) were
+  // heading for the same cut, past which products would simply have vanished
+  // from the till.
+
+  // Get products with stock in THIS store from stock_batches (admin bypasses RLS)
+  const storeBatches = await fetchAll<{ product_id: string; quantity_remaining: number }>(() => (admin.from('stock_batches') as any)
+    .select('product_id, quantity_remaining')
+    .eq('store_id', defaultStoreId)
+    .gt('quantity_remaining', 0)
+    .order('id'))
 
   const storeProductIds = new Set((storeBatches || []).map((b: any) => b.product_id))
   const perStoreQty: Record<string, number> = {}
@@ -116,9 +69,27 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     perStoreQty[b.product_id] = (perStoreQty[b.product_id] || 0) + b.quantity_remaining
   })
 
+  // Fetch ALL active products (filter stock in JS to avoid PostgREST URI limit)
+  const allActiveProducts = await fetchAll<{ id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null }>(() => (admin.from('products') as any)
+    .select('id, name, price, quantity_on_hand, category_id')
+    .eq('status', 'active')
+    .order('name')
+    .order('id'))
+
   // Split into in-stock vs out-of-stock for this store
   const products = (allActiveProducts || []).filter((p: any) => storeProductIds.has(p.id))
   const outOfStockProducts = (allActiveProducts || []).filter((p: any) => !storeProductIds.has(p.id))
+
+  // Sort by sales frequency for this store (most sold first, unsold alphabetical).
+  // Only the order depends on it, so a failure leaves the till alphabetical
+  // rather than taking it down.
+  const storeSalesCounts = await fetchAll<{ product_id: string }>(() => (admin.from('sales') as any)
+    .select('product_id')
+    .eq('store_id', defaultStoreId)
+    .eq('voided', false)
+    .gte('sale_date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0])
+    .order('id'))
+    .catch((err: unknown) => { console.error('record-sale: sales counts', err); return [] })
 
   const salesCountMap: Record<string, number> = {}
   ;(storeSalesCounts || []).forEach((s: any) => {
@@ -142,6 +113,19 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     image_url: null,
   }))
 
+  // Fetch categories
+  const { data: categories } = await (admin.from('categories') as any)
+    .select('id, name')
+    .order('name')
+
+  // Fetch all primary images (avoid IN filter URI limit). Pictures only: on a
+  // failure the till still sells, just without them.
+  const images = await fetchAll<{ product_id: string; url: string }>(() => (admin.from('product_images') as any)
+    .select('product_id, url')
+    .eq('is_primary', true)
+    .order('id'))
+    .catch((err: unknown) => { console.error('record-sale: images', err); return [] })
+
   const imageMap: Record<string, string> = {}
   ;(images || []).forEach((img: any) => {
     if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url
@@ -164,6 +148,13 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
 
   // Frequently sold: seller's last unique products + fill from store products
   let frequentlySold: Product[] = []
+
+  const { data: recentSales } = await (admin.from('sales') as any)
+    .select('product_id')
+    .eq('sold_by', user.id)
+    .eq('voided', false)
+    .order('created_at', { ascending: false })
+    .limit(20)
 
   if (recentSales && recentSales.length > 0) {
     const seenIds = new Set<string>()
