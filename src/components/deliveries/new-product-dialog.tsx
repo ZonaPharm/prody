@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Loader2, PackagePlus } from 'lucide-react'
 import type { DeliveryProduct } from '@/lib/deliveries/products'
+import type { LabelKind } from '@/lib/label-kind'
+import { LabelKindSelect } from './label-kind-select'
 
 type Option = { id: string; name: string }
 
@@ -29,12 +31,12 @@ export function NewProductDialog({
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [category, setCategory] = useState('')
-  const [needsLabel, setNeedsLabel] = useState(true)
+  const [labelKind, setLabelKind] = useState<LabelKind>('full')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   function reset() {
-    setName(''); setPrice(''); setCategory(''); setNeedsLabel(true); setError('')
+    setName(''); setPrice(''); setCategory(''); setLabelKind('full'); setError('')
   }
 
   async function submit(e: React.FormEvent) {
@@ -53,7 +55,8 @@ export function NewProductDialog({
           price: p,
           category_id: category || null,
           supplier_id: supplierId,
-          needs_label: needsLabel,
+          needs_label: labelKind === 'full',
+          label_kind: labelKind,
         }),
       })
       const data = await res.json()
@@ -96,10 +99,10 @@ export function NewProductDialog({
                 </select>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" className="h-4 w-4" checked={!needsLabel} onChange={e => setNeedsLabel(!e.target.checked)} />
-              Без етикет (готов за изпращане веднага след получаване)
-            </label>
+            <div className="space-y-1.5">
+              <Label>Етикет</Label>
+              <LabelKindSelect id="np-label" value={labelKind} onChange={setLabelKind} />
+            </div>
             <p className="text-xs text-muted-foreground">
               Продуктът става активен веднага, без наличност. Снимки, описание и останалото се попълват после в „Каталог“.
             </p>

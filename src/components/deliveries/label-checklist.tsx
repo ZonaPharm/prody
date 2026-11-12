@@ -176,7 +176,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
                       {r.product_sku ? ` · ${r.product_sku}` : ''}
                       {` · цена ${formatMoney(r.product_price)}`}
                       {r.labelled_qty > 0 ? ` · вече с етикет ${r.labelled_qty} от ${r.received_qty}` : ''}
-                      {!r.needs_label && ' · продуктът е „Без етикет“'}
+                      {!r.needs_label && ' · продуктът вече не е „Пълен етикет“'}
                     </div>
                     <div className="text-sm">
                       <span className="font-semibold">{r.expected} бр.</span>

@@ -27,6 +27,7 @@ function toDraft(d: DeliveryDetail): DraftInitial {
       pack_size: i.pack_size > 1 ? String(i.pack_size) : '',
       unit_cost: String(i.unit_cost).replace('.', ','),
       needs_label: i.needs_label,
+      label_kind: i.label_kind,
       plan: Object.fromEntries(i.plan.map(p => [p.store_id, String(p.planned_qty)])),
     })),
   }

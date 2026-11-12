@@ -64,6 +64,7 @@ function OfficeStockDialog({ tripId, stores, store, packed, onClose }: {
   const [storeId, setStoreId] = useState(store?.id ?? '')
   const [q, setQ] = useState('')
   const [found, setFound] = useState<OfficeStockRow[]>([])
+  const [searchError, setSearchError] = useState('')
   const [searching, setSearching] = useState(false)
   const [picked, setPicked] = useState<Picked[]>([])
   const [busy, setBusy] = useState(false)
@@ -81,7 +82,10 @@ function OfficeStockDialog({ tripId, stores, store, packed, onClose }: {
       try {
         const res = await fetch(`/api/deliveries/office-stock?q=${encodeURIComponent(term)}`)
         const data = await res.json().catch(() => [])
-        if (my === seq.current) setFound(Array.isArray(data) ? data : [])
+        if (my === seq.current) {
+          setFound(Array.isArray(data) ? data : [])
+          setSearchError(res.ok ? '' : (data?.error || 'Търсенето не мина'))
+        }
       } finally {
         if (my === seq.current) setSearching(false)
       }
@@ -200,7 +204,8 @@ function OfficeStockDialog({ tripId, stores, store, packed, onClose }: {
                   })}
                 </ul>
               )}
-              {q.trim().length >= 2 && !searching && found.length === 0 && (
+              {searchError && <p className="text-xs text-red-600">{searchError}</p>}
+              {q.trim().length >= 2 && !searching && !searchError && found.length === 0 && (
                 <p className="text-xs text-muted-foreground">Няма такъв продукт.</p>
               )}
             </div>
