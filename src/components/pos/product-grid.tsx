@@ -49,10 +49,14 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
   }
   const scanRef = useRef(handleScan)
   scanRef.current = handleScan
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const buffer = new ScanBuffer()
     const onKey = (e: KeyboardEvent) => {
+      // The till renders this grid twice (phone and desktop layouts); only the one
+      // on screen takes the scan, or the product would go into the cart twice.
+      if (!rootRef.current || rootRef.current.offsetParent === null) return
       const t = e.target as HTMLElement | null
       if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) {
         buffer.reset()
@@ -84,7 +88,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
   const filteredOut = (outOfStock || []).filter(matches)
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       {/* Category pills */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Button
