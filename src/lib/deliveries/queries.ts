@@ -320,6 +320,8 @@ export type ProductDeliveryLine = {
  * The latest delivery lines of one product (drafts left out), with their plan and
  * shipment lines, so the product page can say where each lot is now.
  */
+const SHOWN_STATUSES = ['expected', 'in_progress', 'completed']
+
 export async function getProductDeliveries(supabase: any, productId: string, limit = 10): Promise<ProductDeliveryLine[]> {
   const { data: items, error } = await supabase
     .from('delivery_items')
@@ -329,12 +331,14 @@ export async function getProductDeliveries(supabase: any, productId: string, lim
         'plan:delivery_item_plan!delivery_item_plan_delivery_item_id_fkey(id, store_id, planned_qty, ready_qty, shipped_qty)',
     )
     .eq('product_id', productId)
-    .in('delivery.status', ['expected', 'in_progress', 'completed'])
+    .in('delivery.status', SHOWN_STATUSES)
     .order('created_at', { ascending: false })
     .order('id')
     .limit(limit)
   if (error) throw error
-  const rows = ((items ?? []) as any[]).filter(i => i.delivery)
+  // The embedded filter already leaves drafts and cancelled out; checked again here so
+  // a draft can never show as "the latest delivery" of a product.
+  const rows = ((items ?? []) as any[]).filter(i => i.delivery && SHOWN_STATUSES.includes(i.delivery.status))
   if (rows.length === 0) return []
 
   // At most `limit` ids, far below the URL limit of .in().

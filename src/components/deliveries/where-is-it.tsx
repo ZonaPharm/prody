@@ -34,7 +34,7 @@ export function WhereIsIt({ w, storeName, warehouseName, labelHref, compact, one
       <p className="text-sm font-medium">{whereSummary(w)}</p>
       </>}
       {!compact && (
-        <ul className={cn('grid gap-x-6 gap-y-1', oneColumn ? 'max-w-2xl' : 'md:grid-cols-2')}>
+        <ul className={cn('grid gap-x-6 gap-y-1', !oneColumn && 'md:grid-cols-2')}>
           {w.parts.map((p, i) => (
             <PartRow key={i} p={p} w={w} storeName={storeName} warehouseName={warehouseName} labelHref={labelHref} />
           ))}
@@ -91,8 +91,8 @@ function PartRow({ p, w, storeName, warehouseName, labelHref }: {
   const body = (
     <>
       <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', STAGE_TONE[p.stage].dot)} />
+      <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{p.qty} бр.</span>
       <span className="min-w-0 flex-1">{text}</span>
-      <span className="shrink-0 font-semibold tabular-nums">{p.qty} бр.</span>
       {href && <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
     </>
   )

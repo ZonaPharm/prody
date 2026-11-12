@@ -11,6 +11,7 @@ import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { isUuid } from '@/lib/deliveries/api'
 import { AsAdminLink } from '@/components/admin/as-admin-link'
+import { shipmentPeople, shipmentProducts, type ShipmentProductLine } from '@/lib/deliveries/store-people'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,15 @@ export const dynamic = 'force-dynamic'
  * An admin looking "as a seller" has no store of their own: they pick a store and see its
  * shipments read-only, with who in that store signs for them (or how to add someone).
  */
+const DONE_SHOWN = 30
+
+/** "Крем за лице 4, Серум 3 и още 2" */
+function productsText(lines: ShipmentProductLine[] | undefined): string {
+  if (!lines?.length) return ''
+  const head = lines.slice(0, 2).map(l => `${l.name} ${l.qty} бр.`).join(', ')
+  return lines.length > 2 ? `${head} и още ${lines.length - 2}` : head
+}
+
 export default async function MyShipmentsPage({ searchParams }: { searchParams: Promise<{ store?: string }> }) {
   if (!deliveriesActive()) notFound()
   const user = await requireAuth()
@@ -31,14 +41,18 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
   const storeId = user.store_id ?? admin?.storeId ?? null
   const rows = storeId ? await getStoreShipments(supabase, storeId) : []
   const waiting = rows.filter(r => r.status === 'sent')
-  const done = rows.filter(r => r.status !== 'sent')
+  const done = rows.filter(r => r.status !== 'sent').slice(0, DONE_SHOWN)
+  // Every seller of the store sees who drove and who accepted, and what came.
+  const shown = [...waiting, ...done].map(r => r.id)
+  const [people, products] = await Promise.all([shipmentPeople(shown), shipmentProducts(supabase, shown)])
+  const who = (id: string) => people.get(id)
 
   return (
     <div className="space-y-4 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold">Пратки</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Стоката от Офис. Тя е във Вашата наличност от момента, в който шофьорът тръгне. Когато кашоните пристигнат, отметнете пратката ред по ред.
+          Стоката от Офис. Тя е във Вашата наличност от момента, в който шофьорът тръгне. Когато кашоните пристигнат, отметнете пратката ред по ред. Всички продавачи на магазина виждат пратките: какво е дошло, кога и кой го е приел.
         </p>
       </div>
 
@@ -90,14 +104,17 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
                 const days = daysWaiting(r.sent_at)
                 return (
                   <li key={r.id}>
-                    <RowLink admin={adminView} href={adminView ? `/deliveries/trips/${r.trip_id}` : `/my-shipments/${r.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-50" testId="waiting-shipment">
-                      <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
-                      <span className="text-sm">{r.lines} {r.lines === 1 ? 'ред' : 'реда'}, {r.units} бр.{r.box_count ? `, ${boxesText(r.box_count)}` : ''}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {[r.sent_at ? `тръгнала ${sofiaDateTime(r.sent_at)}` : 'на път', r.sender ? `шофьор ${r.sender}` : ''].filter(Boolean).join(', ')}
-                      </span>
-                      {days >= 1 && <span className="text-xs text-amber-700">чака от {days} {days === 1 ? 'ден' : 'дни'}</span>}
-                      <span className="ml-auto text-sm font-medium text-blue-700">{adminView ? 'Курсът →' : 'Отметни →'}</span>
+                    <RowLink admin={adminView} href={adminView ? `/deliveries/trips/${r.trip_id}` : `/my-shipments/${r.id}`} className="block px-4 py-3 hover:bg-slate-50" testId="waiting-shipment">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
+                        <span className="text-sm">{r.lines} {r.lines === 1 ? 'ред' : 'реда'}, {r.units} бр.{r.box_count ? `, ${boxesText(r.box_count)}` : ''}</span>
+                        {days >= 1 && <span className="text-xs text-amber-700">чака от {days} {days === 1 ? 'ден' : 'дни'}</span>}
+                        <span className="ml-auto text-sm font-medium text-blue-700">{adminView ? 'Курсът →' : 'Отметни →'}</span>
+                      </div>
+                      <p className="mt-0.5 truncate text-sm">{productsText(products.get(r.id))}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[r.sent_at ? `Тръгнала ${sofiaDateTime(r.sent_at)}` : 'На път', who(r.id)?.sender ? `шофьор ${who(r.id)?.sender}` : ''].filter(Boolean).join(', ')}
+                      </p>
                     </RowLink>
                   </li>
                 )
@@ -109,18 +126,29 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
 
       {done.length > 0 && (
         <section className="space-y-2">
-          <h2 className="font-semibold">Приети</h2>
+          <h2 className="font-semibold">Приети {done.length < DONE_SHOWN ? `(${done.length})` : <span className="font-normal text-muted-foreground">· последните {DONE_SHOWN}</span>}</h2>
           <ul className="rounded-lg border bg-white divide-y">
-            {done.slice(0, 50).map(r => (
-              <li key={r.id}>
-                <RowLink admin={adminView} href={adminView ? `/deliveries/trips/${r.trip_id}` : `/my-shipments/${r.id}`} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50">
-                  <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
-                  <span className={cn('rounded-full border px-2 py-0.5 text-xs', SHIPMENT_STATUS_TONE[r.status])}>{SHIPMENT_STATUS_LABEL[r.status]}</span>
-                  <span>{r.units} бр.</span>
-                  <span className="text-muted-foreground">{[r.received_at ? sofiaDateTime(r.received_at) : '', r.receiver ?? ''].filter(Boolean).join(', ')}</span>
-                </RowLink>
-              </li>
-            ))}
+            {done.map(r => {
+              const lines = products.get(r.id)
+              const missing = (lines ?? []).reduce((n, l) => n + Math.max(0, l.qty - (l.received_qty ?? l.qty)), 0)
+              return (
+                <li key={r.id}>
+                  <RowLink admin={adminView} href={adminView ? `/deliveries/trips/${r.trip_id}` : `/my-shipments/${r.id}`} className="block px-4 py-2.5 text-sm hover:bg-slate-50">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
+                      <span className={cn('rounded-full border px-2 py-0.5 text-xs', SHIPMENT_STATUS_TONE[r.status])}>{SHIPMENT_STATUS_LABEL[r.status]}</span>
+                      <span>{r.units} бр.</span>
+                      {missing > 0 && <span className="text-red-700">липсват {missing}</span>}
+                      <span className="ml-auto text-xs tabular-nums text-muted-foreground">{r.received_at ? sofiaDateTime(r.received_at) : ''}</span>
+                    </div>
+                    <p className="mt-0.5 truncate">{productsText(lines)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[who(r.id)?.receiver ? `Прие ${who(r.id)?.receiver}` : '', who(r.id)?.sender ? `шофьор ${who(r.id)?.sender}` : ''].filter(Boolean).join(' · ')}
+                    </p>
+                  </RowLink>
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}

@@ -11,6 +11,7 @@ import { sofiaDateTime } from '@/lib/date-utils'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, ArrowLeft, Check, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { shipmentPeople } from '@/lib/deliveries/store-people'
 import { ShipmentChecklist } from '@/components/deliveries/shipment-checklist'
 
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,12 @@ export default async function MyShipmentPage({ params }: { params: Promise<{ id:
   if (!shipment || shipment.store_id !== user.store_id) notFound()
   if (!['sent', 'received', 'received_with_issues'].includes(shipment.status)) notFound()
 
+  // RLS gave this shipment to the seller (their store); the names of colleagues who
+  // packed, drove and accepted it come from shipmentPeople.
+  const people = (await shipmentPeople([shipment.id])).get(shipment.id)
+  const packer = people?.packer ?? shipment.packer
+  const sender = people?.sender ?? shipment.sender
+  const receiver = people?.receiver ?? shipment.receiver
   const units = shipment.lines.reduce((n, l) => n + l.qty, 0)
   const got = shipment.lines.reduce((n, l) => n + (l.received_qty ?? l.qty), 0)
   const missing = units - got
@@ -118,14 +125,14 @@ export default async function MyShipmentPage({ params }: { params: Promise<{ id:
         <aside className="rounded-lg border bg-white p-4 lg:sticky lg:top-6">
           <h2 className="mb-3 text-sm font-semibold">Пътят на пратката</h2>
           <ol className="space-y-3">
-            <Step done={reached(shipment.status, 'packed')} title="Опакована в Офис" when={shipment.packed_at} who={shipment.packer} />
-            <Step done={reached(shipment.status, 'sent')} title="Тръгнала с шофьора" when={shipment.sent_at} who={shipment.sender} note="От този момент стоката е във Вашата наличност." />
+            <Step done={reached(shipment.status, 'packed')} title="Опакована в Офис" when={shipment.packed_at} who={packer} />
+            <Step done={reached(shipment.status, 'sent')} title="Тръгнала с шофьора" when={shipment.sent_at} who={sender} note="От този момент стоката е във Вашата наличност." />
             <Step
               done={reached(shipment.status, 'received')}
               current={shipment.status === 'sent'}
               title={shipment.status === 'sent' ? 'Отметнете я тук, когато пристигне' : missing > 0 ? 'Приета в магазина, с липса' : 'Приета в магазина'}
               when={shipment.received_at}
-              who={shipment.receiver}
+              who={receiver}
             />
           </ol>
         </aside>
