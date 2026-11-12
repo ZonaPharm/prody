@@ -6,6 +6,7 @@ import { formatDeliveryNumber } from '@/lib/deliveries/format'
 import { plainText } from '@/lib/labels/sheet'
 import { PROFILE_COLUMNS, profileFromRow, type SheetProfile } from '@/lib/labels/profiles'
 import { LabelSheets, type PrintLabel } from '@/components/labels/label-sheets'
+import { labelCode } from '@/lib/barcodes'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Етикети' }
@@ -25,14 +26,19 @@ export default async function LabelsPrintPage({ searchParams }: { searchParams: 
   if (ids.length === 0) notFound()
 
   const supabase = await createServerSupabaseClient()
-  const { data, error } = await (supabase as any)
-    .from('delivery_items')
-    .select(
-      'id, received_qty, labelled_qty, sort_order, ' +
-        'delivery:deliveries!delivery_items_delivery_id_fkey(number), ' +
-        'product:products(name, description, wp_short_description, price, barcode, sku)',
-    )
-    .in('id', ids)
+  const read = (productCols: string) =>
+    (supabase as any)
+      .from('delivery_items')
+      .select(
+        'id, received_qty, labelled_qty, sort_order, ' +
+          'delivery:deliveries!delivery_items_delivery_id_fkey(number), ' +
+          `product:products(${productCols})`,
+      )
+      .in('id', ids)
+  let { data, error } = await read('name, description, wp_short_description, price, barcode, internal_barcode, sku')
+  // Until migration 20261112_product_internal_barcode runs there is no internal code:
+  // print what there is rather than fail.
+  if (error?.code === '42703') ({ data, error } = await read('name, description, wp_short_description, price, barcode, sku'))
   if (error) throw new Error(error.message)
   const order = new Map(ids.map((id, i) => [id, i]))
   const labels: PrintLabel[] = ((data ?? []) as any[])
@@ -42,7 +48,7 @@ export default async function LabelsPrintPage({ searchParams }: { searchParams: 
       name: r.product?.name ?? '—',
       description: plainText(r.product?.description) || plainText(r.product?.wp_short_description),
       price: r.product?.price == null ? null : Number(r.product.price),
-      code: (r.product?.barcode ?? '').trim() || (r.product?.sku ?? '').trim(),
+      code: labelCode(r.product ?? {}),
       source: formatDeliveryNumber(r.delivery?.number ?? null),
       count: Math.max(0, (r.received_qty ?? 0) - (r.labelled_qty ?? 0)),
     }))

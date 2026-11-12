@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const { data, error } = await selectWithLabelKind<any[] | null>(PRODUCT_COLUMNS, cols =>
     (gate.supabase.from('products') as any)
       .select(cols)
-      .or(`name.ilike.${pattern},sku.ilike.${pattern},barcode.ilike.${pattern}`)
+      .or(`name.ilike.${pattern},sku.ilike.${pattern},barcode.ilike.${pattern},internal_barcode.ilike.${pattern}`)
       .order('status', { ascending: true })
       .order('name')
       .limit(15),
