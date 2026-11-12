@@ -4,7 +4,7 @@
  * without a database (notify-text.test.ts).
  */
 
-import { formatShipmentNumber, formatTripNumber } from './format'
+import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from './format'
 
 const WEEKDAYS = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота']
 
@@ -71,6 +71,7 @@ export type NotificationKind =
   | 'shipment_sent'
   | 'shipment_removed'
   | 'shipment_issue'
+  | 'label_waiting'
 
 export type NotificationText = { kind: NotificationKind; title: string; body: string | null }
 
@@ -156,5 +157,14 @@ export function shipmentIssueText(ship: Pick<ShipmentInfo, 'number'>, store: str
     kind: 'shipment_issue',
     title: `${store} прие ${formatShipmentNumber(ship.number)} с разлики`,
     body: `${signals} ${signals === 1 ? 'ред не е наред' : 'реда не са наред'}. Решете ги в „Проблеми“.`,
+  }
+}
+
+/** To Офис: an admin received (and distributed) a delivery; its goods wait for a label in Офис. */
+export function labelWaitingText(delivery: { number: number | null }, units: number): NotificationText {
+  return {
+    kind: 'label_waiting',
+    title: `Етикетирай ${unitsText(units)} от ${formatDeliveryNumber(delivery.number)}`,
+    body: 'Администраторът прие доставката и я разпредели по магазини. Стоката чака етикет в Офис.',
   }
 }

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logAction } from '@/lib/audit'
 import { deliveriesGate, isUuid, parseBody, rpcFailure } from '@/lib/deliveries/api'
 import { receiveSchema } from '@/lib/deliveries/schemas'
+import { notifyLabelWaiting } from '@/lib/deliveries/notify'
 
 /**
  * The signed receiving checklist. Received units go into Офис and the
@@ -35,6 +36,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error) return rpcFailure('receive_delivery_checked', error, 'Приемането не мина')
 
   const received = data?.received ?? 0
+  // Офис labels: a heads-up on their „Задачи“ (best effort, never fails the receiving).
+  await notifyLabelWaiting(admin, id, received)
   await logAction({
     action: 'delivery_received',
     userId: gate.user.id,

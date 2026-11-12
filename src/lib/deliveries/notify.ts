@@ -1,6 +1,7 @@
 import { deliveriesEnabledFor } from './feature'
-import { canWorkDeliveries } from '@/lib/roles'
+import { canWorkDeliveries, hasRole } from '@/lib/roles'
 import {
+  labelWaitingText,
   shipmentComingText,
   shipmentIssueText,
   shipmentRemovedText,
@@ -259,5 +260,24 @@ export async function notifyShipmentIssue(admin: Admin, shipmentId: string, sign
     const admins = await deliveryAdmins(admin)
     const text = shipmentIssueText(s, s.store?.name ?? 'Магазин', signals)
     await insert(admin, admins.map(a => ({ ...text, user_id: a.id, link: '/deliveries/problems', trip_id: s.trip_id, shipment_id: s.id })))
+  })
+}
+
+/**
+ * An admin received a delivery: the people with the Офис role (they label, see
+ * src/lib/roles.ts) get „Етикетирай …“. The card on „Задачи“ stays until the
+ * labelling is done; this is the heads-up that new work is there.
+ */
+export async function notifyLabelWaiting(admin: Admin, deliveryId: string, units: number) {
+  if (!units) return
+  await safely('label waiting', async () => {
+    const { data: d, error } = await admin.from('deliveries').select('id, number').eq('id', deliveryId).maybeSingle()
+    if (error) throw error
+    if (!d) return
+    const { data: people, error: e2 } = await admin.from('users').select('*').limit(1000)
+    if (e2) throw e2
+    const office = (people ?? []).filter((u: any) => u.is_active !== false && hasRole(u, 'office') && deliveriesEnabledFor(u.email))
+    const text = labelWaitingText(d, units)
+    await insert(admin, office.map((u: any) => ({ ...text, user_id: u.id, link: '/deliveries/labels' })))
   })
 }

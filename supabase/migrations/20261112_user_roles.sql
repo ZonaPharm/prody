@@ -133,4 +133,18 @@ BEGIN
   END LOOP;
 END $$;
 
+-- „Етикетирай …“ to Офис when an admin receives a delivery: a new kind of
+-- notification. The table comes with 20261112_deliveries_tasks_notifications
+-- (run that one first); skipped if it is not there yet.
+DO $$
+BEGIN
+  IF to_regclass('public.notifications') IS NOT NULL THEN
+    ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_kind_check;
+    ALTER TABLE public.notifications ADD CONSTRAINT notifications_kind_check CHECK (kind IN (
+      'trip_assigned', 'trip_unassigned', 'trip_changed', 'trip_cancelled',
+      'shipment_coming', 'shipment_sent', 'shipment_removed',
+      'shipment_issue', 'label_waiting'));
+  END IF;
+END $$;
+
 COMMIT;

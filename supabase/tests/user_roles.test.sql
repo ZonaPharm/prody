@@ -69,6 +69,9 @@ select * from (values
       and tablename in ('deliveries', 'delivery_items', 'delivery_item_plan', 'delivery_events', 'delivery_signals',
                         'shipments', 'shipment_lines', 'trips', 'suppliers', 'products', 'product_images', 'users')) = 12
    and not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'sales' and policyname like 'Office%')),
-  ('R14 nothing was left behind',
+  ('R14 notifications accept „label_waiting“ (when the table is there)',
+   to_regclass('public.notifications') is null
+   or pg_get_constraintdef((select oid from pg_constraint where conname = 'notifications_kind_check')) like '%label_waiting%'),
+  ('R15 nothing was left behind',
    not exists (select 1 from public.users where email = 'roles-test@example.invalid'))
 ) as t(test, passed);
