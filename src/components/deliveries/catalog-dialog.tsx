@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { BookOpen, Loader2 } from 'lucide-react'
+import { ListChecks, Loader2 } from 'lucide-react'
 import type { DeliveryProduct } from '@/lib/deliveries/products'
 import { ProductThumb } from './product-picker'
 
@@ -83,7 +83,7 @@ export function CatalogDialog({
   return (
     <>
       <Button type="button" variant="outline" onClick={() => setOpen(true)} disabled={disabled}>
-        <BookOpen className="mr-2 h-4 w-4" />Каталог
+        <ListChecks className="mr-2 h-4 w-4" /><span className="sm:hidden">Каталог</span><span className="hidden sm:inline">Каталог: отметни няколко</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">

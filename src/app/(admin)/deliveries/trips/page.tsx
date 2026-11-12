@@ -7,6 +7,7 @@ import { readyByStore, readyLinesByStore } from '@/lib/deliveries/queue'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { TripsBoard } from '@/components/deliveries/trips-board'
 import { ChecklistSteps } from '@/components/deliveries/checklist-ui'
+import { PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,12 +38,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="trips" problems={problems} office={user.role !== 'admin'} />
-      <div>
-        <h1 className="text-2xl font-bold">Курсове</h1>
-        <p className="text-sm text-muted-foreground">
-          Курсът (К-…) е едно тръгване на машината с по една пратка (П-…) за всеки магазин.
-        </p>
-      </div>
+      <PageHeader title="Курсове" intro="Курсът (К-…) е едно тръгване на машината с по една пратка (П-…) за всеки магазин." />
       <ChecklistSteps steps={[
         <>Отметнете магазините, изберете <b>шофьор и ден</b> и натиснете <b>„Направи курс“</b>. Шофьорът и магазините получават известие.</>,
         <>В курса натиснете <b>„Опаковай“</b> за всяка пратка: отметнете какво е в кашона и подпишете.</>,

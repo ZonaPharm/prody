@@ -6,6 +6,7 @@ import { countOpenProblems, getLabelItems } from '@/lib/deliveries/work'
 import { labelItems } from '@/lib/deliveries/queue'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { LabelChecklist } from '@/components/deliveries/label-checklist'
+import { PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,12 +21,7 @@ export default async function LabelsChecklistPage({ searchParams }: { searchPara
   return (
     <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="labels" problems={problems} office={user.role !== 'admin'} />
-      <div>
-        <h1 className="text-2xl font-bold">Етикетиране</h1>
-        <p className="text-sm text-muted-foreground">
-          Всичко получено, което е с етикет, минава оттук: и за магазините, и това, което остава в Офис.
-        </p>
-      </div>
+      <PageHeader title="Етикетиране" intro="Всичко получено, което е с етикет, минава оттук: и за магазините, и това, което остава в Офис." />
       <LabelChecklist rows={rows} storeNames={storeNames} userName={user.display_name} initialDelivery={delivery && isUuid(delivery) ? delivery : undefined} />
     </div>
   )

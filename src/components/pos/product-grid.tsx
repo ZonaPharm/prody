@@ -2,12 +2,15 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Package, Star, Send } from 'lucide-react'
+import { Note } from '@/components/ui/text'
 import { Product } from './cart-types'
 import { getImageSrc } from '@/lib/images'
+import { looksLikeCode, matchesCode } from '@/lib/barcodes'
+import { findByScan, ScanBuffer } from '@/lib/barcodes/scan'
 
 interface ProductGridProps {
   products: Product[]
@@ -20,15 +23,61 @@ interface ProductGridProps {
 export function ProductGrid({ products, categories, frequentlySold, onAddToCart, outOfStock }: ProductGridProps) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
   const matches = (p: Product) => {
     if (selectedCategory && p.category_id !== selectedCategory) return false
     if (search.length >= 2) {
       const q = search.toLowerCase()
-      if (!p.name.toLowerCase().includes(q)) return false
+      if (!p.name.toLowerCase().includes(q) && !matchesCode(p, search)) return false
     }
     return true
   }
+
+  // A scan (from the search box, or typed by the scanner with no field focused):
+  // the product goes straight into the cart, whatever category is picked.
+  const handleScan = (code: string) => {
+    const r = findByScan(code, products, outOfStock || [])
+    if (r.kind === 'add') {
+      onAddToCart(r.product)
+      setNotice({ ok: true, text: `Добавен: ${r.product.name}` })
+    } else if (r.kind === 'out') {
+      setNotice({ ok: false, text: `${r.product.name}: изчерпан в този магазин` })
+    } else {
+      setNotice({ ok: false, text: `Няма продукт с баркод ${r.code}. Потърсете го по име.` })
+    }
+    setSearch('')
+  }
+  const scanRef = useRef(handleScan)
+  scanRef.current = handleScan
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const buffer = new ScanBuffer()
+    const onKey = (e: KeyboardEvent) => {
+      // The till renders this grid twice (phone and desktop layouts); only the one
+      // on screen takes the scan, or the product would go into the cart twice.
+      if (!rootRef.current || rootRef.current.offsetParent === null) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) {
+        buffer.reset()
+        return
+      }
+      const code = buffer.key(e.key, e.timeStamp || Date.now())
+      if (code) {
+        e.preventDefault()
+        scanRef.current(code)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(null), 4000)
+    return () => clearTimeout(t)
+  }, [notice])
 
   const filtered = products.filter(matches)
 
@@ -40,7 +89,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
   const filteredOut = (outOfStock || []).filter(matches)
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       {/* Category pills */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Button
@@ -68,13 +117,25 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Търсене по име или баркод..."
+          placeholder="Търсене по име или сканирайте баркод..."
           value={search}
           onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && looksLikeCode(search)) {
+              e.preventDefault()
+              handleScan(search)
+            }
+          }}
           className="pl-9"
           autoComplete="off"
+          enterKeyHint="search"
         />
       </div>
+      {notice && (
+        <div role="status">
+          <Note tone={notice.ok ? 'success' : 'warn'}>{notice.text}</Note>
+        </div>
+      )}
 
       {/* Frequently sold */}
       {frequentlySold.length > 0 && !search && !selectedCategory && (

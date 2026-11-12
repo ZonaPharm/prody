@@ -4,6 +4,7 @@ import { logAction } from '@/lib/audit'
 import { deliveriesGate, parseBody } from '@/lib/deliveries/api'
 import { newProductSchema } from '@/lib/deliveries/schemas'
 import { PRODUCT_COLUMNS, toDeliveryProducts } from '@/lib/deliveries/products'
+import { missingLabelKind, withoutLabelKind } from '@/lib/deliveries/label-kind-compat'
 
 /**
  * "Нов продукт" from the delivery entry: name, sale price, optional category.
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
 
   const body = await parseBody(request, newProductSchema)
   if (!body.ok) return body.response
-  const { name, price, category_id, supplier_id, needs_label } = body.data
+  const { name, price, category_id, supplier_id, needs_label, label_kind } = body.data
 
   let source: string | null = null
   if (supplier_id) {
@@ -28,19 +29,24 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
-  const { data, error } = await (admin.from('products') as any)
-    .insert({
-      name,
-      price,
-      category_id: category_id ?? null,
-      source,
-      status: 'active',
-      quantity_on_hand: 0,
-      min_quantity: 5,
-      needs_label,
-    })
-    .select(PRODUCT_COLUMNS)
-    .single()
+  const row = {
+    name,
+    price,
+    category_id: category_id ?? null,
+    source,
+    status: 'active',
+    quantity_on_hand: 0,
+    min_quantity: 5,
+    needs_label: label_kind ? label_kind === 'full' : needs_label,
+  }
+  const insert = (withKind: boolean) =>
+    (admin.from('products') as any)
+      .insert(withKind && label_kind ? { ...row, label_kind } : row)
+      .select(withKind ? PRODUCT_COLUMNS : withoutLabelKind(PRODUCT_COLUMNS))
+      .single()
+  let { data, error } = await insert(true)
+  // Before the label_kind migration: the product is made on needs_label alone.
+  if (missingLabelKind(error)) ({ data, error } = await insert(false))
   if (error) {
     console.error('delivery new product failed:', JSON.stringify(error))
     return NextResponse.json({ error: error.message || 'Продуктът не можа да се създаде' }, { status: 500 })
