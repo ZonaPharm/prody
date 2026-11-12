@@ -63,10 +63,11 @@ const STATUS_COLOR: Record<string, string> = {
   partial: 'bg-orange-100 text-orange-800', rejected: 'bg-red-100 text-red-800',
 }
 
+// short: what fits three tabs side by side on a phone.
 const TABS = [
-  { key: 'request', label: 'Заяви' },
-  { key: 'my', label: 'Моите заявки' },
-  { key: 'low', label: 'Ниски наличности' },
+  { key: 'request', label: 'Заяви', short: 'Заяви' },
+  { key: 'my', label: 'Моите заявки', short: 'Моите' },
+  { key: 'low', label: 'Ниски наличности', short: 'Ниски' },
 ]
 
 export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockImageMap, initialProductId, incoming = {}, unavailable = [], officeFailed = false }: Props) {
@@ -241,10 +242,11 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       <div className="no-scrollbar flex gap-1 bg-slate-100 rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
         {TABS.map(t => (
           <button key={t.key} onClick={() => switchTab(t.key)}
-            className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-4 py-2 sm:py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-2 sm:px-4 py-2.5 sm:py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               tab === t.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}>
-            {t.label}
+            <span className="sm:hidden">{t.short}</span>
+            <span className="hidden sm:inline">{t.label}</span>
             {t.key === 'my' && myRequests.length > 0 && (
               <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
             )}
@@ -488,29 +490,30 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           ) : (
             <div className="border rounded-xl divide-y">
               {lowStockItems.map((p: LowStockItem) => (
-                <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {lowStockImageMap[p.id] && (
-                      <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                <div key={p.id} className="p-3 flex items-center gap-3 hover:bg-slate-50">
+                  {lowStockImageMap[p.id] ? (
+                    <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-11 w-11 rounded object-cover shrink-0" />
+                  ) : (
+                    <div className="h-11 w-11 rounded bg-slate-100 shrink-0 flex items-center justify-center"><Package className="h-5 w-5 text-slate-300" /></div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-snug line-clamp-2">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                    </p>
+                    {incoming[p.id] && (
+                      <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                        <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
                       </p>
-                      {incoming[p.id] && (
-                        <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
-                          <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm' : 'text-amber-600 font-bold text-sm'}>
+                  {/* Right: what is left here, and under it either "Заяви" or why it can't be asked for */}
+                  <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm tabular-nums' : 'text-amber-600 font-bold text-sm tabular-nums'}>
                       {p.current_qty} бр.
                     </span>
                     {p.office_qty > 0 ? (
-                      <Button size="sm" variant="outline" onClick={() => {
+                      <Button size="sm" variant="outline" className="h-9" onClick={() => {
                         const product = products.find(x => x.id === p.id)
                           ?? { id: p.id, name: p.name, price: p.price, office_qty: p.office_qty }
                         setBasket(prev => [
@@ -522,7 +525,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                         Заяви
                       </Button>
                     ) : (
-                      <span className="max-w-[9rem] text-right text-[11px] leading-tight text-muted-foreground">
+                      <span className="max-w-[7.5rem] rounded bg-slate-100 px-1.5 py-0.5 text-[11px] leading-tight text-slate-500">
                         {p.office_reason ?? 'Няма го в Офис'}
                       </span>
                     )}
