@@ -239,6 +239,8 @@ export type TasksFor = {
   role: 'admin' | 'seller'
   userId: string
   storeId: string | null
+  /** Офис without Администратор: no receiving, problems or stores cards. */
+  officeOnly?: boolean
   /**
    * Has the Шофьор role: also sees every trip packed and waiting for transport,
    * not only the ones chosen for them (set from the roles, PR #11).
@@ -266,7 +268,7 @@ export async function loadTasks(supabase: Db, admin: Db, who: TasksFor): Promise
   const tasks = sortTasks([
     ...driverTasks(driving, today, { admin: who.role === 'admin' }),
     ...storeTasks(store.ships, store.planned, today),
-    ...(office ? adminTasks(office, today) : []),
+    ...(office ? adminTasks(office, today, { office: who.officeOnly }) : []),
     ...driverPoolTasks(poolTrips, who.userId, today),
   ])
   return { tasks, notifications }

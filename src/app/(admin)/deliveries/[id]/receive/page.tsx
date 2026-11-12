@@ -8,7 +8,7 @@ import { ReceiveChecklist } from '@/components/deliveries/receive-checklist'
 export const dynamic = 'force-dynamic'
 
 export default async function ReceiveDeliveryPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin({ adminOnly: true })
   const { id } = await params
   if (!isUuid(id)) notFound()
 

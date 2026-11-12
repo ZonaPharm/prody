@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logAction } from '@/lib/audit'
+import { rolesText } from '@/lib/roles'
+import { rolesFromBody, rolesRow, usersWriteError } from '@/lib/user-roles-db'
 
 export async function PUT(
   request: NextRequest,
@@ -15,7 +18,13 @@ export async function PUT(
 
   const { id } = await params
   const admin = createAdminClient()
-  const { display_name, role, store_id, email, password, send_email } = await request.json()
+  const body = await request.json()
+  const { display_name, email, password, send_email } = body
+  const roles = rolesFromBody(body)
+  if (!roles.ok) return NextResponse.json({ error: roles.error }, { status: 400 })
+  if (id === user.id && !roles.roles.includes('admin')) {
+    return NextResponse.json({ error: 'Не можете да махнете своята роля Администратор' }, { status: 400 })
+  }
 
   // Update auth email/password if changed
   if (email || password) {
@@ -26,13 +35,14 @@ export async function PUT(
   }
 
   // Update profile
-  await (admin.from('users') as any)
-    .update({
-      display_name,
-      role: role || 'seller',
-      store_id: role === 'seller' ? (store_id || null) : null,
-    })
+  const { error: profileError } = await (admin.from('users') as any)
+    .update({ display_name, ...rolesRow(roles) })
     .eq('id', id)
+  if (profileError) return NextResponse.json({ error: usersWriteError(profileError) }, { status: 500 })
+  await logAction({
+    action: 'user_update', userId: user.id, userName: user.email, entityType: 'user', entityId: id,
+    details: `${display_name}: ${rolesText(roles.roles)}`,
+  }, supabase as any)
 
   // Send email if password changed and checkbox checked
   let emailSent = false

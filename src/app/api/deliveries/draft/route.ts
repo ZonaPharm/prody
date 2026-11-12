@@ -10,7 +10,7 @@ import { missingLabelKind } from '@/lib/deliveries/label-kind-compat'
  * No stock moves while a delivery is a draft.
  */
 export async function POST(request: Request) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const body = await parseBody(request, draftSaveSchema)

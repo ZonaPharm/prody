@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { loadTasks } from '@/lib/deliveries/tasks-data'
 import { TasksView } from '@/components/tasks/tasks-view'
+import { hasRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,8 @@ export default async function AdminTasksPage() {
     role: 'admin',
     userId: user.id,
     storeId: null,
+    officeOnly: user.role !== 'admin',
+    isDriver: hasRole(user, 'driver'),
   })
   return <TasksView tasks={tasks} notifications={notifications} intro="Какво чака по доставките сега, по ред на стъпките, и известията за теб." />
 }

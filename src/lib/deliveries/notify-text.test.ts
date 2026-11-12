@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  labelWaitingText,
   daysBetween,
   isLate,
   listText,
@@ -73,5 +74,15 @@ describe('notification texts', () => {
     expect(tripCancelledText({ number: 27 }, 'няма кола').body).toBe('Причина: няма кола. Стоката остава в Офис за следващ курс.')
     expect(shipmentIssueText({ number: 35 }, 'Ботев', 2).title).toBe('Ботев прие П-000035 с разлики')
     expect(shipmentIssueText({ number: 35 }, 'Ботев', 1).body).toMatch(/^1 ред не е наред/)
+  })
+})
+
+describe('labelWaitingText', () => {
+  it('tells Офис what waits for a label', () => {
+    expect(labelWaitingText({ number: 29 }, 20)).toEqual({
+      kind: 'label_waiting',
+      title: 'Етикетирай 20 бр. от Д-000029',
+      body: 'Администраторът прие доставката и я разпредели по магазини. Стоката чака етикет в Офис.',
+    })
   })
 })

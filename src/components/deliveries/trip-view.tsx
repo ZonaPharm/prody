@@ -271,7 +271,7 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
           <span>Шофьор</span>
           <select className="h-10 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
             <option value="">Изберете…</option>
-            {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {drivers.map(d => <option key={d.id} value={d.id}>{d.driver ? `${d.name} (шофьор)` : d.name}</option>)}
           </select>
         </label>
         <label className="block text-sm space-y-1">
@@ -326,7 +326,7 @@ function PlanDialog({ trip, drivers, today, onClose }: { trip: TripDetail; drive
           <span className="font-medium">Кой кара</span>
           <select className="h-11 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
             <option value="">Без шофьор засега</option>
-            {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {drivers.map(d => <option key={d.id} value={d.id}>{d.driver ? `${d.name} (шофьор)` : d.name}</option>)}
           </select>
         </label>
         <div className="space-y-1 text-sm">

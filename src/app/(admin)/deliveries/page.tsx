@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 const FILTERS: ListFilter[] = ['open', 'completed', 'cancelled', 'all']
 
 export default async function DeliveriesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  await requireDeliveriesAdmin()
+  await requireDeliveriesAdmin({ adminOnly: true })
   const sp = await searchParams
   const filter: ListFilter = FILTERS.includes(sp.filter as ListFilter) ? (sp.filter as ListFilter) : 'open'
 

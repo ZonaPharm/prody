@@ -37,7 +37,7 @@ export function hhmm(time: string | null | undefined): string | null {
 
 /**
  * Stores the plan on an open trip. Returns an error in Bulgarian, or null.
- * The driver must be an active account (any role: every person has their own).
+ * The driver must be an active account (anyone may drive; see src/lib/roles.ts).
  */
 export async function applyTripPlan(admin: Admin, tripId: string, plan: TripPlan): Promise<{ error: string | null; before: TripPlanBefore | null }> {
   const { data: trip, error: e1 } = await admin
@@ -51,7 +51,7 @@ export async function applyTripPlan(admin: Admin, tripId: string, plan: TripPlan
   if (trip.status !== 'open') return { error: 'Курсът вече е тръгнал или е отказан', before }
 
   if (plan.driver_id) {
-    const { data: driver, error: e2 } = await admin.from('users').select('id, is_active').eq('id', plan.driver_id).maybeSingle()
+    const { data: driver, error: e2 } = await admin.from('users').select('*').eq('id', plan.driver_id).maybeSingle()
     if (e2) throw e2
     if (!driver || driver.is_active === false) return { error: 'Шофьорът не е намерен или акаунтът му е спрян', before }
   }

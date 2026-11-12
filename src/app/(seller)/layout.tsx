@@ -7,6 +7,8 @@ import { deliveriesActive } from '@/lib/deliveries/feature'
 import { countWaitingShipments } from '@/lib/deliveries/work'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { taskBadge } from '@/lib/deliveries/tasks-data'
+import { canSell, canWorkDeliveries, rolesOf, rolesText } from '@/lib/roles'
+import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,15 +47,24 @@ export default async function SellerLayout({ children }: { children: React.React
       taskBadge(supabase, createAdminClient(), { role: 'seller', userId: user.id, storeId: user.store_id ?? null }).catch(() => 0),
     ])
   }
-  const items = shipmentsOn
-    ? [...navItems, { href: '/my-shipments', label: 'Пратки' }, { href: '/my-tasks', label: 'Задачи' }]
-    : navItems
+  const sells = canSell(user)
+  const base = sells ? navItems : []
+  const items = [
+    ...(shipmentsOn
+      ? [...base, ...(sells ? [{ href: '/my-shipments', label: 'Пратки' }] : []), { href: '/my-tasks', label: 'Задачи' }]
+      : base),
+    // Офис + Продавач (e.g. sells in Офис and prepares the goods): a way to Доставки.
+    ...(user.role !== 'admin' && canWorkDeliveries(user) && deliveriesEnabledFor(user.email)
+      ? [{ href: '/deliveries', label: 'Доставки' }] : []),
+  ]
+  const isAdminImpersonating = user.role === 'admin' && effectiveRole === 'seller'
 
   return (
     <SellerLayoutClient
       navItems={items}
       displayName={user.display_name}
-      isAdminImpersonating={user.role === 'admin' && effectiveRole === 'seller'}
+      isAdminImpersonating={isAdminImpersonating}
+      roleLabel={isAdminImpersonating ? undefined : rolesText(rolesOf(user))}
       requestBadge={requestBadge}
       shipmentBadge={shipmentBadge}
       taskBadge={shipmentsOn ? taskCount + shipmentBadge : undefined}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useReducer, useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { Product } from './cart-types'
@@ -14,6 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { clearCover, coverStartStore, needsCoverQuestion, readCover, saveCover } from '@/lib/pos/cover'
+import { sofiaToday } from '@/lib/date-utils'
+import { Note } from '@/components/ui/text'
 
 interface POSClientProps {
   products: Product[]
@@ -22,9 +27,16 @@ interface POSClientProps {
   stores: { id: string; name: string }[]
   defaultStoreId: string
   outOfStock?: Product[]
+  /** The seller's own store (Настройки → Потребители); null for an admin looking as a seller. */
+  homeStoreId?: string | null
+  userId?: string
 }
 
-export function POSClient({ products, categories, frequentlySold, stores, defaultStoreId, outOfStock }: POSClientProps) {
+function coverStorage() {
+  try { return typeof window === 'undefined' ? null : window.localStorage } catch { return null }
+}
+
+export function POSClient({ products, categories, frequentlySold, stores, defaultStoreId, outOfStock, homeStoreId = null, userId = '' }: POSClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [cart, dispatch] = useReducer(cartReducer, initialCartState)
@@ -39,6 +51,23 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
   const [paymentMethod, setPaymentMethod] = useState('')
   const [showPaymentPopup, setShowPaymentPopup] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // "Замествате ли днес в …?" (src/lib/pos/cover.ts): the payment method waiting for the answer.
+  const [coverAsk, setCoverAsk] = useState<string | null>(null)
+
+  // Standing in somewhere today: the till opens on that store.
+  useEffect(() => {
+    if (!userId) return
+    const to = coverStartStore({
+      urlStoreId: new URLSearchParams(window.location.search).get('store'),
+      homeStoreId,
+      confirmedStoreId: readCover(coverStorage(), userId, sofiaToday()),
+      storeIds: stores.map(s => s.id),
+    })
+    // Reads localStorage, so it can only run after mount; switches the till once.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (to && to !== selectedStoreId) handleStoreChange(to)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleAddToCart = (product: Product) => {
     dispatch({ type: 'ADD', product })
@@ -68,6 +97,12 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       return
     }
 
+    if (userId && needsCoverQuestion({ homeStoreId, storeId: selectedStoreId, confirmedStoreId: readCover(coverStorage(), userId, sofiaToday()) })) {
+      setShowPaymentPopup(false)
+      setCoverAsk(method)
+      return
+    }
+
     setSubmitting(true)
     setShowPaymentPopup(false)
     try {
@@ -90,6 +125,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
 
       toast({ title: 'Продажбата е записана' })
       dispatch({ type: 'CLEAR' })
+      // Back in the home store: the standing-in is over for today.
+      if (userId && selectedStoreId === homeStoreId) clearCover(coverStorage(), userId, sofiaToday())
     } catch (err: any) {
       toast({ title: err.message || 'Грешка при записване', variant: 'destructive' })
     } finally {
@@ -209,6 +246,36 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           </div>
         </div>
       )}
+      <Dialog open={coverAsk !== null} onOpenChange={o => { if (!o) setCoverAsk(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Замествате ли днес в {storeName(stores, selectedStoreId)}?</DialogTitle>
+          </DialogHeader>
+          <Note tone="info">
+            Вашият магазин е <b>{storeName(stores, homeStoreId)}</b>. Ако кажете „Да“, продажбите днес се записват в <b>{storeName(stores, selectedStoreId)}</b> и няма да питаме отново до утре.
+          </Note>
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row-reverse">
+            <Button className="h-11 sm:flex-1" data-testid="cover-yes" onClick={() => {
+              const method = coverAsk
+              saveCover(coverStorage(), userId, sofiaToday(), selectedStoreId)
+              setCoverAsk(null)
+              if (method) handleSubmit(method)
+            }}>
+              Да, замествам днес
+            </Button>
+            <Button variant="outline" className="h-11 sm:flex-1" data-testid="cover-no" onClick={() => {
+              setCoverAsk(null)
+              if (homeStoreId) handleStoreChange(homeStoreId)
+            }}>
+              Не, върни {storeName(stores, homeStoreId)}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
+}
+
+function storeName(stores: { id: string; name: string }[], id: string | null): string {
+  return stores.find(st => st.id === id)?.name ?? 'друг магазин'
 }

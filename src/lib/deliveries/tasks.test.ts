@@ -133,6 +133,17 @@ describe('Офис', () => {
     expect(actionCount(tasks)).toBe(4) // "stores" only informs
   })
 
+  it('Офис without Администратор: no receiving, problems or stores cards', () => {
+    const tasks = sortTasks(adminTasks(state({
+      toReceive: [{ id: 'd1', number: 29, units: 20 }],
+      labelRows: 2, labelUnits: 15,
+      readyStores: [{ name: 'Ботев', units: 10 }],
+      problems: 1,
+      atStores: 2,
+    }), TODAY, { office: true }))
+    expect(tasks.map(t => t.key)).toEqual(['label', 'trip'])
+  })
+
   it('an open trip without driver asks for one; packing vs ready to leave', () => {
     const tasks = adminTasks(state({ trips: [
       { id: 't1', number: 27, status: 'open', planned_driver: null, planned_date: null, planned_time: null, shipments: [{ status: 'packing' }] },

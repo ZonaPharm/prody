@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 
 /** An admin ticks a store's shipment in its place (e.g. the store has no account yet). Signed by the admin. */
 export default async function ConfirmShipmentAsAdminPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin({ adminOnly: true })
   const { id } = await params
   if (!isUuid(id)) notFound()
   const supabase = await createServerSupabaseClient()

@@ -137,7 +137,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
                 <span className="font-medium">Кой кара</span>
                 <select className="h-11 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
                   <option value="">Избери по-късно</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {drivers.map(d => <option key={d.id} value={d.id}>{d.driver ? `${d.name} (шофьор)` : d.name}</option>)}
                 </select>
               </label>
               <div className="space-y-1 text-sm">

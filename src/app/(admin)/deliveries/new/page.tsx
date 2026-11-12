@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 /** A new delivery has no row until its first autosave. */
 export default async function NewDeliveryPage() {
-  await requireDeliveriesAdmin()
+  await requireDeliveriesAdmin({ adminOnly: true })
   const supabase = await createServerSupabaseClient()
   const [stores, suppliers, categories] = await Promise.all([
     getStoreOptions(supabase),

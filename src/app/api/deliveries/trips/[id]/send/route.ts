@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient()
   const { data: driver } = await (admin.from('users') as any)
-    .select('id, email, display_name, is_active')
+    .select('*')
     .eq('id', driver_id)
     .maybeSingle()
   if (!driver || driver.is_active === false) {

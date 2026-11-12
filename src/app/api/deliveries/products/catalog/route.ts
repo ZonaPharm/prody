@@ -10,7 +10,7 @@ const PAGE = 50
  * (search, category, store, status), 50 at a time.
  */
 export async function GET(request: Request) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const sp = new URL(request.url).searchParams

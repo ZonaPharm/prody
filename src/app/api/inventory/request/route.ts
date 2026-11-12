@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requestProblem } from '@/lib/requests/office-stock'
+import { hasRole } from '@/lib/roles'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
   const { product_id, store_id, quantity, notes } = await request.json()
 
   const { data: profile } = await (supabase.from('users') as any)
-    .select('store_id, role').eq('id', user.id).single()
+    .select('*').eq('id', user.id).single()
 
   const storeId = profile?.store_id || store_id
   if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Невалидно количество в заявката' }, { status: 400 })
   }
   // Same rule as request-batch: a store asks only for free Офис stock.
-  if (profile?.role !== 'admin') {
+  if (!hasRole(profile, 'admin')) {
     let problem: string | null
     try {
       problem = await requestProblem(createAdminClient(), [{ product_id: String(product_id), quantity: qty }])

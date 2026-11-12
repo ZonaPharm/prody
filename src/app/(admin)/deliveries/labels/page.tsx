@@ -20,7 +20,7 @@ export default async function LabelsChecklistPage({ searchParams }: { searchPara
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <DeliveriesTabs active="labels" problems={problems} />
+      <DeliveriesTabs active="labels" problems={problems} office={user.role !== 'admin'} />
       <PageHeader title="Етикетиране" intro="Всичко получено, което е с етикет, минава оттук: и за магазините, и това, което остава в Офис." />
       <LabelChecklist rows={rows} storeNames={storeNames} userName={user.display_name} initialDelivery={delivery && isUuid(delivery) ? delivery : undefined} />
     </div>

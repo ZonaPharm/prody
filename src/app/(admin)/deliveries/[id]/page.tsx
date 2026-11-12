@@ -34,7 +34,7 @@ function toDraft(d: DeliveryDetail): DraftInitial {
 }
 
 export default async function DeliveryPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin({ adminOnly: true })
   const { id } = await params
   if (!isUuid(id)) notFound()
 

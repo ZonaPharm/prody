@@ -25,7 +25,7 @@ export const dynamic = 'force-dynamic'
  * works delivery by delivery. Each card leads to the checklist of its step.
  */
 export default async function WorkPage() {
-  await requireDeliveriesAdmin()
+  await requireDeliveriesAdmin({ adminOnly: true })
   const supabase = await createServerSupabaseClient()
   const [toReceive, plan, toLabel, unsent, trips, atStores, stores, problems] = await Promise.all([
     getWaitingToReceive(supabase),

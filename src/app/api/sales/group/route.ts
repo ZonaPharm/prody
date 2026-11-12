@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { canSell } from '@/lib/roles'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { executeSaleFIFO, getFIFOBatches } from '@/lib/inventory'
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: profile } = await (supabase.from('users') as any)
-    .select('role, store_id, display_name, is_active')
+    .select('*')
     .eq('id', user.id)
     .single()
 
@@ -26,6 +27,10 @@ export async function POST(request: NextRequest) {
   // be able to record sales in the meantime.
   if (profile.is_active === false) {
     return NextResponse.json({ error: 'Акаунтът е деактивиран' }, { status: 403 })
+  }
+  // Only a Продавач (or an admin) sells; Офис or a driver alone does not.
+  if (!canSell(profile)) {
+    return NextResponse.json({ error: 'Нямате роля Продавач' }, { status: 403 })
   }
 
   const body = await request.json()

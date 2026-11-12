@@ -1,4 +1,6 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { canSell, homePath } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -16,6 +18,8 @@ interface PageProps {
 export default async function RecordSalePage({ searchParams }: PageProps) {
   const sp = await searchParams
   const user = await requireAuth()
+  // Офис or a driver without the Продавач role does not sell.
+  if (!canSell(user)) redirect(homePath(user))
   const effectiveRole = await getEffectiveRole(user)
   const admin = createAdminClient()
 
@@ -189,6 +193,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
       frequentlySold={frequentlySold}
       stores={stores as Store[]}
       defaultStoreId={defaultStoreId!}
+      homeStoreId={user.store_id}
+      userId={user.id}
       outOfStock={outOfStockFinal as Product[]}
     />
   )

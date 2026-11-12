@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/ui/text'
 export const dynamic = 'force-dynamic'
 
 export default async function TripsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin()
   const sp = await searchParams
   const filter = sp.filter === 'all' ? 'all' : 'active'
   const supabase = await createServerSupabaseClient()
@@ -37,7 +37,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <DeliveriesTabs active="trips" problems={problems} />
+      <DeliveriesTabs active="trips" problems={problems} office={user.role !== 'admin'} />
       <PageHeader title="Курсове" intro="Курсът (К-…) е едно тръгване на машината с по една пратка (П-…) за всеки магазин." />
       <ChecklistSteps steps={[
         <>Отметнете магазините, изберете <b>шофьор и ден</b> и натиснете <b>„Направи курс“</b>. Шофьорът и магазините получават известие.</>,

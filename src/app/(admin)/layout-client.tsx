@@ -17,12 +17,17 @@ export function AdminLayoutClient({
   navItems,
   userName,
   tasks,
+  roleLabel = 'Администратор',
+  switchRole = 'seller',
   children,
 }: {
   navItems: NavItem[]
   userName: string
   /** The "Задачи" count, when deliveries are on for this admin. */
   tasks?: number
+  /** Офис (not an admin) sees its own roles and has no "look as a seller" switch. */
+  roleLabel?: string
+  switchRole?: 'seller' | null
   children: React.ReactNode
 }) {
   const items: ShellNavItem[] = navItems.map(item => ({
@@ -31,14 +36,15 @@ export function AdminLayoutClient({
     badgeNode: item.href === '/requests' ? <RequestsBadge /> : undefined,
   }))
   const hasDeliveries = navItems.some(i => i.href === '/deliveries')
+  const officeOnly = !navItems.some(i => i.href === '/dashboard')
 
   return (
     <AppShell
       navItems={items}
-      tabHrefs={hasDeliveries ? TABS_WITH_DELIVERIES : TABS}
+      tabHrefs={officeOnly ? navItems.map(i => i.href) : hasDeliveries ? TABS_WITH_DELIVERIES : TABS}
       userName={userName}
-      roleLabel="Администратор"
-      switchRole="seller"
+      roleLabel={roleLabel}
+      switchRole={switchRole ?? undefined}
       bell={tasks === undefined ? undefined : { href: '/tasks', count: tasks }}
     >
       {children}

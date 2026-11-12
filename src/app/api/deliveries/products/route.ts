@@ -12,7 +12,7 @@ import { missingLabelKind, withoutLabelKind } from '@/lib/deliveries/label-kind-
  * received. The rest of the product is filled in the catalogue later.
  */
 export async function POST(request: Request) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const body = await parseBody(request, newProductSchema)
