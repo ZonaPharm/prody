@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAction } from '@/lib/audit'
+import { requestProblem } from '@/lib/requests/office-stock'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -15,23 +16,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Няма продукти в заявката' }, { status: 400 })
   }
 
+  const clean = items.map((i: any) => ({ product_id: String(i?.product_id ?? ''), quantity: Number(i?.quantity ?? 1) }))
+  if (clean.some((i: any) => !i.product_id || !Number.isInteger(i.quantity) || i.quantity < 1 || i.quantity > 100000)) {
+    return NextResponse.json({ error: 'Невалидно количество в заявката' }, { status: 400 })
+  }
+
   const { data: profile } = await (supabase.from('users') as any)
-    .select('store_id').eq('id', user.id).single()
+    .select('store_id, role').eq('id', user.id).single()
 
   const storeId = profile?.store_id || store_id
   if (!storeId) return NextResponse.json({ error: 'No store assigned' }, { status: 400 })
+
+  // A store may ask only for what Офис can send now (free Офис stock). Admins
+  // may still write a request for anything on a store's behalf.
+  if (profile?.role !== 'admin') {
+    let problem: string | null
+    try {
+      problem = await requestProblem(createAdminClient(), clean)
+    } catch (e) {
+      console.error('request-batch: office stock check failed:', e instanceof Error ? e.message : JSON.stringify(e))
+      return NextResponse.json({ error: 'Не успяхме да проверим наличността в Офис. Опитайте пак.' }, { status: 503 })
+    }
+    if (problem) return NextResponse.json({ error: problem }, { status: 409 })
+  }
 
   // Use a shared created_at for grouping (exact same timestamp = same batch)
   const now = new Date().toISOString()
 
   const results: string[] = []
-  for (const item of items) {
+  for (const item of clean) {
     const { data, error } = await (supabase.from('stock_requests') as any)
       .insert({
         product_id: item.product_id,
         store_id: storeId,
         requested_by: user.id,
-        requested_qty: item.quantity || 1,
+        requested_qty: item.quantity,
         notes: notes || null,
         created_at: now,
       })
