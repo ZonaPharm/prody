@@ -185,24 +185,24 @@ export function InventoryClient({ stores }: { stores: Store[] }) {
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-1 text-sm sm:gap-2">
         {(['select', 'count', 'reason'] as Step[]).map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-              step === s ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'
+          <div key={s} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <div className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold sm:w-8 sm:h-8 ${
+              step === s ? 'bg-primary text-primary-foreground' : 'bg-slate-200 text-slate-500'
             }`}>
               {step === s ? i + 1 : (i + 1)}
             </div>
             <span className={step === s ? 'font-medium' : 'text-muted-foreground'}>
               {s === 'select' ? 'Избор' : s === 'count' ? 'Бройка' : 'Причина'}
             </span>
-            {i < 2 && <ArrowRight className="w-4 h-4 text-muted-foreground mx-1" />}
+            {i < 2 && <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground sm:mx-1" />}
           </div>
         ))}
       </div>
 
       <Card>
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-4 space-y-4 sm:p-6">
           {step === 'select' && (
             <>
               <div>

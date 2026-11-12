@@ -142,7 +142,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Images */}
         <div className="lg:col-span-1 space-y-4">
-          <div className="aspect-square bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
+          <div className={`${primaryImage ? 'aspect-square' : 'h-32 sm:h-auto sm:aspect-square'} bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden`}>
             {primaryImage ? (
               <img
                 src={getImageSrc(primaryImage.url)}

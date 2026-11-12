@@ -39,8 +39,9 @@ export default function ProductCard({ product, href }: ProductCardProps) {
 
   return (
     <Link href={href ?? `/catalog/${product.id}`}>
-      <Card className={`h-full hover:shadow-md transition-shadow cursor-pointer group relative ${hasLowStock ? 'border-amber-300' : ''}`}>
-        <div className="aspect-square bg-slate-100 rounded-t-lg flex items-center justify-center overflow-hidden relative">
+      {/* Phone: a row with a small picture on the left, so a screen shows several products; wider: a card. */}
+      <Card className={`flex h-full hover:shadow-md transition-shadow cursor-pointer group relative sm:block ${hasLowStock ? 'border-amber-300' : ''}`}>
+        <div className="aspect-square w-28 shrink-0 self-start bg-slate-100 rounded-l-xl sm:w-auto sm:rounded-l-none sm:rounded-t-xl flex items-center justify-center overflow-hidden relative">
           <ToggleStatusButton productId={product.id} currentStatus={product.status} />
           {primaryImage ? (
             <img
@@ -50,17 +51,18 @@ export default function ProductCard({ product, href }: ProductCardProps) {
             />
           ) : (
             <div className="flex flex-col items-center text-slate-400">
-              <Package className="h-12 w-12 mb-2" />
-              <span className="text-xs">Няма снимка</span>
+              <Package className="h-8 w-8 sm:h-12 sm:w-12 sm:mb-2" />
+              <span className="hidden text-xs sm:inline">Няма снимка</span>
             </div>
           )}
         </div>
 
-        <CardContent className="p-3 space-y-1.5">
+        <CardContent className="min-w-0 flex-1 p-3 space-y-1.5 sm:p-3">
           {/* Title + Status */}
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-semibold text-sm leading-tight line-clamp-2">{product.name}</h3>
-            <Badge variant="secondary" className={`shrink-0 text-[10px] ${statusColors.bg} ${statusColors.text} ${statusColors.border} border`}>
+            {/* "Активен" is the normal case: on a phone only the other statuses take room from the name. */}
+            <Badge variant="secondary" className={`shrink-0 text-[10px] ${product.status === 'active' ? 'hidden sm:inline-flex' : ''} ${statusColors.bg} ${statusColors.text} ${statusColors.border} border`}>
               {statusLabel}
             </Badge>
           </div>

@@ -240,35 +240,32 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                   Група #{meta.shortId} &middot; {groupCounts[s.sale_group_id]} артикула
                 </div>
               )}
-              <div className={`flex items-center justify-between py-3 px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
-                <div className="min-w-0">
-                  <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
-                  <span className="text-slate-400 mx-1">&times;{s.quantity}</span>
-                  <span className="text-sm text-muted-foreground">
-                    &mdash; {s.store?.name} от {s.seller?.display_name}
-                  </span>
+              {/* Two lines: what and how much; where, who and when. Fits a phone without squeezing the name. */}
+              <div className={`py-2.5 px-3 sm:px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
+                    <span className="text-slate-400 ml-1 whitespace-nowrap">&times;{s.quantity}</span>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                  <span>{s.store?.name} · {s.seller?.display_name}</span>
                   {s.voided && (
-                    <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                      сторнирана
-                    </span>
+                    <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">сторнирана</span>
                   )}
                   {isGroup && (
-                    <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
-                      група
-                    </span>
+                    <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">група</span>
                   )}
                   {s.payment_method && (
-                    <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
                       {s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : 'Превод'}
                     </span>
                   )}
-                </div>
-                <div className="text-right shrink-0 ml-4 flex items-center gap-2">
-                  {!s.voided && <VoidSaleButton saleId={s.id} />}
-                  <div>
-                    <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
-                    <p className="text-xs text-muted-foreground">{dateStr} {time}</p>
-                  </div>
+                  <span className="ml-auto flex items-center gap-2 text-xs tabular-nums">
+                    {dateStr} {time}
+                    {!s.voided && <VoidSaleButton saleId={s.id} />}
+                  </span>
                 </div>
               </div>
             </div>

@@ -155,7 +155,7 @@ export default function ProductSearch({ categories, stores }: Props) {
       {/* Filters: one row that scrolls sideways on a phone. */}
       <div className="no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap">
       <Select value={status} onValueChange={(v) => { setStatus(v); updateParams({ status: v }) }}>
-        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[165px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:min-w-[165px]">
           <SelectValue placeholder="Статус" />
         </SelectTrigger>
         <SelectContent>
@@ -165,7 +165,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); updateParams({ category: v }) }}>
-        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[180px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:min-w-[180px]">
           <SelectValue placeholder="Категория" />
         </SelectTrigger>
         <SelectContent>
@@ -177,7 +177,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={storeId} onValueChange={(v) => { setStoreId(v); updateParams({ store: v }) }}>
-        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[150px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:min-w-[150px]">
           <SelectValue placeholder="Обект" />
         </SelectTrigger>
         <SelectContent>
@@ -188,7 +188,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={hasImages} onValueChange={(v) => { setHasImages(v); updateParams({ hasImages: v }) }}>
-        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[150px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:min-w-[150px]">
           <SelectValue placeholder="Снимки" />
         </SelectTrigger>
         <SelectContent>
@@ -198,7 +198,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         </SelectContent>
       </Select>
       <Select value={wp} onValueChange={(v) => { setWp(v); updateParams({ wp: v }) }}>
-        <SelectTrigger className="w-auto shrink-0 gap-2 sm:w-[150px]">
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:min-w-[150px]">
           <SelectValue placeholder="Сайт" />
         </SelectTrigger>
         <SelectContent>

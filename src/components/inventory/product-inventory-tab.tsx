@@ -75,9 +75,9 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <CardTitle className="text-lg">Складова наличност и движения</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <TransferForm
             productId={productId}
             productName={productName}

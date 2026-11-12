@@ -14,9 +14,9 @@ export function ExportButton() {
   }
 
   return (
-    <Button variant="outline" onClick={handleExport}>
-      <Download className="mr-2 h-4 w-4" />
-      Експорт
+    <Button variant="outline" onClick={handleExport} aria-label="Експорт" className="px-3 sm:px-4">
+      <Download className="h-4 w-4 sm:mr-2" />
+      <span className="hidden sm:inline">Експорт</span>
     </Button>
   )
 }

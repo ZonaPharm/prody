@@ -322,7 +322,7 @@ export function DeliveryEditor({
   const inDelivery = new Set(lines.map(l => l.product.id))
 
   return (
-    <div className="space-y-4 max-w-7xl pb-24">
+    <div className="space-y-4 max-w-7xl pb-36 sm:pb-24">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
@@ -509,9 +509,11 @@ export function DeliveryEditor({
           </div>
           {blocker && lines.length > 0 && <span className="text-xs text-amber-700">{blocker}</span>}
           {finishError && <span className="text-xs text-red-600">{finishError}</span>}
-          <div className="ml-auto flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => setDiscardOpen(true)} disabled={finishing || fatal}>Изтрий черновата</Button>
-            <Button type="button" onClick={() => setConfirmOpen(true)} disabled={!!blocker || finishing || fatal}>
+          <div className="ml-auto flex w-full gap-2 sm:w-auto">
+            <Button type="button" variant="ghost" className="px-3" onClick={() => setDiscardOpen(true)} disabled={finishing || fatal}>
+              <span className="sm:hidden">Изтрий</span><span className="hidden sm:inline">Изтрий черновата</span>
+            </Button>
+            <Button type="button" className="flex-1 sm:flex-none" onClick={() => setConfirmOpen(true)} disabled={!!blocker || finishing || fatal}>
               {finishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Запиши доставката
             </Button>
           </div>

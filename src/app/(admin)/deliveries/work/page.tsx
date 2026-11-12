@@ -99,10 +99,10 @@ function Card({ title, count, unit, href, action, danger, empty, children }: {
 }) {
   return (
     <section className={`rounded-lg border bg-white ${danger ? 'border-red-200' : ''}`}>
-      <header className="flex items-center gap-2 border-b px-4 py-3">
+      <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b px-4 py-3">
         <h2 className="font-semibold">{title}</h2>
-        <span className={`text-sm ${danger ? 'text-red-700 font-semibold' : 'text-muted-foreground'}`}>{count} {unit}</span>
-        {href && action && <Link href={href} className="ml-auto text-sm font-medium text-blue-700 hover:underline">{action} →</Link>}
+        <span className={`whitespace-nowrap text-sm ${danger ? 'text-red-700 font-semibold' : 'text-muted-foreground'}`}>{count} {unit}</span>
+        {href && action && <Link href={href} className="ml-auto whitespace-nowrap text-sm font-medium text-primary hover:underline">{action} →</Link>}
       </header>
       <div className="divide-y">{children}</div>
       {(empty ?? count === 0) && <p className="px-4 py-3 text-sm text-muted-foreground">Нищо не чака.</p>}
@@ -112,9 +112,9 @@ function Card({ title, count, unit, href, action, danger, empty, children }: {
 
 function Row({ href, left, right, warn }: { href: string; left: string; right: string; warn?: boolean }) {
   return (
-    <Link href={href} className="flex flex-wrap items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50">
+    <Link href={href} className="flex flex-wrap items-center gap-x-2 px-4 py-2 text-sm hover:bg-slate-50">
       <span className="font-medium">{left}</span>
-      <span className={`ml-auto ${warn ? 'text-amber-700' : 'text-muted-foreground'}`}>{right}</span>
+      <span className={`ml-auto text-right ${warn ? 'text-amber-700' : 'text-muted-foreground'}`}>{right}</span>
     </Link>
   )
 }
