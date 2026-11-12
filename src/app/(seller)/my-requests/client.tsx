@@ -268,7 +268,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                 {search ? `Няма съвпадения за "${search}"` : 'Няма продукти'}
               </p>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {filteredProducts.map(p => {
                   const inBasket = basket.find(i => i.product.id === p.id)
                   return (

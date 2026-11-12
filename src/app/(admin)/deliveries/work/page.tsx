@@ -46,7 +46,7 @@ export default async function WorkPage() {
   const openTrips = trips.filter(t => t.status === 'open')
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="work" problems={problems} />
       <div>
         <h1 className="text-2xl font-bold">За работа</h1>

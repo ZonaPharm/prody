@@ -31,7 +31,7 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
   const open = filter === 'open' ? rows.length : rows.filter(r => r.status === 'open').length
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="problems" problems={open} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>

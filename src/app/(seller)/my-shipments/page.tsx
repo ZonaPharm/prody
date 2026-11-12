@@ -34,10 +34,10 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
   const done = rows.filter(r => r.status !== 'sent')
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold">Пратки</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="max-w-3xl text-sm text-muted-foreground">
           Стоката от Офис. Тя е във Вашата наличност от момента, в който шофьорът тръгне. Когато кашоните пристигнат, отметнете пратката ред по ред.
         </p>
       </div>
@@ -78,6 +78,7 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
         </section>
       )}
 
+      <div className={cn('grid items-start gap-4', done.length > 0 && 'xl:grid-cols-2')}>
       {storeId && (
         <section className="space-y-2">
           <h2 className="font-semibold">Чакат потвърждение ({waiting.length})</h2>
@@ -93,7 +94,7 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
                       <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
                       <span className="text-sm">{r.lines} {r.lines === 1 ? 'ред' : 'реда'}, {r.units} бр.{r.box_count ? `, ${boxesText(r.box_count)}` : ''}</span>
                       <span className="text-sm text-muted-foreground">
-                        тръгнала {r.sent_at ? sofiaDateTime(r.sent_at) : '—'}{r.sender ? `, шофьор ${r.sender}` : ''}
+                        {[r.sent_at ? `тръгнала ${sofiaDateTime(r.sent_at)}` : 'на път', r.sender ? `шофьор ${r.sender}` : ''].filter(Boolean).join(', ')}
                       </span>
                       {days >= 1 && <span className="text-xs text-amber-700">чака от {days} {days === 1 ? 'ден' : 'дни'}</span>}
                       <span className="ml-auto text-sm font-medium text-blue-700">{adminView ? 'Курсът →' : 'Отметни →'}</span>
@@ -116,13 +117,14 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
                   <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
                   <span className={cn('rounded-full border px-2 py-0.5 text-xs', SHIPMENT_STATUS_TONE[r.status])}>{SHIPMENT_STATUS_LABEL[r.status]}</span>
                   <span>{r.units} бр.</span>
-                  <span className="text-muted-foreground">{r.received_at ? sofiaDateTime(r.received_at) : ''}{r.receiver ? `, ${r.receiver}` : ''}</span>
+                  <span className="text-muted-foreground">{[r.received_at ? sofiaDateTime(r.received_at) : '', r.receiver ?? ''].filter(Boolean).join(', ')}</span>
                 </RowLink>
               </li>
             ))}
           </ul>
         </section>
       )}
+      </div>
     </div>
   )
 }

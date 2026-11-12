@@ -23,6 +23,9 @@ function buildPageUrl(sp: Record<string, string | undefined>, page: number) {
   return params.toString()
 }
 
+/** Columns of a sale row on a wide screen: date, product, store, seller, payment, amount, action. */
+const SALE_COLS = 'grid-cols-[8.5rem_minmax(0,1fr)_9rem_10rem_5rem_6.5rem_6rem]'
+
 export default async function AdminSalesPage({ searchParams }: PageProps) {
   await requireAdmin()
   const supabase = await createServerSupabaseClient()
@@ -222,6 +225,11 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
 
       {/* Sales list */}
       {grouped !== '1' && <div>
+        {(sales || []).length > 0 && (
+          <div className={`hidden lg:grid ${SALE_COLS} gap-4 px-4 pb-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground border-l-4 border-l-transparent`}>
+            <span>Дата</span><span>Продукт</span><span>Обект</span><span>Продавач</span><span>Плащане</span><span className="text-right">Сума</span><span />
+          </div>
+        )}
         {(sales || []).map((s: any, i: number) => {
           // Detect group start/change for visual grouping
           const isGroup = s.sale_group_id && groupCounts[s.sale_group_id] > 1
@@ -241,7 +249,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                 </div>
               )}
               {/* Two lines: what and how much; where, who and when. Fits a phone without squeezing the name. */}
-              <div className={`py-2.5 px-3 sm:px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
+              <div className={`lg:hidden py-2.5 px-3 sm:px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
@@ -267,6 +275,20 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                     {!s.voided && <VoidSaleButton saleId={s.id} />}
                   </span>
                 </div>
+              </div>
+              {/* Wide screen: one line per sale, in columns, like a table. */}
+              <div className={`hidden lg:grid ${SALE_COLS} items-center gap-4 py-2 px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 text-sm ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
+                <span className="text-xs tabular-nums text-muted-foreground">{dateStr} {time}</span>
+                <div className="min-w-0 truncate">
+                  <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
+                  <span className="text-slate-400 ml-1">&times;{s.quantity}</span>
+                  {s.voided && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">сторнирана</span>}
+                </div>
+                <span className="truncate">{s.store?.name}</span>
+                <span className="truncate text-muted-foreground">{s.seller?.display_name}</span>
+                <span className="text-muted-foreground">{s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : s.payment_method ? 'Превод' : '—'}</span>
+                <span className="text-right font-semibold tabular-nums">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
+                <span className="flex justify-end">{!s.voided && <VoidSaleButton saleId={s.id} />}</span>
               </div>
             </div>
           )

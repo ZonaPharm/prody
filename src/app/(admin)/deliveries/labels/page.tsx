@@ -18,7 +18,7 @@ export default async function LabelsChecklistPage({ searchParams }: { searchPara
   const rows = labelItems(items, id => storeNames[id] ?? '?')
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="labels" problems={problems} />
       <div>
         <h1 className="text-2xl font-bold">Етикетиране</h1>

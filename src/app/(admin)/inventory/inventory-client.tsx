@@ -178,7 +178,7 @@ export function InventoryClient({ stores }: { stores: Store[] }) {
   const storeName = stores.find(s => s.id === storeId)?.name
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6 w-full max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Инвентаризация</h1>
         <p className="text-muted-foreground text-sm mt-1">Корекция на наличностите</p>

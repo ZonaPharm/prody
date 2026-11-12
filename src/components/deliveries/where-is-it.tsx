@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * sentence on what it waits for, and a row per stage and store. A row with work
  * to do now links to the screen where it is done.
  */
-export function WhereIsIt({ w, storeName, warehouseName, labelHref, compact, oneColumn }: {
+export function WhereIsIt({ w, storeName, warehouseName, labelHref, compact, oneColumn, rowsOnly }: {
   w: Whereabouts
   storeName: (id: string) => string
   warehouseName: string
@@ -19,18 +19,22 @@ export function WhereIsIt({ w, storeName, warehouseName, labelHref, compact, one
   compact?: boolean
   /** Rows under each other also on a wide screen (narrow cards). */
   oneColumn?: boolean
+  /** Rows only, no bar and sentence (they are shown above already). */
+  rowsOnly?: boolean
 }) {
   const total = STAGE_ORDER.reduce((s, k) => s + w.totals[k], 0)
   return (
     <div className="space-y-2">
+      {!rowsOnly && <>
       <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden>
         {STAGE_ORDER.map(k => w.totals[k] > 0 && (
           <span key={k} className={STAGE_TONE[k].bar} style={{ width: `${(w.totals[k] / total) * 100}%` }} />
         ))}
       </div>
       <p className="text-sm font-medium">{whereSummary(w)}</p>
+      </>}
       {!compact && (
-        <ul className={cn('grid gap-x-6 gap-y-1', !oneColumn && 'md:grid-cols-2')}>
+        <ul className={cn('grid gap-x-6 gap-y-1', oneColumn ? 'max-w-2xl' : 'md:grid-cols-2')}>
           {w.parts.map((p, i) => (
             <PartRow key={i} p={p} w={w} storeName={storeName} warehouseName={warehouseName} labelHref={labelHref} />
           ))}

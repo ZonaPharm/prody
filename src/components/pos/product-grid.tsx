@@ -115,7 +115,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
         ) : (
           <>
             {filtered.length > 0 && (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1800px]:grid-cols-6 gap-3">
                 {filtered.map(product => (
                   <button
                     key={product.id}
@@ -148,7 +148,7 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
                 <p className="text-xs font-medium text-red-500 mb-2">
                   Изчерпани в този магазин ({filteredOut.length})
                 </p>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1800px]:grid-cols-6 gap-3">
                   {filteredOut.map(product => (
                     <div
                       key={product.id}

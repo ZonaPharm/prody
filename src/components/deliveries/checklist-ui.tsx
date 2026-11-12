@@ -214,9 +214,9 @@ export function SignBar({ userName, summary, statement, disabled, disabledReason
     <>
       <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-2.5 z-20">
         {(error || (disabled && disabledReason)) && (
-          <div className={cn('max-w-5xl pb-2 text-sm', error ? 'text-red-600' : 'text-amber-700')}>{error || disabledReason}</div>
+          <div className={cn('max-w-7xl pb-2 text-sm', error ? 'text-red-600' : 'text-amber-700')}>{error || disabledReason}</div>
         )}
-        <div className="max-w-5xl flex items-center gap-3">
+        <div className="max-w-7xl flex items-center gap-3">
           <div className="min-w-0 flex-1 text-sm">
             <div className="truncate font-medium" suppressHydrationWarning>{userName}<span className="hidden sm:inline"> · {sofiaDateTime(now)}</span></div>
             <div className="truncate text-muted-foreground">{summary}</div>

@@ -33,7 +33,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
     .reduce((n, r) => n + Math.max(0, Math.min(r.planned_qty, r.received_qty) - r.ready_qty), 0)
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="trips" problems={problems} />
       <div>
         <h1 className="text-2xl font-bold">Курсове</h1>

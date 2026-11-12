@@ -32,7 +32,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     .order('name')
 
   return (
-    <div>
+    <div className="max-w-5xl">
       <h1 className="text-2xl font-bold mb-6">Настройки</h1>
       <Tabs defaultValue={initialTab}>
         <TabsList>

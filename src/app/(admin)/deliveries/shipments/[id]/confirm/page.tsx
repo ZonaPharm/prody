@@ -22,7 +22,7 @@ export default async function ConfirmShipmentAsAdminPage({ params }: { params: P
   if (shipment.status !== 'sent') redirect(`/deliveries/trips/${shipment.trip_id}`)
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4 max-w-5xl">
       <div className="flex items-start gap-3">
         <Button asChild variant="ghost" size="icon"><Link href={`/deliveries/trips/${shipment.trip_id}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
         <div>
