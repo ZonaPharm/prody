@@ -69,11 +69,13 @@ function PartRow({ p, w, storeName, warehouseName, labelHref }: {
       text = `В ${warehouseName}, с етикет`
       break
     case 'to_trip':
-      text = <>Чака курс за <b>{store}</b></>
+      text = <>Готово, чака курс за <b>{store}</b></>
       href = '/deliveries/trips'
       break
     case 'on_trip':
-      text = <>В курс за <b>{store}</b> <span className="text-muted-foreground">· {trip}, още не е тръгнал</span></>
+      text = p.packed
+        ? <>Опаковано за <b>{store}</b>, чака шофьора <span className="text-muted-foreground">· {trip}</span></>
+        : <>Опакова се за <b>{store}</b> <span className="text-muted-foreground">· {trip}</span></>
       href = p.trip_id ? `/deliveries/trips/${p.trip_id}` : undefined
       break
     case 'on_way':

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { STAGE_ORDER, whereabouts, whereSummary, type TrackLine } from './track'
+import { tripStatusLabel } from './trip-format'
 
 const plan = (id: string, store_id: string, planned_qty: number, ready_qty = 0, shipped_qty = 0) => ({ id, store_id, planned_qty, ready_qty, shipped_qty })
 const line = (plan_id: string, qty: number, shipment_status: TrackLine['shipment_status'], received_qty: number | null = null): TrackLine => ({
@@ -55,5 +56,22 @@ describe('whereabouts', () => {
   it('done: no plan, all in Офис with labels', () => {
     const w = whereabouts({ quantity: 5, received_qty: 5, labelled_qty: 5, plan: [] }, [])
     expect(whereSummary(w)).toBe('Всичко е в Офис, с етикет')
+  })
+})
+
+describe('waiting for the driver', () => {
+  it('a packed shipment line is marked packed; one still being packed is not', () => {
+    const w = whereabouts(
+      { quantity: 10, received_qty: 10, labelled_qty: 10, plan: [plan('p1', 'botev', 5, 5, 0), plan('p2', 'center', 5, 5, 0)] },
+      [line('p1', 5, 'packed'), line('p2', 5, 'packing')],
+    )
+    expect(w.parts.filter(p => p.stage === 'on_trip').map(p => [p.store_id, p.packed])).toEqual([['botev', true], ['center', false]])
+  })
+
+  it('an open trip with every shipment packed reads "Чака шофьора"', () => {
+    expect(tripStatusLabel('open', [{ status: 'packed' }, { status: 'cancelled' }])).toBe('Чака шофьора')
+    expect(tripStatusLabel('open', [{ status: 'packed' }, { status: 'packing' }])).toBe('Събира се')
+    expect(tripStatusLabel('open', [])).toBe('Събира се')
+    expect(tripStatusLabel('departed', [{ status: 'sent' }])).toBe('Тръгнал')
   })
 })
