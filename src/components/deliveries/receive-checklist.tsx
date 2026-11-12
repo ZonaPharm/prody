@@ -115,7 +115,7 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
   }
 
   return (
-    <div className="space-y-4 max-w-4xl pb-28">
+    <div className="space-y-4 max-w-5xl pb-28">
       <div className="flex items-start gap-3">
         <Button asChild variant="ghost" size="icon"><Link href={`/deliveries/${deliveryId}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
         <div>
@@ -191,7 +191,7 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
       )}
 
       <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
-        <div className="max-w-4xl flex flex-wrap items-center gap-3">
+        <div className="max-w-5xl flex flex-wrap items-center gap-3">
           <div className="text-sm">
             <div className="font-medium">{userName} · {sofiaDateTime(now)}</div>
             <div className="text-muted-foreground">{touched ? receiveSummary(body) : 'Нищо не е отметнато'}</div>
