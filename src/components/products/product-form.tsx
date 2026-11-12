@@ -19,7 +19,8 @@ import { STATUS_LABELS } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RestockForm } from '@/components/inventory/restock-form'
-import { Loader2, Upload, Star } from 'lucide-react'
+import { Loader2, Upload, Star, ScanBarcode } from 'lucide-react'
+import { factoryBarcodeProblem, normalizeCode } from '@/lib/barcodes'
 
 type CategoryOption = { id: string; name: string }
 
@@ -32,6 +33,8 @@ interface ProductFormProps {
     cost_price?: number | null
     sku?: string | null
     barcode?: string | null
+    internal_barcode?: string | null
+    small_item?: boolean | null
     category_id?: string | null
     source?: string | null
     source_url?: string | null
@@ -75,6 +78,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [minQuantity, setMinQuantity] = useState(
     initialData?.min_quantity?.toString() || '5'
   )
+  const [barcode, setBarcode] = useState(initialData?.barcode || '')
+  const [smallItem, setSmallItem] = useState(Boolean(initialData?.small_item))
+  const barcodeProblem = factoryBarcodeProblem(barcode)
 
   const [files, setFiles] = useState<File[]>([])
   const [existingImages, setExistingImages] = useState<
@@ -158,6 +164,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (barcodeProblem) {
+      setSubmitError(`Фабричен баркод: ${barcodeProblem}`)
+      return
+    }
     setSubmitLoading(true)
     setSubmitError('')
 
@@ -174,6 +184,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         source_order_date: sourceOrderDate || null,
         status,
         min_quantity: minQuantity ? parseInt(minQuantity, 10) : 5,
+        // The internal code is the database's; only the factory barcode is ours to set.
+        barcode: normalizeCode(barcode) || null,
+        small_item: smallItem,
         wp_title: wpTitle.trim() || null,
         wp_short_description: wpShortDescription.trim() || null,
         wp_description: wpDescription.trim() || null,
@@ -183,6 +196,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         wp_usage_tab_title: wpUsageTabTitle.trim() || null,
         wp_category_ids: wpCategoryIds.length > 0 ? wpCategoryIds : null,
       }
+
+      // A small product has no room for a label: it goes on the barcode card at the
+      // till instead, so it does not wait in "Етикетиране". Set when the box is ticked.
+      if (smallItem && !initialData?.small_item) payload.needs_label = false
 
       // Only set quantity_on_hand for new products; edits go through inventory system
       if (!isEdit) {
@@ -330,7 +347,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         router.refresh()
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Грешка при запазване')
+      const e = err as { code?: string; message?: string } | null
+      if (e?.code === '23505' && /баркод|barcode/i.test(e.message ?? '')) {
+        setSubmitError(`Баркодът ${normalizeCode(barcode)} вече е на друг продукт. Потърсете го в каталога.`)
+      } else {
+        setSubmitError(e?.message || 'Грешка при запазване')
+      }
     } finally {
       setSubmitLoading(false)
     }
@@ -425,6 +447,49 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             onChange={(e) => setMinQuantity(e.target.value)} placeholder="5" />
           <p className="text-[10px] text-muted-foreground">Предупреждение при падане под този брой</p>
         </div>
+      </div>
+
+      {/* Row 3b: barcodes */}
+      <div className="rounded-lg border p-4 space-y-4">
+        <div className="flex items-center gap-2 font-medium">
+          <ScanBarcode className="h-4 w-4" /> Баркод
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="barcode">Фабричен баркод</Label>
+            <Input id="barcode" value={barcode} inputMode="numeric" autoComplete="off"
+              onChange={(e) => setBarcode(e.target.value)}
+              // A scanner types the code and presses Enter: keep that from saving the form.
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+              placeholder="Сканирайте баркода от опаковката"
+              aria-invalid={Boolean(barcodeProblem)} />
+            {barcodeProblem ? (
+              <p className="text-xs text-red-600">{barcodeProblem}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Ако продуктът няма баркод, оставете празно: етикетът ще е с вътрешния код.
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Вътрешен код</Label>
+            <div className="h-10 rounded-md border bg-slate-50 px-3 flex items-center font-mono text-sm">
+              {initialData?.internal_barcode || <span className="font-sans text-muted-foreground">Ще се даде автоматично при запазване</span>}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Дава се от системата и не се променя. Касата намира продукта и по него.
+            </p>
+          </div>
+        </div>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <Checkbox checked={smallItem} onCheckedChange={(v) => setSmallItem(v === true)} className="mt-0.5" />
+          <span>
+            <span className="text-sm font-medium">Малък продукт, няма място за етикет</span>
+            <span className="block text-xs text-muted-foreground">
+              Излиза на „Карта на касата“, от която продавачът го сканира, и не чака етикетиране.
+            </span>
+          </span>
+        </label>
       </div>
 
       {/* Row 4: Source, Source URL — 2 cols */}

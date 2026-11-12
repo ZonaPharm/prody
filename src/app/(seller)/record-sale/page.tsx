@@ -70,11 +70,23 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   })
 
   // Fetch ALL active products (filter stock in JS to avoid PostgREST URI limit)
-  const allActiveProducts = await fetchAll<{ id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null }>(() => (admin.from('products') as any)
-    .select('id, name, price, quantity_on_hand, category_id')
+  // With the barcodes, so the till can scan. Until migration
+  // 20261112_product_internal_barcode runs the internal code is missing: the till
+  // then loads without the codes rather than not at all.
+  type TillProduct = {
+    id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null
+    barcode?: string | null; internal_barcode?: string | null
+  }
+  const readActive = (cols: string) => fetchAll<TillProduct>(() => (admin.from('products') as any)
+    .select(cols)
     .eq('status', 'active')
     .order('name')
     .order('id'))
+  const allActiveProducts = await readActive('id, name, price, quantity_on_hand, category_id, barcode, internal_barcode')
+    .catch((err: unknown) => {
+      console.error('record-sale: products with barcodes', err)
+      return readActive('id, name, price, quantity_on_hand, category_id')
+    })
 
   // Split into in-stock vs out-of-stock for this store
   const products = (allActiveProducts || []).filter((p: any) => storeProductIds.has(p.id))
@@ -111,6 +123,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     quantity_on_hand: 0,
     category_id: p.category_id,
     image_url: null,
+    barcode: p.barcode ?? null,
+    internal_barcode: p.internal_barcode ?? null,
   }))
 
   // Fetch categories
@@ -144,6 +158,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     quantity_on_hand: perStoreQty[p.id] || p.quantity_on_hand,
     category_id: p.category_id,
     image_url: imageMap[p.id] || null,
+    barcode: p.barcode ?? null,
+    internal_barcode: p.internal_barcode ?? null,
   }))
 
   // Frequently sold: seller's last unique products + fill from store products

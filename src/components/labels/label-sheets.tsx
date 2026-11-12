@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FileDown, Printer, Save, Trash2 } from 'lucide-react'
 import { formatMoney } from '@/lib/deliveries/format'
-import { code128Bars } from '@/lib/labels/code128'
+import { Barcode } from '@/components/labels/barcode'
 import type { SheetProfile } from '@/lib/labels/profiles'
 import { A4, DEFAULT_LAYOUT, LINE_HEIGHT, SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
 
@@ -14,7 +14,7 @@ export type PrintLabel = {
   name: string
   description: string
   price: number | null
-  /** Barcode, or SKU when the product has none; empty for no barcode. */
+  /** Factory barcode, else the internal code (else SKU); empty for no barcode. */
   code: string
   /** Where the line comes from, e.g. "Д-000029". */
   source: string
@@ -389,23 +389,6 @@ function LabelFace({ label, width, height }: { label: PrintLabel; width: number;
       </div>
       {label.code && <Barcode code={label.code} height={m.barH} maxWidth={width - 2 * m.pad} textPt={m.codePt} />}
       <div className="whitespace-nowrap font-bold" style={{ fontSize: line(m.pricePt), lineHeight: 1, marginTop: `${m.gap}mm` }}>{formatMoney(label.price)}</div>
-    </div>
-  )
-}
-
-function Barcode({ code, height, maxWidth, textPt }: { code: string; height: number; maxWidth: number; textPt: number }) {
-  const bars = code128Bars(code)
-  if (!bars) return <div style={{ fontSize: `${Math.max(textPt, 6)}pt` }}>{code}</div>
-  const quiet = 6
-  const total = bars.total + quiet * 2
-  // About 0.33 mm a module reads well on any scanner; narrower only when the label is small.
-  const width = Math.min(maxWidth, total * 0.33)
-  return (
-    <div className="flex shrink-0 flex-col items-center" style={{ width: `${width}mm` }}>
-      <svg viewBox={`0 0 ${total} 10`} preserveAspectRatio="none" style={{ width: `${width}mm`, height: `${height}mm`, display: 'block' }} shapeRendering="crispEdges" aria-label={code}>
-        {bars.bars.map(([x, w], i) => <rect key={i} x={x + quiet} y={0} width={w} height={10} fill="#000" />)}
-      </svg>
-      {textPt > 0 && <div style={{ fontSize: `${textPt}pt`, lineHeight: 1.1, letterSpacing: '0.04em', marginTop: '0.3mm' }}>{code}</div>}
     </div>
   )
 }

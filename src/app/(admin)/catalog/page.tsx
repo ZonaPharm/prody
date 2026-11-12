@@ -6,7 +6,7 @@ import { getProducts } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, ScanBarcode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Suspense } from 'react'
 import ProductSearch from '@/components/products/product-search'
@@ -71,6 +71,13 @@ export default async function CatalogPage({ searchParams }: PageProps) {
           <Suspense>
             <ExportButton />
           </Suspense>
+          {/* Small products without a label: the card the seller scans them from. */}
+          <Button asChild variant="outline" title="Карта на касата: баркодовете на малките продукти">
+            <a href="/print/barcode-card" target="_blank" rel="noopener">
+              <ScanBarcode className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Карта на касата</span>
+            </a>
+          </Button>
           <Button asChild>
             <Link href="/catalog/new">
               <Plus className="h-4 w-4 sm:mr-2" />

@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await (gate.supabase.from('products') as any)
     .select(PRODUCT_COLUMNS)
-    .or(`name.ilike.${pattern},sku.ilike.${pattern},barcode.ilike.${pattern}`)
+    .or(`name.ilike.${pattern},sku.ilike.${pattern},barcode.ilike.${pattern},internal_barcode.ilike.${pattern}`)
     .order('status', { ascending: true })
     .order('name')
     .limit(15)
