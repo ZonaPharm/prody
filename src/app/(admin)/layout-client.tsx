@@ -16,15 +16,18 @@ const TABS = ['/dashboard', '/sales', '/catalog', '/requests']
 export function AdminLayoutClient({
   navItems,
   userName,
+  tasks,
   children,
 }: {
   navItems: NavItem[]
   userName: string
+  /** The "Задачи" count, when deliveries are on for this admin. */
+  tasks?: number
   children: React.ReactNode
 }) {
   const items: ShellNavItem[] = navItems.map(item => ({
     ...item,
-    badgeTone: 'red',
+    badgeTone: item.href === '/tasks' ? 'blue' : 'red',
     badgeNode: item.href === '/requests' ? <RequestsBadge /> : undefined,
   }))
   const hasDeliveries = navItems.some(i => i.href === '/deliveries')
@@ -36,6 +39,7 @@ export function AdminLayoutClient({
       userName={userName}
       roleLabel="Администратор"
       switchRole="seller"
+      bell={tasks === undefined ? undefined : { href: '/tasks', count: tasks }}
     >
       {children}
     </AppShell>

@@ -4,6 +4,7 @@ import { logAction } from '@/lib/audit'
 import { deliveriesGate, isUuid, parseBody, rpcFailure } from '@/lib/deliveries/api'
 import { tripSendSchema } from '@/lib/deliveries/schemas'
 import { verifyDriverPassword } from '@/lib/deliveries/driver'
+import { notifyTripSent } from '@/lib/deliveries/notify'
 
 /**
  * The driver signs that they took the boxes: their own account and password,
@@ -35,6 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data, error } = await (admin as any).rpc('send_trip', { p_trip_id: id, p_driver: driver.id })
   if (error) return rpcFailure('send_trip', error, 'Курсът не тръгна')
+  await notifyTripSent(admin, id, driver.display_name)
 
   await logAction({
     action: 'trip_sent',

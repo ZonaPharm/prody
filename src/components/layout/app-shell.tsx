@@ -19,6 +19,7 @@ import {
   X,
   Receipt,
   PackageCheck,
+  ListChecks,
 } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
@@ -46,6 +47,8 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   '/my-sales': ShoppingBag,
   '/my-requests': Bell,
   '/my-shipments': PackageCheck,
+  '/tasks': ListChecks,
+  '/my-tasks': ListChecks,
 }
 
 export interface ShellNavItem {
@@ -87,6 +90,7 @@ export function AppShell({
   userName,
   roleLabel,
   switchRole,
+  bell,
   children,
 }: {
   navItems: ShellNavItem[]
@@ -96,6 +100,8 @@ export function AppShell({
   roleLabel?: string
   /** Which "switch view" button to show, if any. */
   switchRole?: 'seller' | 'admin'
+  /** "Задачи" in the phone's top bar, with the count of what waits for this person. */
+  bell?: { href: string; count: number }
   children: React.ReactNode
 }) {
   const pathname = usePathname()
@@ -151,6 +157,20 @@ export function AppShell({
       <header className="lg:hidden sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-white/95 backdrop-blur px-4 pt-[env(safe-area-inset-top)]">
         <Image src="/logo-trim.png" alt="Prody" width={84} height={29} className="h-6 w-auto" priority />
         <div className="flex-1" />
+        {bell && (
+          <Link
+            href={bell.href}
+            className={`relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 ${isActive(pathname, bell.href) ? 'text-primary' : 'text-slate-600'}`}
+            aria-label={bell.count ? `Задачи: ${bell.count}` : 'Задачи'}
+          >
+            <ListChecks className="h-5 w-5" />
+            {bell.count > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white ring-2 ring-white">
+                {bell.count > 99 ? '99+' : bell.count}
+              </span>
+            )}
+          </Link>
+        )}
         <button
           onClick={() => setMoreOpen(true)}
           className="h-9 w-9 rounded-full bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center"

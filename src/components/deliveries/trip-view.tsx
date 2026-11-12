@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ArrowLeft, ClipboardCheck, Loader2, PackageCheck, PackageOpen, PackagePlus, PenLine, Printer, Truck, X, XCircle } from 'lucide-react'
+import { ArrowLeft, CalendarClock, ClipboardCheck, Loader2, PackageCheck, PackageOpen, PackagePlus, PenLine, Printer, Truck, X, XCircle } from 'lucide-react'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import {
   SHIPMENT_STATUS_LABEL,
@@ -23,6 +23,7 @@ import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson, useNow } from './checklist-ui'
 import { tripJourney } from '@/lib/deliveries/journey'
+import { whenText } from '@/lib/deliveries/notify-text'
 import { NextStep, StepTrail } from './step-trail'
 
 /**
@@ -33,7 +34,7 @@ import { NextStep, StepTrail } from './step-trail'
  * a packed shipment is opened to be packed and signed again, or the whole trip
  * is taken back.
  */
-export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; drivers: DriverOption[]; ready?: StoreReadyView[] }) {
+export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetail; drivers: DriverOption[]; ready?: StoreReadyView[]; today: string }) {
   const live = trip.shipments.filter(s => s.status !== 'cancelled')
   const canSend = trip.status === 'open' && tripReadyToSend(live)
   const boxes = live.reduce((n, s) => n + (s.box_count ?? 0), 0)
@@ -42,6 +43,7 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
   const [cancelOpen, setCancelOpen] = useState(false)
   const [removing, setRemoving] = useState<ShipmentView | null>(null)
   const [reopening, setReopening] = useState<ShipmentView | null>(null)
+  const [planOpen, setPlanOpen] = useState(false)
   const open = trip.status === 'open'
   const journey = tripJourney(trip)
 
@@ -100,6 +102,27 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
             />
           )}
         </div>
+      )}
+
+      {open && (
+        <section className={cn('flex flex-wrap items-center gap-3 rounded-lg border bg-white px-4 py-3', (!trip.planned_driver || !trip.planned_date) && 'border-amber-300 bg-amber-50')}>
+          <CalendarClock className="h-5 w-5 shrink-0 text-slate-500" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-semibold">
+              {trip.planned_date ? `Тръгва ${whenText(trip.planned_date, trip.planned_time, today)}` : 'Денят не е избран'}
+              {' · '}
+              {trip.planned_driver ? `шофьор ${trip.planned_driver}` : 'без шофьор'}
+            </p>
+            <p className="text-muted-foreground">
+              {trip.planned_driver && trip.planned_date
+                ? 'Шофьорът е получил известие, а магазините виждат кога идва стоката.'
+                : 'Изберете шофьор и ден: шофьорът получава известие, а магазините виждат кога идва стоката.'}
+            </p>
+          </div>
+          <Button variant={trip.planned_driver && trip.planned_date ? 'outline' : 'default'} onClick={() => setPlanOpen(true)}>
+            {trip.planned_driver || trip.planned_date ? 'Промени' : 'Избери шофьор и ден'}
+          </Button>
+        </section>
       )}
 
       {open && ready.length > 0 && <AddToTrip trip={trip} ready={ready} />}
@@ -163,6 +186,7 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
       </div>
 
       {sendOpen && <SendDialog trip={trip} drivers={drivers} boxes={boxes} units={units} onClose={() => setSendOpen(false)} />}
+      {planOpen && <PlanDialog trip={trip} drivers={drivers} today={today} onClose={() => setPlanOpen(false)} />}
       {cancelOpen && <CancelTripDialog tripId={trip.id} number={trip.number} onClose={() => setCancelOpen(false)} />}
       {removing && (
         <ActionDialog
@@ -199,7 +223,8 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
 }) {
   const router = useRouter()
   const now = useNow()
-  const [driver, setDriver] = useState('')
+  // The driver chosen for the trip is already selected; another person can still sign.
+  const [driver, setDriver] = useState(trip.planned_driver_id && drivers.some(d => d.id === trip.planned_driver_id) ? trip.planned_driver_id : '')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -246,6 +271,72 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
           <Button variant="ghost" onClick={onClose}>Назад</Button>
           <Button onClick={send} disabled={!driver || !password || busy}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PenLine className="mr-2 h-4 w-4" />}Подписвам и тръгвам
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** "Шофьор и ден" of a trip that has not left. The driver and the stores are told. */
+function PlanDialog({ trip, drivers, today, onClose }: { trip: TripDetail; drivers: DriverOption[]; today: string; onClose: () => void }) {
+  const router = useRouter()
+  const [driver, setDriver] = useState(trip.planned_driver_id ?? '')
+  const [date, setDate] = useState(trip.planned_date ?? '')
+  const [time, setTime] = useState(trip.planned_time ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const tomorrow = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10)) + 86_400_000).toISOString().slice(0, 10)
+
+  async function save() {
+    setBusy(true)
+    setError('')
+    try {
+      await postJson(`/api/deliveries/trips/${trip.id}/plan`, {
+        driver_id: driver || null,
+        planned_date: date || null,
+        planned_time: date && time ? time : null,
+      }, 'Шофьорът и денят не бяха записани')
+      onClose()
+      router.refresh()
+    } catch (e: any) {
+      setError(e.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={o => { if (!o) onClose() }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Шофьор и ден за {formatTripNumber(trip.number)}</DialogTitle></DialogHeader>
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium">Кой кара</span>
+          <select className="h-11 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
+            <option value="">Без шофьор засега</option>
+            {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </label>
+        <div className="space-y-1 text-sm">
+          <span className="block font-medium">Кога тръгва</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {([[today, 'Днес'], [tomorrow, 'Утре']] as const).map(([d, label]) => (
+              <button key={label} type="button" onClick={() => setDate(d)}
+                className={cn('h-11 rounded-md border px-3 text-sm', date === d ? 'border-primary bg-primary text-primary-foreground' : 'bg-white')}>
+                {label}
+              </button>
+            ))}
+            <Input type="date" className="h-11 w-auto min-w-0 flex-1" value={date} onChange={e => setDate(e.target.value)} aria-label="Ден" />
+            <Input type="time" className="h-11 w-28" value={time} onChange={e => setTime(e.target.value)} disabled={!date} aria-label="Час (по избор)" />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Нов шофьор получава известие; предишният научава, че курсът вече не е за него. Ако денят се смени, магазините също научават.
+        </p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Назад</Button>
+          <Button onClick={save} disabled={busy}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Запиши
           </Button>
         </div>
       </DialogContent>

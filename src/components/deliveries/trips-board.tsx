@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Loader2, Plus, Truck } from 'lucide-react'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import { storeReadyText, type ReadyLine, type StoreReady } from '@/lib/deliveries/queue'
-import type { TripListRow } from '@/lib/deliveries/work'
+import type { DriverOption, TripListRow } from '@/lib/deliveries/work'
+import { whenText } from '@/lib/deliveries/notify-text'
 import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
@@ -22,9 +23,13 @@ export type StoreReadyView = StoreReady & { name: string; lines?: ReadyLine[] }
  * stores on the driver's way; each gets one shipment with everything ready
  * for it now, from every open delivery. A store with nothing ready is skipped.
  */
-export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }: {
+export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, drivers = [], today }: {
   /** Units planned for stores that still wait for "С етикет" + signature. */
   waitingLabel?: number
+  /** Who can drive (every active account); the chosen one gets a notification. */
+  drivers?: DriverOption[]
+  /** Today in Sofia (YYYY-MM-DD), from the server. */
+  today: string
   trips: TripListRow[]
   ready: StoreReadyView[]
   storeName: Record<string, string>
@@ -33,14 +38,25 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }
   const router = useRouter()
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [notes, setNotes] = useState('')
+  const [driver, setDriver] = useState('')
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const tomorrow = addDays(today, 1)
 
   async function create() {
     setBusy(true)
     setError('')
     try {
-      const data = await postJson<{ trip_id: string }>('/api/deliveries/trips', { store_ids: [...picked], notes: notes.trim() || null }, 'Курсът не беше създаден')
+      const data = await postJson<{ trip_id: string; warning?: string }>('/api/deliveries/trips', {
+        store_ids: [...picked],
+        notes: notes.trim() || null,
+        driver_id: driver || null,
+        planned_date: date || null,
+        planned_time: date && time ? time : null,
+      }, 'Курсът не беше създаден')
+      if (data.warning) window.alert(data.warning)
       router.push(`/deliveries/trips/${data.trip_id}`)
       router.refresh()
     } catch (e: any) {
@@ -105,8 +121,36 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }
                 </li>
               ))}
             </ul>
+            <fieldset className="grid gap-3 rounded-md border bg-slate-50 p-3 sm:grid-cols-2">
+              <legend className="px-1 text-sm font-semibold">Шофьор и ден</legend>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Кой кара</span>
+                <select className="h-11 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
+                  <option value="">Избери по-късно</option>
+                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+              <div className="space-y-1 text-sm">
+                <span className="block font-medium">Кога тръгва</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {([[today, 'Днес'], [tomorrow, 'Утре']] as const).map(([d, label]) => (
+                    <button key={label} type="button" onClick={() => setDate(date === d ? '' : d)}
+                      className={cn('h-11 rounded-md border px-3 text-sm', date === d ? 'border-primary bg-primary text-primary-foreground' : 'bg-white')}>
+                      {label}
+                    </button>
+                  ))}
+                  <Input type="date" className="h-11 w-auto min-w-0 flex-1 bg-white" value={date} min={today} onChange={e => setDate(e.target.value)} aria-label="Ден" />
+                  <Input type="time" className="h-11 w-28 bg-white" value={time} onChange={e => setTime(e.target.value)} disabled={!date} aria-label="Час (по избор)" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                {driver || date
+                  ? `${driver ? `${drivers.find(d => d.id === driver)?.name} ще получи известие` : 'Шофьорът ще бъде избран по-късно'}${date ? `: курс ${whenText(date, time || null, today)}` : ', без ден'}. Магазините виждат какво идва към тях и кога.`
+                  : 'Шофьорът получава известие с деня и магазините, а магазините виждат какво идва към тях. Може и по-късно, от курса.'}
+              </p>
+            </fieldset>
             <div className="flex flex-wrap items-center gap-2">
-              <Input className="max-w-sm" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Бележка (по избор), напр. шофьор, час" aria-label="Бележка" />
+              <Input className="max-w-sm" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Бележка (по избор)" aria-label="Бележка" />
               <Button onClick={create} disabled={picked.size === 0 || busy}>
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
                 Направи курс{picked.size ? ` (${picked.size} ${picked.size === 1 ? 'магазин' : 'магазина'})` : ''}
@@ -139,7 +183,10 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }
                   <span className="font-semibold tabular-nums">{formatTripNumber(t.number)}</span>
                   <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[t.status])}>{TRIP_STATUS_LABEL[t.status]}</span>
                   <span className="text-sm text-muted-foreground">
-                    {sofiaDateTime(t.departed_at ?? t.created_at)}{t.driver ? ` · шофьор ${t.driver}` : ''}
+                    {t.status === 'open' && t.planned_date
+                      ? `тръгва ${whenText(t.planned_date, t.planned_time, today)}`
+                      : sofiaDateTime(t.departed_at ?? t.created_at)}
+                    {t.driver ? ` · шофьор ${t.driver}` : t.planned_driver ? ` · шофьор ${t.planned_driver}` : t.status === 'open' ? ' · без шофьор' : ''}
                   </span>
                   <span className="basis-full sm:basis-auto sm:ml-auto flex flex-wrap gap-1">
                     {t.shipments.map(s => (
@@ -156,4 +203,10 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }
       </section>
     </div>
   )
+}
+
+/** YYYY-MM-DD plus n calendar days. */
+function addDays(day: string, n: number): string {
+  const d = new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10)) + n * 86_400_000)
+  return d.toISOString().slice(0, 10)
 }

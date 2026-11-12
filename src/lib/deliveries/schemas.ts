@@ -134,9 +134,30 @@ export const readySchema = z
     message: 'Нищо не е отметнато: отметнете етикетираните редове или отбележете „Не е наред“',
   })
 
+/** The day (YYYY-MM-DD) and optional hour (HH:MM) a trip is to leave, and who drives it. */
+const planDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Невалидна дата')
+const planTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Невалиден час')
+const tripPlan = {
+  driver_id: id.nullable().optional(),
+  planned_date: planDate.nullable().optional(),
+  planned_time: planTime.nullable().optional(),
+}
+
 export const tripCreateSchema = z.object({
   store_ids: z.array(id).min(1, 'Изберете поне един обект').max(100),
   notes: z.string().trim().max(500).nullable().optional(),
+  ...tripPlan,
+})
+
+/** "Шофьор и ден" of a trip that has not left. All three are set as sent (null clears). */
+export const tripPlanSchema = z.object({
+  driver_id: id.nullable(),
+  planned_date: planDate.nullable(),
+  planned_time: planTime.nullable(),
+})
+
+export const notificationsReadSchema = z.object({
+  ids: z.array(id).max(500).optional(),
 })
 
 export const tripCancelSchema = cancelSchema

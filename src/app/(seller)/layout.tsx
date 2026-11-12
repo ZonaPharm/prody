@@ -5,6 +5,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { SellerLayoutClient } from './layout-client'
 import { deliveriesActive } from '@/lib/deliveries/feature'
 import { countWaitingShipments } from '@/lib/deliveries/work'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { taskBadge } from '@/lib/deliveries/tasks-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,12 +36,18 @@ export default async function SellerLayout({ children }: { children: React.React
   // for the store's checklist.
   const shipmentsOn = deliveriesActive()
   let shipmentBadge = 0
+  let taskCount = 0
   if (shipmentsOn) {
-    try {
-      shipmentBadge = await countWaitingShipments(supabase, user.store_id)
-    } catch {}
+    ;[shipmentBadge, taskCount] = await Promise.all([
+      countWaitingShipments(supabase, user.store_id).catch(() => 0),
+      // "Задачи": new notifications and the trips this person drives; shipments
+      // to accept are counted on "Пратки" and added here too.
+      taskBadge(supabase, createAdminClient(), { role: 'seller', userId: user.id, storeId: user.store_id ?? null }).catch(() => 0),
+    ])
   }
-  const items = shipmentsOn ? [...navItems, { href: '/my-shipments', label: 'Пратки' }] : navItems
+  const items = shipmentsOn
+    ? [...navItems, { href: '/my-shipments', label: 'Пратки' }, { href: '/my-tasks', label: 'Задачи' }]
+    : navItems
 
   return (
     <SellerLayoutClient
@@ -48,6 +56,7 @@ export default async function SellerLayout({ children }: { children: React.React
       isAdminImpersonating={user.role === 'admin' && effectiveRole === 'seller'}
       requestBadge={requestBadge}
       shipmentBadge={shipmentBadge}
+      taskBadge={shipmentsOn ? taskCount + shipmentBadge : undefined}
     >
       {children}
     </SellerLayoutClient>

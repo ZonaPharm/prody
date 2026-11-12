@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package } from 'lucide-react'
+import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package, Truck } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
@@ -37,6 +37,8 @@ interface Props {
   lowStockImageMap: Record<string, string>
   /** Opens the request form with this product already in the basket. */
   initialProductId?: string
+  /** Per product: "Вече идва към вас: …" when Офис already sends it to this store. */
+  incoming?: Record<string, string>
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -58,7 +60,7 @@ const TABS = [
   { key: 'low', label: 'Ниски наличности' },
 ]
 
-export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap, initialProductId }: Props) {
+export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap, initialProductId, incoming = {} }: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const [tab, setTab] = useState(activeTab)
@@ -187,6 +189,11 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                           <p className="text-xs text-muted-foreground">
                             {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
                           </p>
+                          {incoming[item.product.id] && (
+                            <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                              <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[item.product.id]}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <Button variant="outline" size="icon" className="h-9 w-9 lg:h-7 lg:w-7"
@@ -298,6 +305,11 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                           {p.quantity_on_hand} бр.
                         </span>
                       </div>
+                      {incoming[p.id] && (
+                        <p className="mt-1.5 flex items-start gap-1 rounded bg-amber-50 px-1.5 py-1 text-[11px] font-medium leading-tight text-amber-800">
+                          <Truck className="h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
+                        </p>
+                      )}
                       {inBasket && (
                         <div className="mt-2 text-xs font-medium text-blue-600 bg-blue-100 -mx-3 -mb-3 px-3 py-1.5 rounded-b-lg text-center">
                           В заявката: {inBasket.qty} бр.
@@ -427,6 +439,11 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                       <p className="text-xs text-muted-foreground">
                         {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
                       </p>
+                      {incoming[p.id] && (
+                        <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                          <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

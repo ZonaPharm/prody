@@ -2,6 +2,9 @@ import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { MyRequestsClient } from './client'
+import { deliveriesActive } from '@/lib/deliveries/feature'
+import { getStoreIncomingAll } from '@/lib/deliveries/tasks-data'
+import { incomingByProduct, incomingText } from '@/lib/deliveries/tasks'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,8 +97,25 @@ export default async function MyRequestsPage({
     }
   }
 
+  // What already comes to this store from Офис (on the way, on a trip, being
+  // prepared), so nobody asks for it again. Read with the service-role client,
+  // only for this store; a failure just leaves the hints out.
+  const incoming: Record<string, string> = {}
+  if (storeId && deliveriesActive() && activeTab !== 'my') {
+    try {
+      const { ships, planned } = await getStoreIncomingAll(admin, storeId)
+      for (const [productId, x] of Object.entries(incomingByProduct(ships, planned))) {
+        const text = incomingText(x)
+        if (text) incoming[productId] = text
+      }
+    } catch (e) {
+      console.error('requests: incoming failed:', e instanceof Error ? e.message : JSON.stringify(e))
+    }
+  }
+
   return (
     <MyRequestsClient
+      incoming={incoming}
       products={(products || []) as any[]}
       categories={(categories || []) as any[]}
       imageMap={imageMap}
