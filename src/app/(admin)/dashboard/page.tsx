@@ -145,9 +145,33 @@ export default async function DashboardPage() {
 
       </div>
 
-      {/* Store revenue KPIs */}
+      {/* Store revenue: on a phone one card with a row per store (name, bar, sum) */}
+      {nonWarehouseStores.length > 0 && (() => {
+        const rows = nonWarehouseStores.map((store: any) => ({ id: store.id as string, name: store.name as string, revenue: Math.round((storeRevenue[store.id] || 0) * 100) / 100 }))
+        const top = Math.max(1, ...rows.map(r => r.revenue))
+        return (
+          <Card className="sm:hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Оборот по магазини, 30 дни</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2.5">
+              {rows.map(r => (
+                <div key={r.id}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="truncate">{r.name}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{r.revenue.toFixed(0)} €</span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                    <div className="h-1.5 rounded-full bg-primary" style={{ width: `${Math.round((r.revenue / top) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )
+      })()}
       {nonWarehouseStores.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {nonWarehouseStores.map((store: any) => {
             const revenue = Math.round((storeRevenue[store.id] || 0) * 100) / 100
             return (
