@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package, Truck } from 'lucide-react'
+import { Search, Plus, X, Send, CheckCircle2, Loader2, Package, Truck } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
 import { NOT_REQUESTABLE_TEXT, type NotRequestable } from '@/lib/requests/office-stock'
+import { Empty, Hint, Note, PageHeader } from '@/components/ui/text'
 
 interface Product {
   id: string; name: string; price: number | null; category_id?: string | null
@@ -234,7 +235,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Заявки</h1>
+      <PageHeader title="Заявки" intro="Поискайте от Офис стока за вашия магазин и следете заявките си." />
 
       {/* Tabs — button style */}
       <div className="no-scrollbar flex gap-1 bg-slate-100 rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
@@ -260,29 +261,22 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           {/* Left: product grid with right margin for basket */}
           <div className="pb-16 lg:pb-0 lg:mr-[382px]">
             {!storeId && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
-                Нямате зададен магазин. Свържете се с администратор.
-              </div>
+              <Note tone="warn" className="mb-4">Нямате зададен магазин. Свържете се с администратор.</Note>
             )}
 
-            <p className="mb-3 text-sm text-muted-foreground">
-              Тук са само продуктите, които Офис може да изпрати сега. Броят е колко има свободни в Офис.
-            </p>
+            <Hint className="mb-3">
+              Изберете продукти и натиснете „Изпрати“. Тук са само продуктите, които Офис може да изпрати сега; „в Офис N“ е колко има свободни.
+            </Hint>
 
             {officeFailed && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 mb-4">
-                Не успяхме да прочетем наличността в Офис. Опитайте пак след малко.
-              </div>
+              <Note tone="danger" className="mb-4">Не успяхме да прочетем наличността в Офис. Опитайте пак след малко.</Note>
             )}
 
             {presetBlocked && (
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>
-                  <b>{presetBlocked.name}</b> не може да се заяви: {NOT_REQUESTABLE_TEXT[presetBlocked.why].toLowerCase()}.
-                  {incoming[presetBlocked.id] ? ` ${incoming[presetBlocked.id]}` : ''}
-                </span>
-              </div>
+              <Note tone="warn" className="mb-4">
+                <b>{presetBlocked.name}</b> не може да се заяви: {NOT_REQUESTABLE_TEXT[presetBlocked.why].toLowerCase()}.
+                {incoming[presetBlocked.id] ? ` ${incoming[presetBlocked.id]}` : ''}
+              </Note>
             )}
 
             {/* Category pills */}
@@ -314,8 +308,8 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
 
             {/* Not requestable: named with the reason, so nobody hunts for it. */}
             {blocked.length > 0 && (
-              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Не може да се заяви сега</p>
+              <Note tone="info" className="mb-4">
+                <p className="mb-1 font-semibold text-slate-900">Не може да се заяви сега</p>
                 <ul className="space-y-1">
                   {blocked.map(p => (
                     <li key={p.id} className="text-sm">
@@ -329,16 +323,16 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Note>
             )}
 
             {/* Product grid */}
             {filteredProducts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-12">
+              <Empty className="py-12">
                 {search
                   ? (blocked.length > 0 ? 'Няма други съвпадения, които Офис може да изпрати.' : `Няма съвпадения за "${search}"`)
                   : products.length === 0 ? 'В момента Офис няма стока, която може да се заяви.' : 'Няма продукти в тази категория'}
-              </p>
+              </Empty>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {filteredProducts.map(p => {
@@ -458,7 +452,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       {tab === 'my' && (
         <div className="space-y-2">
           {myRequests.length === 0 ? (
-            <div className="text-muted-foreground text-center py-12">Нямате заявки</div>
+            <Empty className="py-12">Нямате заявки</Empty>
           ) : (
             myRequests.map(r => (
               <div key={r.id}

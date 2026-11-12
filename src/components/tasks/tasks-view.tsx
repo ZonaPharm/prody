@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
-  Check,
   Inbox,
   Package,
   Route,
@@ -17,6 +16,7 @@ import type { NotificationRow } from '@/lib/deliveries/tasks-data'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { MarkRead } from './mark-read'
+import { Empty, Meta, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 
 /**
  * "Задачи": the person's own cards, most urgent first, each with one button;
@@ -49,19 +49,12 @@ export function TasksView({ tasks, notifications, intro }: { tasks: Task[]; noti
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Задачи</h1>
-        <p className="text-sm text-muted-foreground">{intro ?? 'Какво чака теб сега и какво идва към теб.'}</p>
-      </div>
+      <PageHeader title="Задачи" intro={intro ?? 'Какво чака теб сега и какво идва към теб.'} />
 
       <section className="space-y-3" aria-labelledby="tasks-now">
-        <h2 id="tasks-now" className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          За теб сега{now.length ? ` · ${now.length}` : ''}
-        </h2>
+        <SectionTitle count={now.length ? `${now.length}` : undefined}><span id="tasks-now">За теб сега</span></SectionTitle>
         {now.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            <Check className="h-5 w-5 shrink-0" />Няма какво да правиш сега.
-          </p>
+          <Note tone="success">Няма какво да правиш сега.</Note>
         ) : (
           <ul className="space-y-3">{now.map(t => <TaskCard key={t.key} task={t} />)}</ul>
         )}
@@ -69,17 +62,15 @@ export function TasksView({ tasks, notifications, intro }: { tasks: Task[]; noti
 
       {coming.length > 0 && (
         <section className="space-y-3" aria-labelledby="tasks-coming">
-          <h2 id="tasks-coming" className="text-sm font-semibold uppercase tracking-wide text-slate-500">Идва и предстои</h2>
+          <SectionTitle><span id="tasks-coming">Идва и предстои</span></SectionTitle>
           <ul className="space-y-3">{coming.map(t => <TaskCard key={t.key} task={t} />)}</ul>
         </section>
       )}
 
       <section className="space-y-3" aria-labelledby="tasks-news">
-        <h2 id="tasks-news" className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Известия{unread.length ? ` · ${unread.length} нови` : ''}
-        </h2>
+        <SectionTitle count={unread.length ? `${unread.length} нови` : undefined}><span id="tasks-news">Известия</span></SectionTitle>
         {notifications.length === 0 ? (
-          <p className="rounded-xl border bg-white p-4 text-sm text-muted-foreground">Още няма известия.</p>
+          <Empty className="rounded-xl border bg-white">Още няма известия.</Empty>
         ) : (
           <ul className="divide-y rounded-xl border bg-white">
             {notifications.map(n => <NotificationItem key={n.id} n={n} />)}
@@ -138,7 +129,7 @@ function NotificationItem({ n }: { n: NotificationRow }) {
           {!n.read_at && <span className="sr-only">Ново: </span>}{n.title}
         </p>
         {n.body && <p className="text-sm text-slate-600 break-words">{n.body}</p>}
-        <p className="mt-0.5 text-xs text-muted-foreground">{sofiaDateTime(n.created_at)}</p>
+        <Meta className="mt-0.5">{sofiaDateTime(n.created_at)}</Meta>
       </div>
       {n.link && <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />}
     </div>

@@ -9,6 +9,7 @@ import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Che
 import { RejectRequestButton } from '@/components/inventory/reject-request-button'
 import { sofiaDate, sofiaDateTime } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
+import { PageHeader } from '@/components/ui/text'
 
 interface ProductItem {
   id: string
@@ -185,20 +186,16 @@ export function LowStockClient({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Заявки</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Заявете необходимите ви количества
-          </p>
-        </div>
-        {cart.length > 0 && (
+      <PageHeader
+        title="Заявки"
+        intro="Заявете от Офис каквото ви трябва. Тук са само продуктите, които Офис може да изпрати сега."
+        actions={cart.length > 0 && (
           <Button onClick={() => setShowCart(!showCart)} variant={showCart ? 'default' : 'outline'}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Кошница ({cart.length})
           </Button>
         )}
-      </div>
+      />
 
       {/* Cart panel */}
       {showCart && cart.length > 0 && (
