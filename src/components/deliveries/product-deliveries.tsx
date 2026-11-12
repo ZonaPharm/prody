@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ProductDeliveryLine } from '@/lib/deliveries/queries'
 import { whereabouts } from '@/lib/deliveries/track'
 import { formatDeliveryNumber } from '@/lib/deliveries/format'
@@ -9,15 +9,21 @@ import { WhereIsIt } from './where-is-it'
 
 type Names = { storeName: (id: string) => string; warehouseName: string }
 
-function Meta({ l }: { l: ProductDeliveryLine }) {
+/** Number and status, then date, quantity, supplier and invoice; on two lines when `stacked`. */
+function Meta({ l, stacked }: { l: ProductDeliveryLine; stacked?: boolean }) {
+  const rest = (
+    <span className="text-muted-foreground">
+      {sofiaDate(l.created_at)} · <b className="font-semibold text-foreground">{l.quantity} бр.</b>
+      {l.supplier_name ? ` · ${l.supplier_name}` : ''}{l.doc_number ? ` · Ф-ра ${l.doc_number}` : ''}
+    </span>
+  )
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-      <Link href={`/deliveries/${l.delivery_id}`} className="font-semibold hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
-      <DeliveryStatusBadge status={l.delivery_status} />
-      <span className="text-muted-foreground">
-        {sofiaDate(l.created_at)} · <b className="font-semibold text-foreground">{l.quantity} бр.</b>
-        {l.supplier_name ? ` · ${l.supplier_name}` : ''}{l.doc_number ? ` · Ф-ра ${l.doc_number}` : ''}
-      </span>
+    <div className={stacked ? 'space-y-0.5 text-sm' : 'flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'}>
+      <div className="flex items-center gap-2">
+        <Link href={`/deliveries/${l.delivery_id}`} className="font-semibold hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+        <DeliveryStatusBadge status={l.delivery_status} />
+      </div>
+      {stacked ? <p>{rest}</p> : rest}
     </div>
   )
 }
@@ -65,23 +71,31 @@ export function DeliveriesList({ lines, storeName, warehouseName }: Names & { li
           const w = whereabouts(l, l.ship_lines)
           return (
             <li key={l.item_id} className="grid gap-2 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-6">
-              <Meta l={l} />
-              <details className="group">
-                <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                  <WhereIsIt w={w} storeName={storeName} warehouseName={warehouseName} compact />
-                  <span className="mt-1 inline-block text-xs font-medium text-primary group-open:hidden">Подробно</span>
-                </summary>
-                <div className="pt-2">
-                  <WhereIsIt
-                    w={w}
-                    storeName={storeName}
-                    warehouseName={warehouseName}
-                    labelHref={`/deliveries/labels?delivery=${l.delivery_id}`}
-                    oneColumn
-                    rowsOnly
-                  />
-                </div>
-              </details>
+              <Meta l={l} stacked />
+              {w.parts.some(p => p.store_id) ? (
+                <details className="group">
+                  <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <WhereIsIt w={w} storeName={storeName} warehouseName={warehouseName} compact />
+                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                      <span className="group-open:hidden">Покажи по магазини</span>
+                      <span className="hidden group-open:inline">Скрий</span>
+                    </span>
+                  </summary>
+                  <div className="pt-2">
+                    <WhereIsIt
+                      w={w}
+                      storeName={storeName}
+                      warehouseName={warehouseName}
+                      labelHref={`/deliveries/labels?delivery=${l.delivery_id}`}
+                      oneColumn
+                      rowsOnly
+                    />
+                  </div>
+                </details>
+              ) : (
+                <WhereIsIt w={w} storeName={storeName} warehouseName={warehouseName} compact />
+              )}
             </li>
           )
         })}

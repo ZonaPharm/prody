@@ -14,6 +14,7 @@ import {
 import {
   actionCount,
   adminTasks,
+  driverPoolTasks,
   driverTasks,
   sortTasks,
   storeTasks,
@@ -181,11 +182,11 @@ async function getAdminState(supabase: Db) {
   }
 }
 
-async function getAdminTrips(supabase: Db): Promise<AdminTrip[]> {
+export async function getAdminTrips(supabase: Db): Promise<AdminTrip[]> {
   const { data, error } = await supabase
     .from('trips')
-    .select('id, number, status, planned_date, planned_time, planned_driver:users!trips_planned_driver_id_fkey(display_name), ' +
-      'shipments:shipments!shipments_trip_id_fkey(status)')
+    .select('id, number, status, planned_date, planned_time, planned_driver_id, planned_driver:users!trips_planned_driver_id_fkey(display_name), ' +
+      'shipments:shipments!shipments_trip_id_fkey(status, store:stores!shipments_store_id_fkey(name))')
     .eq('status', 'open')
     .order('number')
     .limit(200)
@@ -194,10 +195,11 @@ async function getAdminTrips(supabase: Db): Promise<AdminTrip[]> {
     id: t.id,
     number: t.number,
     status: t.status,
+    planned_driver_id: t.planned_driver_id ?? null,
     planned_driver: t.planned_driver?.display_name ?? null,
     planned_date: t.planned_date ?? null,
     planned_time: hhmm(t.planned_time),
-    shipments: t.shipments ?? [],
+    shipments: (t.shipments ?? []).map((s: any) => ({ status: s.status, store: s.store?.name ?? undefined })),
   }))
 }
 
@@ -239,6 +241,11 @@ export type TasksFor = {
   storeId: string | null
   /** Офис without Администратор: no receiving, problems or stores cards. */
   officeOnly?: boolean
+  /**
+   * Has the Шофьор role: also sees every trip packed and waiting for transport,
+   * not only the ones chosen for them (set from the roles, PR #11).
+   */
+  isDriver?: boolean
 }
 
 /**
@@ -247,18 +254,22 @@ export type TasksFor = {
  */
 export async function loadTasks(supabase: Db, admin: Db, who: TasksFor): Promise<{ tasks: Task[]; notifications: NotificationRow[] }> {
   const today = sofiaToday()
-  const [driving, store, office, notifications] = await Promise.all([
+  // Admins see "чака шофьора" on their own Офис cards; the pool is for the other drivers.
+  const pool = who.isDriver && who.role !== 'admin'
+  const [driving, store, office, notifications, poolTrips] = await Promise.all([
     getDriverTrips(admin, who.userId).catch(logEmpty<DriverTrip[]>('driver trips', [])),
     who.role === 'seller'
       ? getStoreIncomingAll(admin, who.storeId).catch(logEmpty('store incoming', { ships: [] as StoreShipment[], planned: [] as StorePlanned[] }))
       : Promise.resolve({ ships: [] as StoreShipment[], planned: [] as StorePlanned[] }),
     who.role === 'admin' ? getAdminState(supabase).catch(logEmpty('admin state', null)) : Promise.resolve(null),
     getNotifications(supabase, who.userId).catch(logEmpty<NotificationRow[]>('notifications', [])),
+    pool ? getAdminTrips(admin).catch(logEmpty<AdminTrip[]>('driver pool', [])) : Promise.resolve([] as AdminTrip[]),
   ])
   const tasks = sortTasks([
     ...driverTasks(driving, today, { admin: who.role === 'admin' }),
     ...storeTasks(store.ships, store.planned, today),
     ...(office ? adminTasks(office, today, { office: who.officeOnly }) : []),
+    ...driverPoolTasks(poolTrips, who.userId, today),
   ])
   return { tasks, notifications }
 }

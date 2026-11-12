@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { deliveriesActive } from '@/lib/deliveries/feature'
 import { loadTasks } from '@/lib/deliveries/tasks-data'
 import { TasksView } from '@/components/tasks/tasks-view'
+import { hasRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,7 @@ export default async function MyTasksPage() {
     role: 'seller',
     userId: user.id,
     storeId: user.store_id ?? null,
+    isDriver: hasRole(user, 'driver'),
   })
   return <TasksView tasks={tasks} notifications={notifications} />
 }
