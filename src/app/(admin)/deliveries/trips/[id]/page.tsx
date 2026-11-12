@@ -33,7 +33,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="trips" problems={problems} />
-      <TripView trip={trip} drivers={drivers} ready={ready} />
+      <TripView trip={trip} drivers={drivers} ready={ready} stores={stores.filter(s => !s.is_warehouse).map(s => ({ id: s.id, name: s.name }))} />
     </div>
   )
 }

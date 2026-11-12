@@ -46,7 +46,8 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
         <>В курса натиснете <b>„Опаковай“</b> за всяка пратка: отметнете какво е в кашона и подпишете.</>,
         <><b>Шофьорът подписва</b> с паролата си и курсът тръгва. Магазинът приема пратката от „Пратки“.</>,
       ]} />
-      <TripsBoard trips={trips} ready={ready} storeName={storeName} filter={filter} waitingLabel={waitingLabel} />
+      <TripsBoard trips={trips} ready={ready} storeName={storeName} filter={filter} waitingLabel={waitingLabel}
+        stores={stores.filter(s => !s.is_warehouse).map(s => ({ id: s.id, name: s.name }))} />
     </div>
   )
 }

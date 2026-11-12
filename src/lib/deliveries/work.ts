@@ -99,6 +99,7 @@ export async function getUnsentLines(supabase: any): Promise<UnsentLine[]> {
       .from('shipment_lines')
       .select('id, plan_id, qty, shipment:shipments!shipment_lines_shipment_id_fkey!inner(status)')
       .in('shipment.status', UNSENT)
+      .not('plan_id', 'is', null) // Office stock lines hold no plan row
       .order('id'),
   )
   return rows.map(r => ({ plan_id: r.plan_id, qty: r.qty }))
@@ -165,8 +166,9 @@ export async function getTrips(supabase: any, filter: 'active' | 'all'): Promise
 
 export type ShipmentLineView = {
   id: string
-  plan_id: string
-  delivery_item_id: string
+  /** Both null for a line of Office stock (no delivery, "Добави от Офис"). */
+  plan_id: string | null
+  delivery_item_id: string | null
   qty: number
   received_qty: number | null
   product_id: string
@@ -406,6 +408,7 @@ export async function getProblems(supabase: any, filter: 'open' | 'all'): Promis
           'creator:users!delivery_signals_created_by_fkey(display_name), resolver:users!delivery_signals_resolved_by_fkey(display_name), ' +
           'delivery:deliveries!delivery_signals_delivery_id_fkey(id, number), ' +
           'item:delivery_items!delivery_signals_delivery_item_id_fkey(product:products(name)), ' +
+          'line:shipment_lines!delivery_signals_shipment_line_id_fkey(product:products!shipment_lines_product_id_fkey(name)), ' +
           'shipment:shipments!delivery_signals_shipment_id_fkey(id, number, trip_id, store:stores!shipments_store_id_fkey(name), ' +
           'packer:users!shipments_packed_by_fkey(display_name), sender:users!shipments_sent_by_fkey(display_name), ' +
           'receiver:users!shipments_received_by_fkey(display_name))',
@@ -435,7 +438,7 @@ export async function getProblems(supabase: any, filter: 'open' | 'all'): Promis
       resolver: r.resolver?.display_name ?? null,
       delivery_id: r.delivery?.id ?? null,
       delivery_number: r.delivery?.number ?? null,
-      product_name: r.item?.product?.name ?? null,
+      product_name: r.item?.product?.name ?? r.line?.product?.name ?? null,
       shipment_id: sh?.id ?? null,
       shipment_number: sh?.number ?? null,
       store_name: sh?.store?.name ?? null,
