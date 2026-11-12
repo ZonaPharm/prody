@@ -22,8 +22,8 @@ export const STAGE_LABEL: Record<Stage, string> = {
   not_received: 'Не е получено',
   to_label: 'Чака етикет',
   office: 'В Офис, с етикет',
-  to_trip: 'Чака курс',
-  on_trip: 'В курс, още не е тръгнал',
+  to_trip: 'Готово, чака курс',
+  on_trip: 'В курс, чака тръгване',
   on_way: 'На път',
   accepted: 'Прието в магазина',
 }
@@ -68,6 +68,8 @@ export type WherePart = {
   shipment_number?: number | null
   /** Accepted lines only: how many the store counted less than were sent. */
   missing?: number
+  /** On a trip: the shipment is packed and waits only for the driver. */
+  packed?: boolean
 }
 
 export type Whereabouts = {
@@ -96,7 +98,7 @@ export function whereabouts(item: TrackItem, lines: TrackLine[]): Whereabouts {
     const onTripQty = onTrip.reduce((s, l) => s + l.qty, 0)
     add({ stage: 'to_trip', qty: Math.max(0, p.ready_qty - p.shipped_qty - onTripQty), store_id: p.store_id })
     for (const l of onTrip) {
-      add({ stage: 'on_trip', qty: l.qty, store_id: p.store_id, trip_id: l.trip_id, trip_number: l.trip_number, shipment_number: l.shipment_number })
+      add({ stage: 'on_trip', qty: l.qty, store_id: p.store_id, trip_id: l.trip_id, trip_number: l.trip_number, shipment_number: l.shipment_number, packed: l.shipment_status === 'packed' })
     }
     for (const l of mine.filter(l => l.shipment_status === 'sent')) {
       add({ stage: 'on_way', qty: l.qty, store_id: p.store_id, trip_id: l.trip_id, trip_number: l.trip_number, shipment_number: l.shipment_number })
@@ -128,7 +130,7 @@ export function whereSummary(w: Whereabouts): string {
   if (t.not_received) waiting.push(`получаване ${t.not_received} бр.`)
   if (t.to_label) waiting.push(`етикет ${t.to_label} бр.`)
   if (t.to_trip) waiting.push(`курс ${t.to_trip} бр.`)
-  if (t.on_trip) waiting.push(`тръгване ${t.on_trip} бр.`)
+  if (t.on_trip) waiting.push(`шофьор ${t.on_trip} бр.`)
   if (t.on_way) waiting.push(`приемане в магазина ${t.on_way} бр.`)
   return `Чакат: ${waiting.join(', ')}`
 }

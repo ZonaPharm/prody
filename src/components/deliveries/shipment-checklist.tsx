@@ -39,7 +39,7 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
   const [signing, setSigning] = useState(false)
   const [error, setError] = useState('')
 
-  const rows = lines.map(l => ({ line_id: l.id, qty: l.qty }))
+  const rows = lines.map(l => ({ line_id: l.id, qty: l.qty, office: l.plan_id == null }))
   const pack = buildPackBody(rows, state)
   const confirm = buildConfirmBody(rows, state)
   const missing = mode === 'pack' ? pack.missing : confirm.missing
@@ -93,6 +93,7 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
                 <div className="text-xs text-muted-foreground">
                   {l.product_sku ? `${l.product_sku} · ` : ''}цена {formatMoney(l.product_price)}
                   {mode === 'pack' && l.delivery_number != null ? ` · ${formatDeliveryNumber(l.delivery_number)}` : ''}
+                  {mode === 'pack' && l.plan_id == null ? ' · от Офис' : ''}
                 </div>
                 <div className="text-sm"><span className="font-semibold">{l.qty} бр.</span></div>
                 {s?.problem && <ProblemText step={mode} problem={s.problem} />}
@@ -132,7 +133,9 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
           step={mode}
           title={problemFor.product_name}
           expected={problemFor.qty}
-          hint={`В пратката са ${problemFor.qty} бр.`}
+          hint={problemFor.plan_id == null && mode === 'pack'
+            ? `В пратката са ${problemFor.qty} бр. от Офис. Ако слагате по-малко, редът се намалява и останалото си стои в Офис.`
+            : `В пратката са ${problemFor.qty} бр.`}
           onClose={() => setProblemFor(null)}
           onSave={p => { setRow(problemFor.id, { problem: p, checked: false }); setProblemFor(null) }}
         />

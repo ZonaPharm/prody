@@ -34,7 +34,7 @@ export function WhereIsIt({ w, storeName, warehouseName, labelHref, compact, one
       <p className="text-sm font-medium">{whereSummary(w)}</p>
       </>}
       {!compact && (
-        <ul className={cn('grid gap-x-6 gap-y-1', oneColumn ? 'max-w-2xl' : 'md:grid-cols-2')}>
+        <ul className={cn('grid gap-x-6 gap-y-1', !oneColumn && 'md:grid-cols-2')}>
           {w.parts.map((p, i) => (
             <PartRow key={i} p={p} w={w} storeName={storeName} warehouseName={warehouseName} labelHref={labelHref} />
           ))}
@@ -69,11 +69,13 @@ function PartRow({ p, w, storeName, warehouseName, labelHref }: {
       text = `В ${warehouseName}, с етикет`
       break
     case 'to_trip':
-      text = <>Чака курс за <b>{store}</b></>
+      text = <>Готово, чака курс за <b>{store}</b></>
       href = '/deliveries/trips'
       break
     case 'on_trip':
-      text = <>В курс за <b>{store}</b> <span className="text-muted-foreground">· {trip}, още не е тръгнал</span></>
+      text = p.packed
+        ? <>Опаковано за <b>{store}</b>, чака шофьора <span className="text-muted-foreground">· {trip}</span></>
+        : <>Опакова се за <b>{store}</b> <span className="text-muted-foreground">· {trip}</span></>
       href = p.trip_id ? `/deliveries/trips/${p.trip_id}` : undefined
       break
     case 'on_way':
@@ -91,8 +93,8 @@ function PartRow({ p, w, storeName, warehouseName, labelHref }: {
   const body = (
     <>
       <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', STAGE_TONE[p.stage].dot)} />
+      <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{p.qty} бр.</span>
       <span className="min-w-0 flex-1">{text}</span>
-      <span className="shrink-0 font-semibold tabular-nums">{p.qty} бр.</span>
       {href && <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />}
     </>
   )

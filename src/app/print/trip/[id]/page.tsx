@@ -63,7 +63,7 @@ export default async function TripPrintPage({ params, searchParams }: {
                   <tr key={l.id} className="border-b border-slate-300">
                     <td className="py-1.5"><span className="inline-block h-4 w-4 border border-black" /></td>
                     <td className="py-1.5">{l.product_name}{l.product_sku ? <span className="text-xs text-slate-600"> · {l.product_sku}</span> : null}</td>
-                    <td className="py-1.5 whitespace-nowrap">{formatDeliveryNumber(l.delivery_number)}</td>
+                    <td className="py-1.5 whitespace-nowrap">{l.plan_id == null ? 'от Офис' : formatDeliveryNumber(l.delivery_number)}</td>
                     <td className="py-1.5 text-right whitespace-nowrap">{formatMoney(l.product_price)}</td>
                     <td className="py-1.5 text-right font-semibold">{l.qty}</td>
                   </tr>

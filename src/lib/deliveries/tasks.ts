@@ -177,7 +177,7 @@ export function storeTasks(ships: StoreShipment[], planned: StorePlanned[], toda
         label: 'Идва към вас',
         title: `${formatShipmentNumber(s.number)}: ${unitsText(units)} от ${plural(products.length, 'продукт', 'продукта')}`,
         when: s.planned_date ? `тръгва ${whenText(s.planned_date, s.planned_time, today)}` : 'денят още не е определен',
-        detail: `${s.trip_number ? `С курс ${formatTripNumber(s.trip_number)}. ` : ''}${s.status === 'packed' ? 'Опакована е в Офис.' : 'Опакова се в Офис.'} Не правете заявка за тези продукти.`,
+        detail: `${s.trip_number ? `С курс ${formatTripNumber(s.trip_number)}. ` : ''}${s.status === 'packed' ? 'Опакована е в Офис и чака транспорт.' : 'Опакова се в Офис.'} Не правете заявка за тези продукти.`,
         items: productLines(products),
       })
     }
@@ -237,10 +237,12 @@ export type AdminTrip = {
   id: string
   number: number
   status: 'open' | 'departed'
+  planned_driver_id?: string | null
   planned_driver: string | null
   planned_date: string | null
   planned_time: string | null
-  shipments: { status: string }[]
+  /** store: the store's name (for "чака шофьора до …"). */
+  shipments: { status: string; store?: string }[]
 }
 
 export type AdminState = {
@@ -316,10 +318,12 @@ export function adminTasks(s: AdminState, today: string): Task[] {
           href: `/deliveries/trips/${t.id}`, cta: 'Опаковай',
         }
       : {
-          key: `send-${t.id}`, tone: late ? 'late' : 'do', icon: 'truck', label: 'Стъпка 6: Шофьорът тръгва',
-          title: `Курс ${formatTripNumber(t.number)} е опакован`,
+          key: `send-${t.id}`, tone: late ? 'late' : 'do', icon: 'truck', label: 'Стъпка 6: Чака шофьора',
+          title: `Курс ${formatTripNumber(t.number)}${tripStores(live) ? ` до ${tripStores(live)}` : ''} чака шофьора`,
           when: when ? (late ? `${when}: закъснява` : when) : undefined,
-          detail: `${t.planned_driver ? `${t.planned_driver} подписва` : 'Шофьорът подписва'} с паролата си и курсът тръгва.`,
+          detail: t.planned_driver
+            ? `Всичко е опаковано. ${t.planned_driver} подписва с паролата си и курсът тръгва. Ако го няма, може да подпише друг шофьор.`
+            : 'Всичко е опаковано, но няма избран шофьор. Изберете шофьор или нека подпише който кара.',
           href: `/deliveries/trips/${t.id}`, cta: 'Отвори курса',
         })
   }
@@ -329,6 +333,40 @@ export function adminTasks(s: AdminState, today: string): Task[] {
       title: `${plural(s.atStores, 'пратка чака', 'пратки чакат')} магазин да я отметне`,
       detail: 'Магазините приемат от „Пратки“. Вижте коя от колко време чака.',
       href: '/deliveries/work', cta: 'За работа',
+    })
+  }
+  return out
+}
+
+function tripStores(ships: { status: string; store?: string }[]): string {
+  return listText(ships.filter(x => x.status !== 'cancelled').map(x => x.store ?? '').filter(Boolean))
+}
+
+/**
+ * For everyone with the driver role (not only the one chosen): trips packed and
+ * waiting for transport, so that if the chosen driver is away, another sees it
+ * and can take it (Владимир, 2026-11-12). The person's own trips are on their
+ * driverTasks card already, so they are left out here.
+ */
+export function driverPoolTasks(trips: AdminTrip[], userId: string, today: string): Task[] {
+  const out: Task[] = []
+  for (const t of trips) {
+    if (t.status !== 'open' || t.planned_driver_id === userId) continue
+    const live = t.shipments.filter(x => x.status !== 'cancelled')
+    if (live.length === 0 || live.some(x => x.status !== 'packed')) continue
+    const late = isLate(t.planned_date, today)
+    const when = t.planned_date ? whenText(t.planned_date, t.planned_time, today) : undefined
+    const stores = tripStores(live)
+    out.push({
+      key: `pool-${t.id}`,
+      tone: !t.planned_driver ? 'do' : late ? 'late' : 'coming',
+      icon: 'truck',
+      label: 'Чака шофьора',
+      title: `Курс ${formatTripNumber(t.number)}${stores ? ` до ${stores}` : ''} чака транспорт`,
+      when: when ? (late ? `${when}: закъснява` : when) : undefined,
+      detail: t.planned_driver
+        ? `Кара ${t.planned_driver}. Ако го няма, можеш да го поемеш: в Офис подписваш с паролата си при тръгване.`
+        : 'Няма избран шофьор. Ако можеш да го поемеш, ела в Офис и подпиши с паролата си при тръгване.',
     })
   }
   return out

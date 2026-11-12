@@ -11,7 +11,7 @@ import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/
 import {
   SHIPMENT_STATUS_LABEL,
   SHIPMENT_STATUS_TONE,
-  TRIP_STATUS_LABEL,
+  tripStatusLabel,
   TRIP_STATUS_TONE,
   boxesText,
   tripReadyToSend,
@@ -25,6 +25,7 @@ import { postJson, useNow } from './checklist-ui'
 import { tripJourney } from '@/lib/deliveries/journey'
 import { whenText } from '@/lib/deliveries/notify-text'
 import { NextStep, StepTrail } from './step-trail'
+import { OfficeStockButton, type StoreChoice } from './office-stock-dialog'
 
 /**
  * One trip: its shipments by store, each packed with its own checklist; then
@@ -34,7 +35,14 @@ import { NextStep, StepTrail } from './step-trail'
  * a packed shipment is opened to be packed and signed again, or the whole trip
  * is taken back.
  */
-export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetail; drivers: DriverOption[]; ready?: StoreReadyView[]; today: string }) {
+export function TripView({ trip, drivers, ready = [], today, stores = [] }: {
+  trip: TripDetail
+  drivers: DriverOption[]
+  ready?: StoreReadyView[]
+  today: string
+  /** Stores that can get a shipment, for "Добави от Офис". */
+  stores?: StoreChoice[]
+}) {
   const live = trip.shipments.filter(s => s.status !== 'cancelled')
   const canSend = trip.status === 'open' && tripReadyToSend(live)
   const boxes = live.reduce((n, s) => n + (s.box_count ?? 0), 0)
@@ -55,7 +63,7 @@ export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetai
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">Курс {formatTripNumber(trip.number)}</h1>
-              <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[trip.status])}>{TRIP_STATUS_LABEL[trip.status]}</span>
+              <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[trip.status])}>{tripStatusLabel(trip.status, trip.shipments)}</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Създаден {sofiaDateTime(trip.created_at)}{trip.creator ? ` от ${trip.creator}` : ''}
@@ -73,6 +81,9 @@ export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetai
             <Button asChild variant="outline">
               <Link href={`/print/trip/${trip.id}`} target="_blank"><Printer className="mr-2 h-4 w-4" />Лист за курса</Link>
             </Button>
+          )}
+          {trip.status === 'open' && stores.length > 0 && (
+            <OfficeStockButton tripId={trip.id} stores={stores} size="default" label="Добави от Офис" />
           )}
           {trip.status === 'open' && (
             <Button variant="outline" onClick={() => setCancelOpen(true)}><XCircle className="mr-2 h-4 w-4" />Откажи курса</Button>
@@ -143,6 +154,9 @@ export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetai
                   {s.status === 'packing' && open && (
                     <Button asChild size="sm"><Link href={`/deliveries/shipments/${s.id}/pack`}><PackageCheck className="mr-1 h-4 w-4" />Опаковай</Link></Button>
                   )}
+                  {(s.status === 'packing' || s.status === 'packed') && open && (
+                    <OfficeStockButton tripId={trip.id} stores={stores} store={{ id: s.store_id, name: s.store_name }} packed={s.status === 'packed'} variant="ghost" />
+                  )}
                   {s.status === 'packed' && open && (
                     <Button size="sm" variant="outline" onClick={() => setReopening(s)}><PackageOpen className="mr-1 h-4 w-4" />Отвори опаковането</Button>
                   )}
@@ -169,7 +183,9 @@ export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetai
                       <tr key={l.id} className="border-t">
                         <td className="px-4 py-1.5">{l.product_name}</td>
                         <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                          {l.delivery_id ? <Link href={`/deliveries/${l.delivery_id}`} className="hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link> : ''}
+                          {l.delivery_id
+                            ? <Link href={`/deliveries/${l.delivery_id}`} className="hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+                            : l.plan_id == null ? 'от Офис' : ''}
                         </td>
                         <td className="px-4 py-1.5 text-right tabular-nums whitespace-nowrap">
                           {l.qty} бр.

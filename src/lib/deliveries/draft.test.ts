@@ -12,6 +12,7 @@ function line(over: Partial<DraftLineState> = {}): DraftLineState {
     pack_size: '',
     unit_cost: '5,40',
     needs_label: true,
+    label_kind: 'full',
     plan: { a: '20', b: '', c: '10' },
     ...over,
   }
@@ -58,6 +59,7 @@ describe('a line', () => {
         quantity: 100,
         unit_cost: 5.4,
         needs_label: null,
+        label_kind: null,
         plan: [{ store_id: 'a', planned_qty: 20 }, { store_id: 'c', planned_qty: 10 }],
       }],
     })
@@ -66,6 +68,10 @@ describe('a line', () => {
   it('sends "Без етикет" only when it was changed on this screen', () => {
     expect(toDraftPayload({ order_ref: '', notes: '' }, [line({ needs_label: false })]).items[0].needs_label).toBeNull()
     expect(toDraftPayload({ order_ref: '', notes: '' }, [line({ needs_label: false, label_changed: true })]).items[0].needs_label).toBe(false)
+    // "Само цена" is sent as the kind; the database derives needs_label from it.
+    const price = toDraftPayload({ order_ref: '', notes: '' }, [line({ needs_label: false, label_kind: 'price', label_changed: true })]).items[0]
+    expect([price.label_kind, price.needs_label]).toEqual(['price', false])
+    expect(toDraftPayload({ order_ref: '', notes: '' }, [line({ label_kind: 'price' })]).items[0].label_kind).toBeNull()
   })
 })
 

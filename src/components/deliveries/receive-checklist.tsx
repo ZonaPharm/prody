@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { LABEL_KIND_LABEL, type LabelKind } from '@/lib/label-kind'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,7 @@ export type ReceiveRowView = {
   received_qty: number
   remaining: number
   needs_label: boolean
+  label_kind?: LabelKind
 }
 
 const KINDS: ReceiveProblem['kind'][] = ['partial', 'short', 'damaged', 'wrong_product', 'missing', 'other']
@@ -156,7 +158,7 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium leading-tight">{r.product_name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {r.supplier_name ?? '—'}{r.doc_number ? ` · ф-ра ${r.doc_number}` : ''}{!r.needs_label ? ' · без етикет' : ''}
+                      {r.supplier_name ?? '—'}{r.doc_number ? ` · ф-ра ${r.doc_number}` : ''}{!r.needs_label ? ` · ${LABEL_KIND_LABEL[r.label_kind ?? 'none'].toLowerCase()}, без етикетиране` : ''}
                     </div>
                     <div className="text-sm">
                       Очакват се <span className="font-semibold">{formatQtyWithPacks(r.remaining, r.pack_size)}</span>

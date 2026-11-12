@@ -1,3 +1,4 @@
+import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 import { fetchAll } from '@/lib/fetch-all'
 import type { DeliveryStatus } from './format'
 import { primaryImage } from './products'
@@ -95,6 +96,7 @@ export type DetailItem = {
   product_price: number | null
   product_status: string
   needs_label: boolean
+  label_kind: LabelKind
   image: string | null
   supplier_id: string | null
   supplier_name: string | null
@@ -171,7 +173,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
         .from('delivery_items')
         .select(
           'id, product_id, supplier_id, doc_number, pack_size, quantity, unit_cost, received_qty, labelled_qty, sort_order, ' +
-            'product:products(name, sku, price, status, needs_label, images:product_images(url, is_primary, sort_order)), ' +
+            'product:products(name, sku, price, status, needs_label, label_kind, images:product_images(url, is_primary, sort_order)), ' +
             'supplier:suppliers(name)',
         )
         .eq('delivery_id', id)
@@ -240,6 +242,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
       product_price: i.product?.price == null ? null : Number(i.product.price),
       product_status: i.product?.status ?? 'active',
       needs_label: i.product?.needs_label !== false,
+      label_kind: labelKindOf(i.product ?? {}),
       image: primaryImage(i.product?.images),
       supplier_id: i.supplier_id,
       supplier_name: i.supplier?.name ?? null,
@@ -320,6 +323,8 @@ export type ProductDeliveryLine = {
  * The latest delivery lines of one product (drafts left out), with their plan and
  * shipment lines, so the product page can say where each lot is now.
  */
+const SHOWN_STATUSES = ['expected', 'in_progress', 'completed']
+
 export async function getProductDeliveries(supabase: any, productId: string, limit = 10): Promise<ProductDeliveryLine[]> {
   const { data: items, error } = await supabase
     .from('delivery_items')
@@ -329,12 +334,14 @@ export async function getProductDeliveries(supabase: any, productId: string, lim
         'plan:delivery_item_plan!delivery_item_plan_delivery_item_id_fkey(id, store_id, planned_qty, ready_qty, shipped_qty)',
     )
     .eq('product_id', productId)
-    .in('delivery.status', ['expected', 'in_progress', 'completed'])
+    .in('delivery.status', SHOWN_STATUSES)
     .order('created_at', { ascending: false })
     .order('id')
     .limit(limit)
   if (error) throw error
-  const rows = ((items ?? []) as any[]).filter(i => i.delivery)
+  // The embedded filter already leaves drafts and cancelled out; checked again here so
+  // a draft can never show as "the latest delivery" of a product.
+  const rows = ((items ?? []) as any[]).filter(i => i.delivery && SHOWN_STATUSES.includes(i.delivery.status))
   if (rows.length === 0) return []
 
   // At most `limit` ids, far below the URL limit of .in().

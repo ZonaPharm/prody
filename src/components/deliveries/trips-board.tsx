@@ -10,11 +10,12 @@ import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/
 import { storeReadyText, type ReadyLine, type StoreReady } from '@/lib/deliveries/queue'
 import type { DriverOption, TripListRow } from '@/lib/deliveries/work'
 import { whenText } from '@/lib/deliveries/notify-text'
-import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/lib/deliveries/trip-format'
+import { TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL, tripStatusLabel } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
 import { NextStep } from './step-trail'
+import { OfficeStockButton, type StoreChoice } from './office-stock-dialog'
 
 export type StoreReadyView = StoreReady & { name: string; lines?: ReadyLine[] }
 
@@ -23,7 +24,9 @@ export type StoreReadyView = StoreReady & { name: string; lines?: ReadyLine[] }
  * stores on the driver's way; each gets one shipment with everything ready
  * for it now, from every open delivery. A store with nothing ready is skipped.
  */
-export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, drivers = [], today }: {
+export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, drivers = [], today, stores = [] }: {
+  /** Stores that can get a shipment, for a trip with Office stock only. */
+  stores?: StoreChoice[]
   /** Units planned for stores that still wait for "С етикет" + signature. */
   waitingLabel?: number
   /** Who can drive (every active account); the chosen one gets a notification. */
@@ -81,14 +84,20 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
           <Plus className="h-4 w-4" />
           <h2 className="font-semibold">Нов курс</h2>
           <span className="w-full text-sm text-muted-foreground sm:w-auto">Отметнете магазините по пътя на машината.</span>
+          {stores.length > 0 && (
+            <span className="w-full sm:ml-auto sm:w-auto">
+              <OfficeStockButton stores={stores} label="Курс със стока от Офис" />
+            </span>
+          )}
         </header>
         {ready.length === 0 ? (
           <div className="space-y-3 p-4 text-sm">
             <p className="text-muted-foreground">
-              Още няма стока, готова за магазините, затова няма от какво да се направи курс.
+              Още няма стока от доставки, готова за магазините.
               {waitingLabel > 0
                 ? ` За магазините чакат етикет ${waitingLabel} бр. Те стават готови, когато в „Етикетиране“ натиснете „С етикет“ на реда и подпишете.`
                 : ' Стоката става готова, когато е получена в Офис, разпределена към магазин и подписана в „Етикетиране“.'}
+              {stores.length > 0 && ' Стока, която вече е в Офис, пратете с „Курс със стока от Офис“.'}
             </p>
             {waitingLabel > 0 && <NextStep next={{ label: `Етикетирай ${waitingLabel} бр. за магазините`, href: '/deliveries/labels' }} />}
           </div>
@@ -181,7 +190,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
               <li key={t.id}>
                 <Link href={`/deliveries/trips/${t.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-50">
                   <span className="font-semibold tabular-nums">{formatTripNumber(t.number)}</span>
-                  <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[t.status])}>{TRIP_STATUS_LABEL[t.status]}</span>
+                  <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[t.status])}>{tripStatusLabel(t.status, t.shipments)}</span>
                   <span className="text-sm text-muted-foreground">
                     {t.status === 'open' && t.planned_date
                       ? `тръгва ${whenText(t.planned_date, t.planned_time, today)}`
