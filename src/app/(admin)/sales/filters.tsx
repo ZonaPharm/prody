@@ -81,7 +81,7 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
           type="date"
           defaultValue={fromDate}
           onChange={e => update('from', e.target.value)}
-          className={`${inputClass} w-[140px]`}
+          className={`${inputClass} w-[160px]`}
         />
       </div>
       <div>
@@ -90,7 +90,7 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
           type="date"
           defaultValue={toDate}
           onChange={e => update('to', e.target.value)}
-          className={`${inputClass} w-[140px]`}
+          className={`${inputClass} w-[160px]`}
         />
       </div>
       {stores.length > 0 && (

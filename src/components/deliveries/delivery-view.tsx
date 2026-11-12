@@ -117,7 +117,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
           ['problems', `Проблеми (${delivery.signals.length})`],
         ] as [Tab, string][]).map(([v, label]) => (
           <button key={v} type="button" onClick={() => setTab(v)}
-            className={cn('px-3 py-1.5 text-sm rounded', tab === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
+            className={cn('px-3 py-1.5 text-sm rounded', tab === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
             {label}
           </button>
         ))}
@@ -125,7 +125,8 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
 
       {tab === 'lines' && (
         <div className="rounded-lg border bg-white overflow-x-auto">
-          <table className="w-full text-sm">
+          {/* On a phone the table scrolls sideways instead of squeezing the names. */}
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-3 py-2">Продукт</th>

@@ -102,11 +102,11 @@ export default function ReportsPage() {
         <form onSubmit={(e) => { e.preventDefault(); fetchData() }} className="flex flex-wrap items-end gap-2">
           <div>
             <label className="text-xs text-muted-foreground">От</label>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[140px] h-9 text-sm" />
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[160px] h-9 text-sm" />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">До</label>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[140px] h-9 text-sm" />
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[160px] h-9 text-sm" />
           </div>
           <Button type="submit" variant="outline" size="sm" className="h-9">Покажи</Button>
         </form>

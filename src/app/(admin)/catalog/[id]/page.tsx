@@ -95,7 +95,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
             {product.category?.name || 'Без категория'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PushToWpButton
             productId={product.id}
             wpTitle={(product as any).wp_title ?? null}

@@ -192,7 +192,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
           {groupedProducts.length === 0 ? (
             <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
           ) : (
-            <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="rounded-lg border bg-white overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-slate-50 text-left text-xs text-muted-foreground uppercase tracking-wider">

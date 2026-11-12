@@ -41,7 +41,7 @@ export default async function ProblemsPage({ searchParams }: { searchParams: Pro
         <div className="inline-flex rounded-md border bg-white p-0.5">
           {([['open', 'Отворени'], ['all', 'Всички']] as const).map(([v, label]) => (
             <Link key={v} href={v === 'open' ? '/deliveries/problems' : '/deliveries/problems?filter=all'}
-              className={cn('px-3 py-1 text-sm rounded', filter === v ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
+              className={cn('px-3 py-1 text-sm rounded', filter === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
               {label}
             </Link>
           ))}

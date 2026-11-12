@@ -256,7 +256,7 @@ function ProblemDialog({ row, onClose, onSave }: {
         <div className="grid grid-cols-2 gap-2">
           {KINDS.map(k => (
             <button key={k} type="button" onClick={() => { setKind(k); setError('') }}
-              className={cn('rounded-md border px-3 py-2 text-sm text-left', kind === k ? 'border-slate-900 bg-slate-900 text-white' : 'hover:bg-slate-50')}>
+              className={cn('rounded-md border px-3 py-2 text-sm text-left', kind === k ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-slate-50')}>
               {PROBLEM_LABEL[k]}
             </button>
           ))}

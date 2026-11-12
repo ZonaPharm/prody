@@ -47,11 +47,11 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
     <div className="flex flex-wrap items-end gap-2">
       <div>
         <label className="text-xs text-muted-foreground">От</label>
-        <Input type="date" defaultValue={from} onChange={e => navigate('from', e.target.value)} className="w-[140px] h-9 text-sm" />
+        <Input type="date" defaultValue={from} onChange={e => navigate('from', e.target.value)} className="w-[160px] h-9 text-sm" />
       </div>
       <div>
         <label className="text-xs text-muted-foreground">До</label>
-        <Input type="date" defaultValue={to} onChange={e => navigate('to', e.target.value)} className="w-[140px] h-9 text-sm" />
+        <Input type="date" defaultValue={to} onChange={e => navigate('to', e.target.value)} className="w-[160px] h-9 text-sm" />
       </div>
       <div className="flex gap-1 ml-1">
         <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setToday}>Днес</Button>

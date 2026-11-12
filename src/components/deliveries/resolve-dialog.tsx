@@ -59,7 +59,7 @@ function ResolveDialog({ signalId, step, title, userName, onClose }: {
         <div className="space-y-2">
           {options.map(o => (
             <button key={o.value} type="button" onClick={() => { setResolution(o.value); setError('') }}
-              className={cn('w-full rounded-md border px-3 py-2 text-left text-sm', resolution === o.value ? 'border-slate-900 bg-slate-900 text-white' : 'hover:bg-slate-50')}>
+              className={cn('w-full rounded-md border px-3 py-2 text-left text-sm', resolution === o.value ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-slate-50')}>
               <span className="font-medium">{o.label}</span>
               <span className={cn('block text-xs', resolution === o.value ? 'text-slate-200' : 'text-muted-foreground')}>{o.effect}</span>
             </button>
