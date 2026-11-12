@@ -15,6 +15,7 @@ import {
 } from '@/lib/deliveries/low-stock'
 import { formatTripNumber } from '@/lib/deliveries/format'
 import { ChecklistSteps, postJson } from './checklist-ui'
+import { Empty, Hint, Meta, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 
 export type LowRowView = LowRow & { fast: boolean }
 export type OpenTrip = { id: string; number: number; planned_date: string | null; stores: string[] }
@@ -125,13 +126,11 @@ export function LowStockBoard({ rows, officeFree, office, trips, sales }: {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Ниски наличности</h1>
-        <p className="text-sm text-muted-foreground">
-          Продукти под „Мин. количество“, които магазинът е продавал през последните {SALES_DAYS} дни
-          или ще свършат до {RUNOUT_DAYS} дни. Изпратете от Офис, преди магазинът да е свършил.
-        </p>
-      </div>
+      <PageHeader
+        title="Ниски наличности"
+        intro={<>Продукти под „Мин. количество“, които магазинът е продавал през последните {SALES_DAYS} дни
+          или ще свършат до {RUNOUT_DAYS} дни. Изпратете от Офис, преди магазинът да е свършил.</>}
+      />
 
       <ChecklistSteps steps={[
         <>Вижте <b>по магазин</b> или <b>по продукт</b> какво е ниско и колко има в Офис.</>,
@@ -150,7 +149,7 @@ export function LowStockBoard({ rows, officeFree, office, trips, sales }: {
               <span className="text-sm font-semibold leading-tight">{t.label}</span>
               <span className={cn('text-lg font-bold tabular-nums', t.key === 'send' && counts.send > 0 ? 'text-primary' : 'text-slate-700')}>{counts[t.key]}</span>
             </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground leading-tight">{t.hint}</span>
+            <Meta as="span" className="mt-0.5 block leading-tight">{t.hint}</Meta>
           </button>
         ))}
       </div>
@@ -172,13 +171,21 @@ export function LowStockBoard({ rows, officeFree, office, trips, sales }: {
         </div>
       </div>
 
+      {groups.length > 0 && (
+        <Hint>
+          {tab === 'send' ? <>Отметнете редовете (или „Отметни предложеното“) и натиснете <b>„Изпрати от Офис“</b> долу.</>
+            : tab === 'order' ? <>Няма ги свободни в Офис: поръчайте ги от доставчика. <b>По продукт</b> показва общата бройка.</>
+            : 'Вече са в курс или заявени в „Заявки“. Тук няма какво да правите.'}
+        </Hint>
+      )}
+
       {groups.length === 0 && (
-        <div className="rounded-xl border border-dashed bg-white p-6 text-center text-sm text-muted-foreground">
+        <Empty className="rounded-xl border border-dashed bg-white">
           {search ? 'Нищо не отговаря на търсенето.'
             : tab === 'send' ? <>Нищо ниско, което да има свободно в Офис.{counts.order > 0 && <> Вижте <button className="font-medium text-primary underline" onClick={() => setTab('order')}>„Няма в Офис“</button> за поръчка.</>}</>
             : tab === 'order' ? 'Всичко ниско има в Офис или вече идва.'
             : 'Нищо не е на път към магазините.'}
-        </div>
+        </Empty>
       )}
 
       <div className={cn('grid gap-4', groups.length > 1 && 'xl:grid-cols-2')}>
@@ -190,13 +197,13 @@ export function LowStockBoard({ rows, officeFree, office, trips, sales }: {
             <section key={g.id} className="overflow-hidden rounded-xl border bg-white">
               <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-slate-50 px-3 py-2.5">
                 <div className="min-w-0">
-                  <h2 className="truncate font-semibold">{g.title}</h2>
-                  <p className="text-xs text-muted-foreground">
+                  <SectionTitle>{g.title}</SectionTitle>
+                  <Meta>
                     {view === 'store'
                       ? `${g.rows.length} ${g.rows.length === 1 ? 'продукт' : 'продукта'}`
                       : <>{g.sub ? `${g.sub} · ` : ''}Офис: {office[g.id] ?? 0} бр., свободни <b className="text-slate-700">{free}</b> · {g.rows.length} {g.rows.length === 1 ? 'магазин' : 'магазина'}
                         {tab === 'order' && <> · за поръчка общо <b className="text-slate-700">~{g.rows.reduce((n, r) => n + r.need, 0)} бр.</b></>}</>}
-                  </p>
+                  </Meta>
                 </div>
                 {tab === 'send' && sendable.length > 0 && !allPicked && (
                   <Button size="sm" variant="outline" onClick={() => pickAll(g.rows)}>
@@ -221,9 +228,9 @@ export function LowStockBoard({ rows, officeFree, office, trips, sales }: {
       {lines.length > 0 && (
         <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 z-20 border-t bg-white/95 px-4 py-2.5 backdrop-blur">
           {over.length > 0 && (
-            <p className="max-w-7xl pb-2 text-sm text-red-700">
+            <Note tone="danger" small className="mb-2 max-w-7xl">
               Повече от свободното в Офис: {over.map(productName).join(', ')}. Намалете бройките.
-            </p>
+            </Note>
           )}
           <div className="flex max-w-7xl items-center gap-2">
             <div className="min-w-0 flex-1 text-sm">
@@ -290,7 +297,7 @@ function LowRowItem({ r, view, tab, sales, free, onHand, value, onToggle, onQty 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-medium leading-snug">{title}</span>
-          {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
+          {sub && <Meta as="span">{sub}</Meta>}
           <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', REASON_TONE[r.reason])}>
             {reasonText(r, { sales })}
           </span>
@@ -299,7 +306,7 @@ function LowRowItem({ r, view, tab, sales, free, onHand, value, onToggle, onQty 
         {officeText && tab !== 'coming' && <p className="text-sm text-slate-700">{officeText}</p>}
         {tab === 'order' && <p className="text-sm text-slate-700">За поръчка: ~{r.need} бр., за да има {r.target} в магазина.</p>}
         {tab === 'send' && r.suggest < r.need && (
-          <p className="text-xs text-amber-700">Трябват {r.need}; в Офис стигат за {r.suggest}, останалото е за поръчка.</p>
+          <Note tone="warn" small className="mt-1">Трябват {r.need}; в Офис стигат за {r.suggest}, останалото е за поръчка.</Note>
         )}
       </div>
       {tab === 'send' && (
@@ -399,10 +406,10 @@ function SendDialog({ plan, trips, storeName, productName, rowFor, onClose, onSe
               ))}
             </fieldset>
 
-            <p className="text-xs text-muted-foreground">
+            <Note small>
               Стоката остава в Офис, докато шофьорът подпише. Магазинът я приема с пратката.
               Ако пратката за магазина вече е опакована, тя се отваря за ново опаковане.
-            </p>
+            </Note>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={onClose} disabled={sending}>Отказ</Button>
               <Button onClick={send} disabled={sending}>
