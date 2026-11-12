@@ -758,13 +758,14 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         )}
       </div>
 
-      {/* Submit */}
-      <div className="flex items-center gap-3 pt-4 border-t">
-        <Button type="submit" disabled={submitLoading}>
+      {/* Submit: stays at the bottom of the screen (above the phone's tab bar)
+          while the long form scrolls, so saving never means scrolling to the end. */}
+      <div className="sticky bottom-[var(--bottom-nav-h)] z-20 -mx-4 lg:-mx-6 flex items-center gap-3 border-t bg-white/95 px-4 lg:px-6 py-3 backdrop-blur">
+        <Button type="submit" disabled={submitLoading} className="h-11 flex-1 sm:flex-none">
           {submitLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {submitLoading ? 'Запазва...' : isEdit ? 'Запази промените' : 'Добави продукт'}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>Отказ</Button>
+        <Button type="button" variant="outline" className="h-11" onClick={() => router.push('/catalog')}>Отказ</Button>
       </div>
     </form>
 
