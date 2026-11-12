@@ -98,6 +98,13 @@ describe('packing', () => {
     expect(body.lines).toEqual([{ line_id: 'l1', qty: 6 }, { line_id: 'l2', qty: 0 }])
     expect(body.signals).toEqual([{ line_id: 'l2', reason: 'missing', qty_expected: 4, qty_actual: 0, note: null }])
   })
+
+  it('an Office line packed short is only lowered: no signal (the rest stays in Офис)', () => {
+    const office = [{ line_id: 'l1', qty: 6 }, { line_id: 'o1', qty: 5, office: true }]
+    const { body } = buildPackBody(office, { l1: tick, o1: { checked: false, problem: { kind: 'partial', qty: 2 } } })
+    expect(body.lines).toEqual([{ line_id: 'l1', qty: 6 }, { line_id: 'o1', qty: 2 }])
+    expect(body.signals).toEqual([])
+  })
 })
 
 describe('the store', () => {
