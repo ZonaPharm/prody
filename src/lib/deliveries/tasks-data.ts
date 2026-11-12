@@ -1,5 +1,9 @@
 import { fetchAll } from '@/lib/fetch-all'
 import { sofiaToday } from '@/lib/date-utils'
+import { getOrderTaskRows, orderTasks, type OrderTaskRow } from '@/lib/supplier-orders/tasks'
+
+/** YYYY-MM-DD of a moment in Europe/Sofia. */
+const sofiaDayOf = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Sofia' })
 import { getStoreOptions } from './queries'
 import { readyByStore, labelItems } from './queue'
 import {
@@ -256,7 +260,9 @@ export async function loadTasks(supabase: Db, admin: Db, who: TasksFor): Promise
   const today = sofiaToday()
   // Admins see "чака шофьора" on their own Офис cards; the pool is for the other drivers.
   const pool = who.isDriver && who.role !== 'admin'
-  const [driving, store, office, notifications, poolTrips] = await Promise.all([
+  // Orders to suppliers: admins only (Офис does not order).
+  const ordersFor = who.role === 'admin' && !who.officeOnly
+  const [driving, store, office, notifications, poolTrips, orders] = await Promise.all([
     getDriverTrips(admin, who.userId).catch(logEmpty<DriverTrip[]>('driver trips', [])),
     who.role === 'seller'
       ? getStoreIncomingAll(admin, who.storeId).catch(logEmpty('store incoming', { ships: [] as StoreShipment[], planned: [] as StorePlanned[] }))
@@ -264,12 +270,14 @@ export async function loadTasks(supabase: Db, admin: Db, who: TasksFor): Promise
     who.role === 'admin' ? getAdminState(supabase).catch(logEmpty('admin state', null)) : Promise.resolve(null),
     getNotifications(supabase, who.userId).catch(logEmpty<NotificationRow[]>('notifications', [])),
     pool ? getAdminTrips(admin).catch(logEmpty<AdminTrip[]>('driver pool', [])) : Promise.resolve([] as AdminTrip[]),
+    ordersFor ? getOrderTaskRows(supabase).catch(logEmpty<OrderTaskRow[]>('supplier orders', [])) : Promise.resolve([] as OrderTaskRow[]),
   ])
   const tasks = sortTasks([
     ...driverTasks(driving, today, { admin: who.role === 'admin' }),
     ...storeTasks(store.ships, store.planned, today),
     ...(office ? adminTasks(office, today, { office: who.officeOnly }) : []),
     ...driverPoolTasks(poolTrips, who.userId, today),
+    ...orderTasks(orders, today, sofiaDayOf),
   ])
   return { tasks, notifications }
 }
