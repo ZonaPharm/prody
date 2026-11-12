@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   actionCount,
   adminTasks,
+  driverPoolTasks,
   driverTasks,
   incomingByProduct,
   incomingText,
@@ -78,6 +79,7 @@ describe('store', () => {
     const [t] = storeTasks([ship()], [], TODAY)
     expect(t.tone).toBe('coming')
     expect(t.title).toBe('П-000035: 12 бр. от 2 продукта')
+    expect(t.detail).toContain('чака транспорт')
     expect(t.when).toBe('тръгва утре')
     expect(t.items).toEqual(['Крем · 10 бр.', 'Чай · 2 бр.'])
   })
@@ -134,11 +136,28 @@ describe('Офис', () => {
   it('an open trip without driver asks for one; packing vs ready to leave', () => {
     const tasks = adminTasks(state({ trips: [
       { id: 't1', number: 27, status: 'open', planned_driver: null, planned_date: null, planned_time: null, shipments: [{ status: 'packing' }] },
-      { id: 't2', number: 28, status: 'open', planned_driver: 'Ивайло', planned_date: '2026-11-10', planned_time: null, shipments: [{ status: 'packed' }, { status: 'cancelled' }] },
+      { id: 't2', number: 28, status: 'open', planned_driver: 'Ивайло', planned_date: '2026-11-10', planned_time: null, shipments: [{ status: 'packed', store: 'Ботев' }, { status: 'cancelled', store: 'Център' }] },
     ] }), TODAY)
     expect(tasks.map(t => t.key)).toEqual(['plan-t1', 'pack-t1', 'send-t2'])
     expect(tasks[0].title).toBe('Избери шофьор и ден за курс К-000027')
     expect(tasks[2].tone).toBe('late')
     expect(tasks[2].detail).toContain('Ивайло подписва')
+    expect(tasks[2].label).toBe('Стъпка 6: Чака шофьора')
+    expect(tasks[2].title).toBe('Курс К-000028 до Ботев чака шофьора')
+  })
+
+  it('every driver sees packed trips waiting for transport; their own, or one still packing, not', () => {
+    const trips = [
+      { id: 'a', number: 27, status: 'open' as const, planned_driver_id: 'ivo', planned_driver: 'Ивайло', planned_date: '2026-11-12', planned_time: '09:00', shipments: [{ status: 'packed', store: 'Ботев' }] },
+      { id: 'b', number: 28, status: 'open' as const, planned_driver_id: null, planned_driver: null, planned_date: null, planned_time: null, shipments: [{ status: 'packed', store: 'Център' }, { status: 'cancelled', store: 'Младост' }] },
+      { id: 'c', number: 29, status: 'open' as const, planned_driver_id: null, planned_driver: null, planned_date: null, planned_time: null, shipments: [{ status: 'packing', store: 'Ботев' }] },
+      { id: 'd', number: 30, status: 'open' as const, planned_driver_id: 'ivo', planned_driver: 'Ивайло', planned_date: '2026-11-11', planned_time: null, shipments: [{ status: 'packed', store: 'Ботев' }] },
+    ]
+    const other = driverPoolTasks(trips, 'pesho', TODAY)
+    expect(other.map(t => [t.key, t.tone])).toEqual([['pool-a', 'coming'], ['pool-b', 'do'], ['pool-d', 'late']])
+    expect(other[0].title).toBe('Курс К-000027 до Ботев чака транспорт')
+    expect(other[0].detail).toContain('Кара Ивайло. Ако го няма')
+    expect(other[1].title).toBe('Курс К-000028 до Център чака транспорт')
+    expect(driverPoolTasks(trips, 'ivo', TODAY).map(t => t.key)).toEqual(['pool-b'])
   })
 })
