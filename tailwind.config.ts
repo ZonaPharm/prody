@@ -6,6 +6,8 @@ const config: Config = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    // Colour maps for statuses live in lib (e.g. lib/deliveries/track.ts, trip-format.ts).
+    './src/lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     container: {

@@ -1,6 +1,7 @@
 import { fetchAll } from '@/lib/fetch-all'
 import type { DeliveryStatus } from './format'
 import { primaryImage } from './products'
+import type { TrackLine } from './track'
 
 /**
  * Reads for the delivery pages, with the signed-in admin's client (admins have
@@ -151,6 +152,8 @@ export type DeliveryDetail = {
   items: DetailItem[]
   events: DetailEvent[]
   signals: DetailSignal[]
+  /** Shipment lines of this delivery (any trip), for "Къде е сега". */
+  ship_lines: TrackLine[]
 }
 
 export async function getDeliveryDetail(supabase: any, id: string): Promise<DeliveryDetail | null> {
@@ -162,7 +165,7 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
   if (error) throw error
   if (!d) return null
 
-  const [items, plan, events, signals] = await Promise.all([
+  const [items, plan, events, signals, shipLines] = await Promise.all([
     fetchAll<any>(() =>
       supabase
         .from('delivery_items')
@@ -199,6 +202,13 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
         )
         .eq('delivery_id', id)
         .order('created_at', { ascending: false })
+        .order('id'),
+    ),
+    fetchAll<any>(() =>
+      supabase
+        .from('shipment_lines')
+        .select(SHIP_LINE_SELECT + ', item:delivery_items!shipment_lines_delivery_item_id_fkey!inner(delivery_id)')
+        .eq('item.delivery_id', id)
         .order('id'),
     ),
   ])
@@ -268,7 +278,93 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
       creator: s.creator?.display_name ?? null,
       resolver: s.resolver?.display_name ?? null,
     })),
+    ship_lines: shipLines.map(toTrackLine),
   }
+}
+
+const SHIP_LINE_SELECT =
+  'id, plan_id, qty, received_qty, delivery_item_id, ' +
+  'shipment:shipments!shipment_lines_shipment_id_fkey!inner(id, number, status, trip_id, trip:trips!shipments_trip_id_fkey(number))'
+
+function toTrackLine(l: any): TrackLine & { delivery_item_id: string } {
+  return {
+    plan_id: l.plan_id,
+    delivery_item_id: l.delivery_item_id,
+    qty: l.qty,
+    received_qty: l.received_qty,
+    shipment_id: l.shipment?.id,
+    shipment_number: l.shipment?.number ?? null,
+    shipment_status: l.shipment?.status,
+    trip_id: l.shipment?.trip_id,
+    trip_number: l.shipment?.trip?.number ?? null,
+  }
+}
+
+/** One delivery line of a product, as the product page shows it under "Доставки". */
+export type ProductDeliveryLine = {
+  item_id: string
+  delivery_id: string
+  delivery_number: number | null
+  delivery_status: DeliveryStatus
+  created_at: string
+  supplier_name: string | null
+  doc_number: string | null
+  quantity: number
+  received_qty: number
+  labelled_qty: number
+  plan: DetailItem['plan']
+  ship_lines: TrackLine[]
+}
+
+/**
+ * The latest delivery lines of one product (drafts left out), with their plan and
+ * shipment lines, so the product page can say where each lot is now.
+ */
+export async function getProductDeliveries(supabase: any, productId: string, limit = 10): Promise<ProductDeliveryLine[]> {
+  const { data: items, error } = await supabase
+    .from('delivery_items')
+    .select(
+      'id, quantity, received_qty, labelled_qty, doc_number, created_at, supplier:suppliers(name), ' +
+        'delivery:deliveries!delivery_items_delivery_id_fkey!inner(id, number, status, created_at), ' +
+        'plan:delivery_item_plan!delivery_item_plan_delivery_item_id_fkey(id, store_id, planned_qty, ready_qty, shipped_qty)',
+    )
+    .eq('product_id', productId)
+    .in('delivery.status', ['expected', 'in_progress', 'completed'])
+    .order('created_at', { ascending: false })
+    .order('id')
+    .limit(limit)
+  if (error) throw error
+  const rows = ((items ?? []) as any[]).filter(i => i.delivery)
+  if (rows.length === 0) return []
+
+  // At most `limit` ids, far below the URL limit of .in().
+  const { data: lines, error: linesError } = await supabase
+    .from('shipment_lines')
+    .select(SHIP_LINE_SELECT)
+    .in('delivery_item_id', rows.map(r => r.id))
+    .order('id')
+  if (linesError) throw linesError
+  const byItem = new Map<string, TrackLine[]>()
+  for (const l of (lines ?? []) as any[]) {
+    const list = byItem.get(l.delivery_item_id) ?? []
+    list.push(toTrackLine(l))
+    byItem.set(l.delivery_item_id, list)
+  }
+
+  return rows.map(r => ({
+    item_id: r.id,
+    delivery_id: r.delivery.id,
+    delivery_number: r.delivery.number,
+    delivery_status: r.delivery.status,
+    created_at: r.delivery.created_at,
+    supplier_name: r.supplier?.name ?? null,
+    doc_number: r.doc_number,
+    quantity: r.quantity,
+    received_qty: r.received_qty,
+    labelled_qty: r.labelled_qty ?? 0,
+    plan: (r.plan ?? []).map((p: any) => ({ id: p.id, store_id: p.store_id, planned_qty: p.planned_qty, ready_qty: p.ready_qty, shipped_qty: p.shipped_qty })),
+    ship_lines: byItem.get(r.id) ?? [],
+  }))
 }
 
 export type StoreOption = { id: string; name: string; is_warehouse: boolean }

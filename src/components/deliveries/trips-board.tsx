@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Plus, Truck } from 'lucide-react'
-import { formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
-import { storeReadyText, type StoreReady } from '@/lib/deliveries/queue'
+import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
+import { storeReadyText, type ReadyLine, type StoreReady } from '@/lib/deliveries/queue'
 import type { TripListRow } from '@/lib/deliveries/work'
 import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
 import { NextStep } from './step-trail'
 
-export type StoreReadyView = StoreReady & { name: string }
+export type StoreReadyView = StoreReady & { name: string; lines?: ReadyLine[] }
 
 /**
  * "Курсове": the trips (К-…) with their shipments, and "Нов курс": tick the
@@ -80,14 +80,28 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }
           <div className="p-4 space-y-3">
             <ul className="grid gap-2 sm:grid-cols-2">
               {ready.map(s => (
-                <li key={s.store_id}>
-                  <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', picked.has(s.store_id) && 'border-primary bg-primary/5')}>
+                <li key={s.store_id} className={cn('rounded-md border', picked.has(s.store_id) && 'border-primary bg-primary/5')}>
+                  <label className="flex items-start gap-3 p-3 cursor-pointer">
                     <input type="checkbox" className="mt-0.5 h-5 w-5" checked={picked.has(s.store_id)} onChange={e => toggle(s.store_id, e.target.checked)} aria-label={s.name} />
                     <span>
                       <span className="font-medium">{s.name}</span>
                       <span className="block text-sm text-muted-foreground">{storeReadyText(s)}</span>
                     </span>
                   </label>
+                  {s.lines && s.lines.length > 0 && (
+                    <details className="border-t px-3 py-2 text-sm">
+                      <summary className="cursor-pointer text-primary">Какво чака за {s.name}</summary>
+                      <ul className="mt-1 space-y-0.5">
+                        {s.lines.map(l => (
+                          <li key={l.plan_id} className="flex gap-2">
+                            <span className="min-w-0 flex-1 truncate">{l.product_name}</span>
+                            <Link href={`/deliveries/${l.delivery_id}`} className="shrink-0 text-xs text-muted-foreground hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+                            <span className="w-14 shrink-0 text-right font-semibold tabular-nums">{l.qty} бр.</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>

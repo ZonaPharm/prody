@@ -186,6 +186,26 @@ export function readyByStore(rows: QueuePlanRow[], unsent: UnsentLine[]): StoreR
   return [...byStore.entries()].map(([store_id, s]) => ({ store_id, rows: s.rows, units: s.units, deliveries: s.deliveries.size }))
 }
 
+/** One product waiting for a trip to a store: what "Чака курс" means, line by line. */
+export type ReadyLine = { plan_id: string; product_id: string; product_name: string; delivery_id: string; delivery_number: number | null; qty: number }
+
+/** Per store, the lines a new trip would take now (same rule as readyByStore), by product name. */
+export function readyLinesByStore(rows: QueuePlanRow[], unsent: UnsentLine[]): Record<string, ReadyLine[]> {
+  const onTrips = new Map<string, number>()
+  for (const l of unsent) onTrips.set(l.plan_id, (onTrips.get(l.plan_id) ?? 0) + l.qty)
+  const out: Record<string, ReadyLine[]> = {}
+  for (const r of rows) {
+    const qty = r.ready_qty - r.shipped_qty - (onTrips.get(r.plan_id) ?? 0)
+    if (qty <= 0) continue
+    ;(out[r.store_id] ??= []).push({
+      plan_id: r.plan_id, product_id: r.product_id, product_name: r.product_name,
+      delivery_id: r.delivery_id, delivery_number: r.delivery_number, qty,
+    })
+  }
+  for (const k of Object.keys(out)) out[k].sort((a, b) => a.product_name.localeCompare(b.product_name, 'bg') || (a.delivery_number ?? 0) - (b.delivery_number ?? 0))
+  return out
+}
+
 /** "готови 5 реда, 86 бр., от 5 доставки" */
 export function storeReadyText(s: Pick<StoreReady, 'rows' | 'units' | 'deliveries'>): string {
   const rows = s.rows === 1 ? '1 ред' : `${s.rows} реда`

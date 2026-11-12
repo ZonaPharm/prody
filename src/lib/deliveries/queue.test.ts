@@ -134,3 +134,18 @@ describe('deliveryNextSteps', () => {
     expect(deliveryNextSteps([{ received_qty: 5, labelled_qty: 5, plan: [{ planned_qty: 5, ready_qty: 5, shipped_qty: 5 }] }])).toEqual({ toLabel: 0, toShip: 0 })
   })
 })
+
+describe('readyLinesByStore', () => {
+  it('lists per store what a new trip would take, minus what is already on a trip', async () => {
+    const { readyLinesByStore } = await import('./queue')
+    const base = { item_id: 'i', received_qty: 10, sort_order: 0, delivery_id: 'd1', delivery_number: 29, product_sku: null, product_price: null, needs_label: true, image: null }
+    const rows = [
+      { ...base, plan_id: 'p1', store_id: 'botev', planned_qty: 10, ready_qty: 10, shipped_qty: 0, product_id: 'a', product_name: 'Крем' },
+      { ...base, plan_id: 'p2', store_id: 'botev', planned_qty: 5, ready_qty: 5, shipped_qty: 0, product_id: 'b', product_name: 'Балсам' },
+      { ...base, plan_id: 'p3', store_id: 'mladost', planned_qty: 5, ready_qty: 5, shipped_qty: 5, product_id: 'b', product_name: 'Балсам' },
+    ]
+    const out = readyLinesByStore(rows, [{ plan_id: 'p1', qty: 4 }])
+    expect(out.botev.map(l => [l.product_name, l.qty])).toEqual([['Балсам', 5], ['Крем', 6]])
+    expect(out.mladost).toBeUndefined()
+  })
+})

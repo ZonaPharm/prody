@@ -15,6 +15,13 @@ import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
 import { logAction } from '@/lib/audit'
 import { ProductInventoryTab } from '@/components/inventory/product-inventory-tab'
 import { PushToWpButton } from '@/components/products/push-to-wp-button'
+import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
+import { getProductDeliveries, type ProductDeliveryLine } from '@/lib/deliveries/queries'
+import { whereabouts } from '@/lib/deliveries/track'
+import { formatDeliveryNumber } from '@/lib/deliveries/format'
+import { DeliveryStatusBadge } from '@/components/deliveries/status-badge'
+import { WhereIsIt } from '@/components/deliveries/where-is-it'
+import { sofiaDate } from '@/lib/date-utils'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -22,7 +29,7 @@ interface PageProps {
 }
 
 export default async function ProductDetailPage({ params, searchParams }: PageProps) {
-  await requireAdmin()
+  const user = await requireAdmin()
 
   const { id } = await params
   const sp = await searchParams
@@ -47,6 +54,14 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
     .select('id, name, is_warehouse')
     .eq('is_active', true)
     .order('name')
+
+  // "Доставки": where each recent lot of this product is now (received, labelled,
+  // waiting for a trip, on the way, accepted). Only where the Deliveries menu is on.
+  const deliveryLines: ProductDeliveryLine[] = deliveriesEnabledFor(user.email)
+    ? await getProductDeliveries(supabase, id).catch(() => [])
+    : []
+  const storeNames = new Map<string, string>(((stores || []) as any[]).map(s => [s.id, s.name]))
+  const warehouseName = ((stores || []) as any[]).find(s => s.is_warehouse)?.name ?? 'Офис'
 
   const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
   const statusLabel = STATUS_LABELS[product.status] || product.status
@@ -228,6 +243,35 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
               )}
             </CardContent>
           </Card>
+
+          {deliveryLines.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Доставки: къде е стоката</CardTitle>
+                <p className="text-sm text-muted-foreground">Последните доставки на продукта и докъде е стигнала всяка.</p>
+              </CardHeader>
+              <CardContent className="space-y-0 divide-y p-0 sm:p-0">
+                {deliveryLines.map(l => (
+                  <div key={l.item_id} className="space-y-2 px-4 py-3 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <Link href={`/deliveries/${l.delivery_id}`} className="font-semibold hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+                      <DeliveryStatusBadge status={l.delivery_status} />
+                      <span className="text-muted-foreground">
+                        {sofiaDate(l.created_at)} · {l.quantity} бр.{l.supplier_name ? ` · ${l.supplier_name}` : ''}{l.doc_number ? ` · Ф-ра ${l.doc_number}` : ''}
+                      </span>
+                    </div>
+                    <WhereIsIt
+                      w={whereabouts(l, l.ship_lines)}
+                      storeName={sid => storeNames.get(sid) ?? '?'}
+                      warehouseName={warehouseName}
+                      labelHref={`/deliveries/labels?delivery=${l.delivery_id}`}
+                      oneColumn
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {(() => {
             const label = Array.isArray(product.labels) ? product.labels[0] : null

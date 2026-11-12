@@ -10,7 +10,6 @@ import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react'
 import { deliveryJourney } from '@/lib/deliveries/journey'
 import type { DeliveryDetail, DetailItem } from '@/lib/deliveries/queries'
 import {
-  LINE_STATUS_LABEL,
   SIGNAL_REASON_LABEL,
   SIGNAL_RESOLUTION_LABEL,
   SIGNAL_STEP_LABEL,
@@ -18,7 +17,6 @@ import {
   formatDeliveryNumber,
   formatMoney,
   formatQtyWithPacks,
-  lineStatus,
   type SignalReason,
 } from '@/lib/deliveries/format'
 import { sofiaDate, sofiaDateTime } from '@/lib/date-utils'
@@ -28,6 +26,8 @@ import { ProductThumb } from './product-picker'
 import { PlanEditor, planNumbers, type PlanText } from './plan-editor'
 import { ResolveButton } from './resolve-dialog'
 import { NextStep, StepTrail } from './step-trail'
+import { WhereIsIt } from './where-is-it'
+import { whereabouts } from '@/lib/deliveries/track'
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Tab = 'lines' | 'log' | 'problems'
@@ -99,87 +99,54 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
         </button>
       )}
 
-      <div className="inline-flex rounded-md border bg-white p-0.5">
+      <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-md border bg-white p-0.5 sm:inline-flex">
         {([
-          ['lines', `Редове (${delivery.items.length})`],
+          ['lines', `Къде е стоката (${delivery.items.length})`],
           ['log', `Дневник (${delivery.events.length})`],
           ['problems', `Проблеми (${delivery.signals.length})`],
         ] as [Tab, string][]).map(([v, label]) => (
           <button key={v} type="button" onClick={() => setTab(v)}
-            className={cn('px-3 py-1.5 text-sm rounded', tab === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
+            className={cn('shrink-0 whitespace-nowrap px-3 py-1.5 text-sm rounded', tab === v ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100')}>
             {label}
           </button>
         ))}
       </div>
 
       {tab === 'lines' && (
-        <div className="rounded-lg border bg-white overflow-x-auto">
-          {/* On a phone the table scrolls sideways instead of squeezing the names. */}
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Продукт</th>
-                <th className="px-3 py-2">Доставчик / фактура</th>
-                <th className="px-3 py-2 text-right">Поръчани</th>
-                <th className="px-3 py-2 text-right">Получени</th>
-                <th className="px-3 py-2 text-right">Цена/бр.</th>
-                <th className="px-3 py-2">Разпределение</th>
-                <th className="px-3 py-2">Статус</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {delivery.items.map(i => {
-                const status = lineStatus(i)
-                const planned = i.plan.reduce((s, p) => s + p.planned_qty, 0)
-                const lineSignals = delivery.signals.filter(s => s.delivery_item_id === i.id && s.status === 'open').length
-                return (
-                  <tr key={i.id} className="border-t align-top">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <ProductThumb src={i.image} />
-                        <div className="min-w-0">
-                          <Link href={`/catalog/${i.product_id}`} className="hover:underline">{i.product_name}</Link>
-                          <div className="text-xs text-muted-foreground">
-                            {i.product_sku ? `${i.product_sku} · ` : ''}{i.needs_label ? 'с етикет' : 'без етикет'}
-                            {lineSignals > 0 && <span className="ml-1 text-red-700">· {lineSignals} проблем</span>}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div>{i.supplier_name ?? '—'}</div>
-                      {i.doc_number && <div className="text-xs text-muted-foreground">Ф-ра {i.doc_number}</div>}
-                    </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">{formatQtyWithPacks(i.quantity, i.pack_size)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {i.received_qty}
-                      {i.received_qty < i.quantity && <div className="text-xs text-amber-700">чакат {i.quantity - i.received_qty}</div>}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoney(i.unit_cost)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {i.plan.filter(p => p.planned_qty > 0).map(p => (
-                          <span key={p.id} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs whitespace-nowrap"
-                            title={`план ${p.planned_qty}, готови ${p.ready_qty}, изпратени ${p.shipped_qty}`}>
-                            {storeName.get(p.store_id) ?? '?'} {p.planned_qty}
-                          </span>
-                        ))}
-                        <span className="rounded bg-slate-50 border px-1.5 py-0.5 text-xs whitespace-nowrap">
-                          {warehouseName} {Math.max(0, i.quantity - planned)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-xs whitespace-nowrap">{LINE_STATUS_LABEL[status]}</td>
-                    <td className="px-3 py-2 text-right">
-                      {open && <PlanDialog deliveryId={delivery.id} item={i} stores={shopStores} warehouseName={warehouseName} />}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y rounded-lg border bg-white">
+          {delivery.items.map(i => {
+            const lineSignals = delivery.signals.filter(s => s.delivery_item_id === i.id && s.status === 'open').length
+            const planIds = new Set(i.plan.map(p => p.id))
+            const w = whereabouts(i, delivery.ship_lines.filter(l => planIds.has(l.plan_id)))
+            return (
+              <li key={i.id} className="space-y-3 p-3 sm:p-4">
+                <div className="flex items-start gap-3">
+                  <ProductThumb src={i.image} />
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/catalog/${i.product_id}`} className="font-medium hover:underline">{i.product_name}</Link>
+                    <div className="text-xs text-muted-foreground">
+                      {[
+                        i.product_sku,
+                        i.needs_label ? 'с етикет' : 'без етикет',
+                        i.supplier_name,
+                        i.doc_number ? `Ф-ра ${i.doc_number}` : null,
+                        `${formatQtyWithPacks(i.quantity, i.pack_size)} × ${formatMoney(i.unit_cost)}`,
+                      ].filter(Boolean).join(' · ')}
+                      {lineSignals > 0 && <span className="ml-1 text-red-700">· {lineSignals} проблем</span>}
+                    </div>
+                  </div>
+                  {open && <PlanDialog deliveryId={delivery.id} item={i} stores={shopStores} warehouseName={warehouseName} />}
+                </div>
+                <WhereIsIt
+                  w={w}
+                  storeName={id => storeName.get(id) ?? '?'}
+                  warehouseName={warehouseName}
+                  labelHref={`/deliveries/labels?delivery=${delivery.id}`}
+                />
+              </li>
+            )
+          })}
+        </ul>
       )}
 
       {tab === 'log' && (
