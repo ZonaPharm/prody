@@ -29,6 +29,7 @@ import { ResolveButton } from './resolve-dialog'
 import { NextStep, StepTrail } from './step-trail'
 import { WhereIsIt } from './where-is-it'
 import { whereabouts } from '@/lib/deliveries/track'
+import { Empty, Note, PageHeader } from '@/components/ui/text'
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Tab = 'lines' | 'log' | 'problems'
@@ -56,26 +57,17 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{formatDeliveryNumber(delivery.number)}</h1>
-              <DeliveryStatusBadge status={delivery.status} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Създадена {sofiaDate(delivery.created_at)}{delivery.creator ? ` от ${delivery.creator}` : ''}
-              {delivery.order_ref ? ` · поръчка ${delivery.order_ref}` : ''}
-            </p>
-            {delivery.notes && <p className="text-sm mt-1">{delivery.notes}</p>}
-            {delivery.status === 'cancelled' && delivery.cancel_reason && (
-              <p className="text-sm text-red-700 mt-1">Отказана: {delivery.cancel_reason}</p>
-            )}
-          </div>
-        </div>
-        {open && <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)}>Откажи доставката</Button>}
-      </div>
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={<span className="inline-flex flex-wrap items-center gap-3">{formatDeliveryNumber(delivery.number)} <DeliveryStatusBadge status={delivery.status} /></span>}
+        intro={<>
+          Създадена {sofiaDate(delivery.created_at)}{delivery.creator ? ` от ${delivery.creator}` : ''}
+          {delivery.order_ref ? ` · поръчка ${delivery.order_ref}` : ''}
+        </>}
+        actions={open ? <Button variant="outline" size="sm" onClick={() => setCancelOpen(true)}>Откажи доставката</Button> : undefined}
+      />
+      {delivery.notes && <Note>Бележка: {delivery.notes}</Note>}
+      {delivery.status === 'cancelled' && delivery.cancel_reason && <Note tone="danger">Отказана: {delivery.cancel_reason}</Note>}
 
       {delivery.status !== 'cancelled' && (
         <div className="space-y-2">
@@ -153,7 +145,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
       {tab === 'log' && (
         <div className="rounded-lg border bg-white">
           {delivery.events.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">Няма записи.</p>
+            <Empty>Няма записи.</Empty>
           ) : (
             <ul className="divide-y">
               {delivery.events.map(e => (
@@ -174,14 +166,14 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
               ))}
             </ul>
           )}
-          <p className="border-t px-4 py-2 text-xs text-muted-foreground">Дневникът не се трие и не се редактира. Поправката е нов запис.</p>
+          <Note small className="m-3">Дневникът не се трие и не се редактира. Поправката е нов запис.</Note>
         </div>
       )}
 
       {tab === 'problems' && (
         <div className="rounded-lg border bg-white">
           {delivery.signals.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">Няма отбелязани проблеми.</p>
+            <Empty>Няма отбелязани проблеми.</Empty>
           ) : (
             <ul className="divide-y">
               {delivery.signals.map(s => (
@@ -216,7 +208,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
               ))}
             </ul>
           )}
-          <p className="border-t px-4 py-2 text-xs text-muted-foreground">Доставката не става „Завършена“, докато има отворен проблем. Всички проблеми са и в „Проблеми“.</p>
+          <Note small className="m-3">Доставката не става „Завършена“, докато има отворен проблем. Всички проблеми са и в „Проблеми“.</Note>
         </div>
       )}
 
@@ -278,9 +270,9 @@ function PlanDialog({ deliveryId, item, stores, warehouseName }: {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Разпределение: {item.product_name}</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <Note small>
             Общо {item.quantity} бр. Не може под готовите за обекта; нов обект се добавя само от неразпределения остатък.
-          </p>
+          </Note>
           <PlanEditor quantity={item.quantity} stores={stores} warehouseName={warehouseName} plan={plan} onChange={setPlan} minByStore={minByStore} />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
@@ -329,11 +321,11 @@ function CancelDialog({ open, onOpenChange, deliveryId, received }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Отказ от доставката</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <Note tone={received > 0 ? 'warn' : 'info'}>
           {received > 0
             ? `Получените ${received} бр. излизат от Офис. Може само ако нищо от доставката не е изпратено и всичко получено още е в Офис.`
             : 'Нищо не е получено, наличностите не се променят.'}
-        </p>
+        </Note>
         <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Причина" aria-label="Причина за отказа" />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">

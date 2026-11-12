@@ -8,6 +8,7 @@ import { formatShipmentNumber } from '@/lib/deliveries/format'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { ShipmentChecklist } from '@/components/deliveries/shipment-checklist'
+import { PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,15 +24,11 @@ export default async function ConfirmShipmentAsAdminPage({ params }: { params: P
 
   return (
     <div className="space-y-4 max-w-5xl">
-      <div className="flex items-start gap-3">
-        <Button asChild variant="ghost" size="icon"><Link href={`/deliveries/trips/${shipment.trip_id}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-        <div>
-          <h1 className="text-2xl font-bold">Приемане вместо {shipment.store_name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Пратка {formatShipmentNumber(shipment.number)}. Обикновено я отмята продавачът от „Пратки“. Тук подписвате Вие, с Вашето име.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href={`/deliveries/trips/${shipment.trip_id}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={<>Приемане вместо {shipment.store_name}</>}
+        intro={<>Пратка {formatShipmentNumber(shipment.number)}. Обикновено я отмята продавачът от „Пратки“. Тук подписвате Вие, с Вашето име.</>}
+      />
       <ShipmentChecklist
         mode="store"
         shipmentId={shipment.id}

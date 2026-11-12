@@ -25,6 +25,7 @@ import { postJson, useNow } from './checklist-ui'
 import { tripJourney } from '@/lib/deliveries/journey'
 import { NextStep, StepTrail } from './step-trail'
 import { OfficeStockButton, type StoreChoice } from './office-stock-dialog'
+import { Meta, Note, PageHeader } from '@/components/ui/text'
 
 /**
  * One trip: its shipments by store, each packed with its own checklist; then
@@ -55,24 +56,16 @@ export function TripView({ trip, drivers, ready = [], stores = [] }: {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <Button asChild variant="ghost" size="icon"><Link href="/deliveries/trips" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">Курс {formatTripNumber(trip.number)}</h1>
-              <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[trip.status])}>{TRIP_STATUS_LABEL[trip.status]}</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Създаден {sofiaDateTime(trip.created_at)}{trip.creator ? ` от ${trip.creator}` : ''}
-              {trip.departed_at ? ` · тръгнал ${sofiaDateTime(trip.departed_at)}` : ''}
-              {trip.driver ? ` · шофьор ${trip.driver}` : ''}
-            </p>
-            {trip.notes && <p className="text-sm mt-1">{trip.notes}</p>}
-            {trip.status === 'cancelled' && (
-              <p className="text-sm text-red-700 mt-1">Отказан{trip.canceller ? ` от ${trip.canceller}` : ''}{trip.cancelled_at ? `, ${sofiaDateTime(trip.cancelled_at)}` : ''}: {trip.cancel_reason}</p>
-            )}
-          </div>
-        </div>
+        <PageHeader
+          back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries/trips" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+          title={<span className="inline-flex flex-wrap items-center gap-3">Курс {formatTripNumber(trip.number)}
+            <span className={cn('rounded-full border px-2 py-0.5 text-xs font-medium tracking-normal', TRIP_STATUS_TONE[trip.status])}>{TRIP_STATUS_LABEL[trip.status]}</span></span>}
+          intro={<>
+            Създаден {sofiaDateTime(trip.created_at)}{trip.creator ? ` от ${trip.creator}` : ''}
+            {trip.departed_at ? ` · тръгнал ${sofiaDateTime(trip.departed_at)}` : ''}
+            {trip.driver ? ` · шофьор ${trip.driver}` : ''}
+          </>}
+        />
         <div className="flex flex-wrap gap-2">
           {trip.status !== 'cancelled' && (
             <Button asChild variant="outline">
@@ -87,6 +80,10 @@ export function TripView({ trip, drivers, ready = [], stores = [] }: {
           )}
         </div>
       </div>
+      {trip.notes && <Note>Бележка: {trip.notes}</Note>}
+      {trip.status === 'cancelled' && (
+        <Note tone="danger">Отказан{trip.canceller ? ` от ${trip.canceller}` : ''}{trip.cancelled_at ? `, ${sofiaDateTime(trip.cancelled_at)}` : ''}: {trip.cancel_reason}</Note>
+      )}
 
       {trip.status !== 'cancelled' && (
         <div className="space-y-2">
@@ -241,9 +238,9 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
         <p className="text-sm">
           С подписа си шофьорът казва: „Взех {boxesText(boxes)} за {stores.join(', ')}.“
         </p>
-        <p className="text-xs text-muted-foreground">
+        <Note small>
           {units} бр. излизат от Офис и влизат в магазините веднага. Продават се оттам, преди продавачът да е отметнал пратката.
-        </p>
+        </Note>
         <label className="block text-sm space-y-1">
           <span>Шофьор</span>
           <select className="h-10 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
@@ -255,7 +252,7 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
           <span>Паролата на шофьора (пише я самият той)</span>
           <Input type="password" autoComplete="off" value={password} onChange={e => setPassword(e.target.value)} aria-label="Парола на шофьора" />
         </label>
-        {driverName && <p className="text-sm text-muted-foreground">{driverName} · {sofiaDateTime(now)}</p>}
+        {driverName && <Meta>{driverName} · {sofiaDateTime(now)}</Meta>}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Назад</Button>
@@ -291,9 +288,9 @@ function CancelTripDialog({ tripId, number, onClose }: { tripId: string; number:
     <Dialog open onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Откажи курс {formatTripNumber(number)}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <Note>
           Пратките се махат, а готовата стока остава в Офис за следващ курс. Наличността не се променя. Курсът остава в списъка като „Отказан“.
-        </p>
+        </Note>
         <label className="block text-sm space-y-1">
           <span>Причина</span>
           <Input value={reason} onChange={e => setReason(e.target.value)} autoFocus aria-label="Причина" />
@@ -340,8 +337,8 @@ function AddToTrip({ trip, ready }: { trip: TripDetail; ready: StoreReadyView[] 
     <section className="rounded-lg border bg-white">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
         <PackagePlus className="h-4 w-4" />
-        <h2 className="font-semibold">Готово след създаването на курса</h2>
-        <span className="text-sm text-muted-foreground">Още не е в нито един курс.</span>
+        <h2 className="text-base font-semibold text-slate-900">Готово след създаването на курса</h2>
+        <span className="text-sm text-slate-500">Още не е в нито един курс.</span>
       </header>
       <div className="p-4 space-y-3">
         <ul className="grid gap-2 sm:grid-cols-2">
@@ -415,7 +412,7 @@ function ActionDialog({ title, text, reason: needsReason, confirmLabel, destruct
     <Dialog open onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">{text}</p>
+        <Note>{text}</Note>
         {needsReason && (
           <label className="block text-sm space-y-1">
             <span>Причина</span>

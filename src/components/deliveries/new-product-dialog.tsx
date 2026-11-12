@@ -9,6 +9,7 @@ import { Loader2, PackagePlus } from 'lucide-react'
 import type { DeliveryProduct } from '@/lib/deliveries/products'
 import type { LabelKind } from '@/lib/label-kind'
 import { LabelKindSelect } from './label-kind-select'
+import { Note } from '@/components/ui/text'
 
 type Option = { id: string; name: string }
 
@@ -103,9 +104,9 @@ export function NewProductDialog({
               <Label>Етикет</Label>
               <LabelKindSelect id="np-label" value={labelKind} onChange={setLabelKind} />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <Note small>
               Продуктът става активен веднага, без наличност. Снимки, описание и останалото се попълват после в „Каталог“.
-            </p>
+            </Note>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Отказ</Button>

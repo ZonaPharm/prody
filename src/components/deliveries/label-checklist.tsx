@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
 import { NextStep } from './step-trail'
 import { ChecklistSteps, ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
+import { Note } from '@/components/ui/text'
 
 /** The label sheets for these lines (at most 300 in one go), in a new tab. */
 function printHref(itemIds: string[]): string {
@@ -129,9 +130,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
       )}
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border bg-white p-6 text-sm text-muted-foreground">
-          Няма какво да се етикетира: всичко получено вече е с етикет, или още нищо не е получено.
-        </div>
+        <Note tone="success">Няма какво да се етикетира: всичко получено вече е с етикет, или още нищо не е получено.</Note>
       ) : (
         <>
           <ChecklistSteps steps={[

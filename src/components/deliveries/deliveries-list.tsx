@@ -10,6 +10,7 @@ import { formatDeliveryNumber, formatMoney } from '@/lib/deliveries/format'
 import { sofiaDate } from '@/lib/date-utils'
 import type { DeliveryListRow, ListFilter } from '@/lib/deliveries/queries'
 import { cn } from '@/lib/utils'
+import { Empty } from '@/components/ui/text'
 
 const TABS: { value: ListFilter; label: string }[] = [
   { value: 'open', label: 'Отворени' },
@@ -61,8 +62,8 @@ export function DeliveriesList({ rows, filter }: { rows: DeliveryListRow[]; filt
       </div>
 
       {shown.length === 0 ? (
-        <div className="rounded-lg border bg-white p-8 text-center text-sm text-muted-foreground">
-          {rows.length === 0 ? 'Няма доставки тук.' : 'Нищо не отговаря на търсенето.'}
+        <div className="rounded-lg border bg-white">
+          <Empty className="py-8">{rows.length === 0 ? 'Няма доставки тук.' : 'Нищо не отговаря на търсенето.'}</Empty>
         </div>
       ) : (
         <>
