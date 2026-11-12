@@ -22,6 +22,8 @@ import type { StoreReadyView } from './trips-board'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson, useNow } from './checklist-ui'
+import { tripJourney } from '@/lib/deliveries/journey'
+import { NextStep, StepTrail } from './step-trail'
 
 /**
  * One trip: its shipments by store, each packed with its own checklist; then
@@ -41,6 +43,7 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
   const [removing, setRemoving] = useState<ShipmentView | null>(null)
   const [reopening, setReopening] = useState<ShipmentView | null>(null)
   const open = trip.status === 'open'
+  const journey = tripJourney(trip)
 
   return (
     <div className="space-y-4">
@@ -70,18 +73,33 @@ export function TripView({ trip, drivers, ready = [] }: { trip: TripDetail; driv
             </Button>
           )}
           {trip.status === 'open' && (
-            <>
-              <Button onClick={() => setSendOpen(true)} disabled={!canSend}><Truck className="mr-2 h-4 w-4" />Шофьорът подписва</Button>
-              <Button variant="outline" onClick={() => setCancelOpen(true)}><XCircle className="mr-2 h-4 w-4" />Откажи курса</Button>
-            </>
+            <Button variant="outline" onClick={() => setCancelOpen(true)}><XCircle className="mr-2 h-4 w-4" />Откажи курса</Button>
           )}
         </div>
       </div>
 
-      {trip.status === 'open' && !canSend && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Курсът тръгва, когато всяка пратка е опакована и подписана. Опаковайте пратките по-долу.
-        </p>
+      {trip.status !== 'cancelled' && (
+        <div className="space-y-2">
+          <StepTrail steps={journey.steps} />
+          {canSend ? (
+            <button
+              type="button"
+              onClick={() => setSendOpen(true)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl bg-primary px-4 py-3 text-left text-primary-foreground shadow-sm hover:opacity-95"
+            >
+              <span>
+                <span className="block text-xs uppercase tracking-wide opacity-75">Следваща стъпка</span>
+                <span className="block text-base font-semibold">Шофьорът подписва и тръгва ({boxes ? boxesText(boxes) : `${units} бр.`})</span>
+              </span>
+              <Truck className="h-5 w-5 shrink-0" />
+            </button>
+          ) : (
+            <NextStep
+              next={journey.next}
+              doneText={trip.status === 'departed' ? 'Курсът е на път. Всеки магазин приема своята пратка от „Пратки“.' : journey.finished ? 'Курсът е завършен: всички пратки са приети.' : undefined}
+            />
+          )}
+        </div>
       )}
 
       {open && ready.length > 0 && <AddToTrip trip={trip} ready={ready} />}

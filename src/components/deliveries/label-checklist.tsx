@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Printer, Scissors, Search, Tag, Truck } from 'lucide-react'
+import { Printer, Scissors, Search, Tag } from 'lucide-react'
 import { buildLabelBody, checklistSummary, kindNeedsQty, type RowState, type Split } from '@/lib/deliveries/checklist'
 import { formatDeliveryNumber, formatMoney } from '@/lib/deliveries/format'
 import { defaultSplit, splitError, splitTargets, splitText, type LabelItem } from '@/lib/deliveries/queue'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
+import { NextStep } from './step-trail'
 import { ChecklistSteps, ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
 
 /** The label sheets for these lines (at most 300 in one go), in a new tab. */
@@ -43,6 +44,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
   const [signing, setSigning] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
+  const [readyNow, setReadyNow] = useState(0)
   const storeName = (id: string) => storeNames[id] ?? '?'
 
   const deliveries = useMemo(() => {
@@ -103,6 +105,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
       const data = await postJson<{ labelled: number; ready: number; signals: number }>('/api/deliveries/ready', body, 'Етикетирането не мина')
       setState({})
       setSplits({})
+      setReadyNow(data.ready ?? 0)
       setDone(
         `Етикетирани ${data.labelled} бр.` +
           (data.ready ? `, от тях ${data.ready} бр. са готови за магазините` : '') +
@@ -119,9 +122,9 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
   return (
     <div className="space-y-4 pb-28">
       {done && (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          {done}
-          <Button asChild size="sm" variant="outline" className="ml-auto"><Link href="/deliveries/trips"><Truck className="mr-2 h-4 w-4" />Към курсовете</Link></Button>
+        <div className="space-y-2">
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{done}</p>
+          {readyNow > 0 && <NextStep next={{ label: `Направи курс за ${readyNow} бр.`, href: '/deliveries/trips' }} />}
         </div>
       )}
 
@@ -231,7 +234,18 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
                   </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                  <RowTick state={s} text="С етикет" label={`Етикетирани: ${r.product_name}`} onChange={on => setRow(r.item_id, { checked: on })} />
+                  <RowTick
+                    state={s}
+                    text="С етикет"
+                    blockedText={s?.problem?.kind === 'partial' ? 'Само част: напишете колко' : 'Не е наред'}
+                    label={`Етикетирани: ${r.product_name}`}
+                    onChange={on => setRow(r.item_id, { checked: on })}
+                  />
+                  {s?.problem?.kind === 'partial' && (
+                    <Button variant="outline" size="sm" onClick={() => setRow(r.item_id, { problem: null, checked: true })}>
+                      Всички са с етикет
+                    </Button>
+                  )}
                   <Button asChild variant="ghost" size="sm">
                     <Link href={printHref([r.item_id])} target="_blank">
                       <Tag className="mr-1 h-4 w-4" />Етикет

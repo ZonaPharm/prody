@@ -173,7 +173,7 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
                   </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                    <RowTick state={s} text="Получено" label={`Получено: ${r.product_name}`} onChange={on => setRow(r.item_id, { checked: on })} />
+                    <RowTick state={s} text="Получено" blockedText={problem?.kind === 'partial' ? 'Дошла е само част' : 'Не е наред'} label={`Получено: ${r.product_name}`} onChange={on => setRow(r.item_id, { checked: on })} />
                     {problem ? (
                       <Button variant="ghost" size="sm" onClick={() => setRow(r.item_id, { problem: null })}>Отмени</Button>
                     ) : (

@@ -99,7 +99,7 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
               </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                <RowTick state={s} text={mode === 'pack' ? 'В кашона' : 'Получено'} label={`${mode === 'pack' ? 'В кашона' : 'Получено'}: ${l.product_name}`} onChange={on => setRow(l.id, { checked: on })} />
+                <RowTick state={s} text={mode === 'pack' ? 'В кашона' : 'Получено'} blockedText={s?.problem?.kind === 'partial' ? 'Само част' : 'Не е наред'} label={`${mode === 'pack' ? 'В кашона' : 'Получено'}: ${l.product_name}`} onChange={on => setRow(l.id, { checked: on })} />
                 <ProblemButton state={s} onOpen={() => setProblemFor(l)} onClear={() => setRow(l.id, { problem: null })} />
               </div>
             </li>

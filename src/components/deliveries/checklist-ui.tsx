@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, Check, Loader2, PenLine } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, PenLine, X } from 'lucide-react'
 import {
   KIND_LABEL,
   STEP_KINDS,
@@ -45,21 +45,28 @@ export function rowTone(state: RowState | undefined): string {
  * ("С етикет", "Получено", "В кашона") and a checkbox inside, green when on.
  * Disabled while the row has a problem.
  */
-export function RowTick({ state, label, text, onChange }: {
+export function RowTick({ state, label, text, blockedText, onChange }: {
   state: { checked: boolean; problem: unknown } | undefined
   label: string
   /** The words on the button. */
   text: string
+  /** Shown instead of the button while the row is marked "Само част" or "Не е наред". */
+  blockedText?: string
   onChange: (on: boolean) => void
 }) {
   const on = !!state?.checked && !state?.problem
-  const blocked = !!state?.problem
+  if (state?.problem) {
+    return (
+      <span className="inline-flex h-10 shrink-0 items-center rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-900">
+        {blockedText ?? 'Отбелязан проблем'}
+      </span>
+    )
+  }
   return (
     <label
       className={cn(
-        'inline-flex h-10 shrink-0 select-none items-center gap-2 rounded-lg border-2 px-3 text-sm font-semibold transition-colors',
+        'inline-flex h-10 shrink-0 cursor-pointer select-none items-center gap-2 rounded-lg border-2 px-3 text-sm font-semibold transition-colors',
         on ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-500',
-        blocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
       )}
     >
       <input
@@ -67,7 +74,6 @@ export function RowTick({ state, label, text, onChange }: {
         className="h-5 w-5 accent-emerald-800"
         aria-label={label}
         checked={on}
-        disabled={blocked}
         onChange={e => onChange(e.target.checked)}
       />
       {text}
@@ -91,7 +97,7 @@ export function ChecklistSteps({ steps }: { steps: React.ReactNode[] }) {
 
 export function ProblemButton({ state, onOpen, onClear }: { state: RowState | undefined; onOpen: () => void; onClear: () => void }) {
   return state?.problem ? (
-    <Button variant="ghost" size="sm" onClick={onClear}>Отмени</Button>
+    <Button variant="ghost" size="sm" onClick={onClear}><X className="mr-1 h-4 w-4" />Отмени</Button>
   ) : (
     <Button variant="outline" size="sm" className="text-red-700 border-red-200" onClick={onOpen}>
       <AlertTriangle className="mr-1 h-4 w-4" />Не е наред
