@@ -22,8 +22,8 @@ export const ROLE_LABEL: Record<Role, string> = {
 /** One line under each tick in Настройки → Потребители. */
 export const ROLE_HINT: Record<Role, string> = {
   admin: 'Всичко: потребители, цени, каталог, настройки, бекъп.',
-  office: 'Работи в Офис: продава оттам, приема доставки, етикетира, праща курсове.',
-  seller: 'Работи в един магазин: продава, прави заявки, приема пратките.',
+  office: 'Подготвя стоката в Офис: приема доставки, етикетира, опакова, праща курсове. Не вижда продажби.',
+  seller: 'Продава в избран магазин (може и Офис): продава, прави заявки, приема пратките.',
   driver: 'Кара курсовете и се подписва за кашоните със своята парола.',
   accountant: 'Само гледа: отчети, продажби, доставки и цени. Не променя нищо.',
 }
@@ -61,9 +61,13 @@ export function rolesText(roles: readonly Role[]): string {
   return sortRoles(roles).map(r => ROLE_LABEL[r]).join(', ')
 }
 
-/** A person who works in a shop (sells there): a seller, or Офис, which sells from Офис. */
+/**
+ * Only a seller belongs to a store (Владимир, 2026-11-12: anybody can also be a
+ * seller, in any store, Офис included). Офис prepares the goods and does not sell
+ * or see sales unless Продавач is ticked too.
+ */
 export function needsStore(roles: readonly Role[]): boolean {
-  return roles.includes('seller') || roles.includes('office')
+  return roles.includes('seller')
 }
 
 export type RolesInput = { roles: unknown; store_id?: unknown }
@@ -74,26 +78,17 @@ export type RolesCheck =
 /**
  * Checks the roles and the store an admin picked for a person.
  * - at least one known role;
- * - Продавач needs a store;
- * - Офис works in Офис: the store becomes Офис (or must be Офис when Продавач is ticked too);
- * - nobody else keeps a store (an admin or a driver alone belongs to no shop).
+ * - Продавач needs a store (any store, Офис included);
+ * - without Продавач nobody keeps a store.
  */
-export function checkRoles(input: RolesInput, warehouseId: string | null): RolesCheck {
+export function checkRoles(input: RolesInput): RolesCheck {
   if (!Array.isArray(input.roles)) return { ok: false, error: 'Изберете поне една роля' }
   if (input.roles.some(r => !isRole(r))) return { ok: false, error: 'Непозната роля' }
   const roles = sortRoles(input.roles as Role[])
   if (roles.length === 0) return { ok: false, error: 'Изберете поне една роля' }
 
   const picked = typeof input.store_id === 'string' && input.store_id.trim() ? input.store_id.trim() : null
-
-  if (roles.includes('office')) {
-    if (!warehouseId) return { ok: false, error: 'Няма обект Офис в Магазини' }
-    if (picked && picked !== warehouseId) {
-      return { ok: false, error: 'Офис работи в Офис. За друг магазин махнете отметката Офис.' }
-    }
-    return { ok: true, roles, store_id: warehouseId }
-  }
-  if (roles.includes('seller')) {
+  if (needsStore(roles)) {
     if (!picked) return { ok: false, error: 'Изберете магазин за продавача' }
     return { ok: true, roles, store_id: picked }
   }

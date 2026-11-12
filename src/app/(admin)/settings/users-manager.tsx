@@ -89,7 +89,7 @@ export function UsersManager() {
       display_name: formName,
       email: formEmail,
       roles: formRoles,
-      store_id: needsStore(formRoles) && !formRoles.includes('office') ? formStoreId : null,
+      store_id: needsStore(formRoles) ? formStoreId : null,
       send_email: formSendEmail,
     }
     if (formPassword) body.password = formPassword
@@ -128,8 +128,6 @@ export function UsersManager() {
 
   const toggleRole = (r: Role, on: boolean) =>
     setFormRoles(prev => sortRoles(on ? [...prev, r] : prev.filter(x => x !== r)))
-  const warehouse = stores.find(s => s.is_warehouse)
-  const shopStores = stores.filter(s => !s.is_warehouse)
 
   if (loading) return <div className="p-4 text-muted-foreground">Зареждане...</div>
 
@@ -226,16 +224,13 @@ export function UsersManager() {
                 </div>
                 {formRoles.length === 0 && <p className="text-xs text-red-600">Изберете поне една роля.</p>}
               </fieldset>
-              {formRoles.includes('office') ? (
-                <p className="rounded-md bg-slate-50 px-3 py-2 text-sm">Магазин: <b>{warehouse?.name ?? 'Офис'}</b> <span className="text-muted-foreground">(Офис работи там)</span></p>
-              ) : formRoles.includes('seller') && (
+              {needsStore(formRoles) && (
                 <div className="space-y-1">
                   <Label className="text-xs">Магазин</Label>
                   <Select value={formStoreId} onValueChange={setFormStoreId}>
                     <SelectTrigger className="h-9"><SelectValue placeholder="Изберете магазина, в който работи" /></SelectTrigger>
                     <SelectContent>
-                      {shopStores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      {warehouse && formStoreId === warehouse.id && <SelectItem value={warehouse.id}>{warehouse.name}</SelectItem>}
+                      {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -275,7 +270,7 @@ export function UsersManager() {
                 <Button variant="ghost" onClick={() => { setDialogOpen(false); setReturnedPassword('') }}>
                   Отказ
                 </Button>
-                <Button onClick={save} disabled={saving || formRoles.length === 0 || (formRoles.includes('seller') && !formRoles.includes('office') && !formStoreId)}>
+                <Button onClick={save} disabled={saving || formRoles.length === 0 || (needsStore(formRoles) && !formStoreId)}>
                   {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                   {editing ? 'Запази' : 'Създай'}
                 </Button>

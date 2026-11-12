@@ -32,7 +32,6 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     auth: { admin: { updateUserById: async () => ({ error: null }) } },
     from: (table: string) => {
-      if (table === 'stores') return chain({ data: { id: OFFICE } })
       if (table === 'users') {
         return {
           update: (row: Record<string, unknown>) => {
@@ -60,11 +59,17 @@ describe('PUT /api/users/[id]', () => {
     mocks.updateError = null
   })
 
-  it('saves Офис + Шофьор in Офис, role derived as seller', async () => {
-    const res = await PUT(req({ display_name: 'Ивайло', roles: ['driver', 'office'] }), params(OTHER))
+  it('saves Офис + Шофьор without a store, role derived as seller', async () => {
+    const res = await PUT(req({ display_name: 'Ивайло', roles: ['driver', 'office'], store_id: OFFICE }), params(OTHER))
     expect(res.status).toBe(200)
-    expect(mocks.updates[0]).toEqual({ display_name: 'Ивайло', roles: ['office', 'driver'], role: 'seller', store_id: OFFICE })
+    expect(mocks.updates[0]).toEqual({ display_name: 'Ивайло', roles: ['office', 'driver'], role: 'seller', store_id: null })
     expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'user_update', details: 'Ивайло: Офис, Шофьор' }), expect.anything())
+  })
+
+  it('anybody can also be a seller, in Офис too', async () => {
+    const res = await PUT(req({ display_name: 'Ивайло', roles: ['office', 'seller', 'driver'], store_id: OFFICE }), params(OTHER))
+    expect(res.status).toBe(200)
+    expect(mocks.updates[0]).toMatchObject({ roles: ['office', 'seller', 'driver'], role: 'seller', store_id: OFFICE })
   })
 
   it('a seller needs a store', async () => {

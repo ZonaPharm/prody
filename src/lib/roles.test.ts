@@ -40,35 +40,35 @@ describe('sortRoles / rolesText', () => {
 })
 
 describe('needsStore', () => {
-  it('sellers and Офис work in a shop, the others do not', () => {
+  it('only a seller belongs to a store', () => {
     expect(needsStore(['seller'])).toBe(true)
-    expect(needsStore(['office', 'driver'])).toBe(true)
+    expect(needsStore(['office', 'seller'])).toBe(true)
+    expect(needsStore(['office', 'driver'])).toBe(false)
     expect(needsStore(['admin', 'driver', 'accountant'])).toBe(false)
   })
 })
 
 describe('checkRoles', () => {
   it('needs at least one known role', () => {
-    expect(checkRoles({ roles: [] }, OFFICE)).toEqual({ ok: false, error: 'Изберете поне една роля' })
-    expect(checkRoles({ roles: 'admin' }, OFFICE).ok).toBe(false)
-    expect(checkRoles({ roles: ['admin', 'boss'] }, OFFICE)).toEqual({ ok: false, error: 'Непозната роля' })
+    expect(checkRoles({ roles: [] })).toEqual({ ok: false, error: 'Изберете поне една роля' })
+    expect(checkRoles({ roles: 'admin' }).ok).toBe(false)
+    expect(checkRoles({ roles: ['admin', 'boss'] })).toEqual({ ok: false, error: 'Непозната роля' })
   })
-  it('a seller needs a store and keeps it', () => {
-    expect(checkRoles({ roles: ['seller'] }, OFFICE).ok).toBe(false)
-    expect(checkRoles({ roles: ['seller', 'driver'], store_id: BOTEV }, OFFICE))
+  it('a seller needs a store and keeps it, any store (Офис too), next to any other role', () => {
+    expect(checkRoles({ roles: ['seller'] }).ok).toBe(false)
+    expect(checkRoles({ roles: ['seller', 'driver'], store_id: BOTEV }))
       .toEqual({ ok: true, roles: ['seller', 'driver'], store_id: BOTEV })
+    expect(checkRoles({ roles: ['admin', 'seller'], store_id: OFFICE }))
+      .toEqual({ ok: true, roles: ['admin', 'seller'], store_id: OFFICE })
   })
-  it('Офис is put in Офис, and refuses another store', () => {
-    expect(checkRoles({ roles: ['driver', 'office'] }, OFFICE))
-      .toEqual({ ok: true, roles: ['office', 'driver'], store_id: OFFICE })
-    expect(checkRoles({ roles: ['office', 'seller'], store_id: OFFICE }, OFFICE).ok).toBe(true)
-    expect(checkRoles({ roles: ['office', 'seller'], store_id: BOTEV }, OFFICE).ok).toBe(false)
-    expect(checkRoles({ roles: ['office'] }, null).ok).toBe(false)
+  it('Офис alone belongs to no store (it prepares the goods, does not sell)', () => {
+    expect(checkRoles({ roles: ['driver', 'office'], store_id: OFFICE }))
+      .toEqual({ ok: true, roles: ['office', 'driver'], store_id: null })
   })
   it('admin, driver and accountant alone belong to no store', () => {
-    expect(checkRoles({ roles: ['admin'], store_id: BOTEV }, OFFICE))
+    expect(checkRoles({ roles: ['admin'], store_id: BOTEV }))
       .toEqual({ ok: true, roles: ['admin'], store_id: null })
-    expect(checkRoles({ roles: ['driver'] }, OFFICE)).toEqual({ ok: true, roles: ['driver'], store_id: null })
+    expect(checkRoles({ roles: ['driver'] })).toEqual({ ok: true, roles: ['driver'], store_id: null })
   })
 })
 

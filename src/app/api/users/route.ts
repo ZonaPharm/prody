@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient()
-  const roles = await rolesFromBody(admin, body)
+  const roles = rolesFromBody(body)
   if (!roles.ok) return NextResponse.json({ error: roles.error }, { status: 400 })
 
   // Create auth user with email_confirm: true so they can log in immediately

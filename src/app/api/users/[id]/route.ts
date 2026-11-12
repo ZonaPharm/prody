@@ -20,7 +20,7 @@ export async function PUT(
   const admin = createAdminClient()
   const body = await request.json()
   const { display_name, email, password, send_email } = body
-  const roles = await rolesFromBody(admin, body)
+  const roles = rolesFromBody(body)
   if (!roles.ok) return NextResponse.json({ error: roles.error }, { status: 400 })
   if (id === user.id && !roles.roles.includes('admin')) {
     return NextResponse.json({ error: 'Не можете да махнете своята роля Администратор' }, { status: 400 })
