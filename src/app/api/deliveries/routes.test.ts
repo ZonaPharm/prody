@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   adminRpc: vi.fn(),
   adminInsert: vi.fn(),
   adminUpdates: [] as { table: string; row: unknown; ids?: unknown }[],
+  updateError: null as unknown,
+  insertErrors: [] as unknown[],
   logAction: vi.fn(),
 }))
 
@@ -45,11 +47,15 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     rpc: mocks.adminRpc,
     from: (table: string) => ({
-      insert: (row: unknown) => { mocks.adminInsert(row); return query({ data: { id: PRODUCT, ...(row as object), images: [] }, error: null }) },
+      insert: (row: unknown) => {
+        mocks.adminInsert(row)
+        const error = mocks.insertErrors.shift() ?? null
+        return query(error ? { data: null, error } : { data: { id: PRODUCT, ...(row as object), images: [] }, error: null })
+      },
       update: (row: unknown) => {
         const call: { table: string; row: unknown; ids?: unknown } = { table, row }
         mocks.adminUpdates.push(call)
-        const q = { in: (_c: string, ids: unknown) => { call.ids = ids; return q }, neq: () => Promise.resolve({ error: null }) }
+        const q = { in: (_c: string, ids: unknown) => { call.ids = ids; return q }, neq: () => Promise.resolve({ error: mocks.updateError }) }
         return q
       },
     }),
@@ -80,6 +86,8 @@ describe('delivery API routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.adminUpdates.length = 0
+    mocks.updateError = null
+    mocks.insertErrors = []
     vi.stubEnv('DELIVERIES_ENABLED', 'all')
     mocks.user = { id: ADMIN.id }
     mocks.profile = { ...ADMIN }
@@ -145,6 +153,15 @@ describe('delivery API routes', () => {
       expect(mocks.adminUpdates).toEqual([{ table: 'products', row: { label_kind: 'price' }, ids: [PRODUCT] }])
       // needs_label is left to the database (derived from the kind).
       expect(mocks.adminRpc.mock.calls[0][1].p_draft.items[0].needs_label).toBeNull()
+    })
+
+    it('before the label_kind migration the choice goes through needs_label', async () => {
+      mocks.updateError = { code: '42703', message: 'column products.label_kind does not exist' }
+      const body = structuredClone(draftBody) as any
+      body.draft.items[0].label_kind = 'price'
+      const res = await draftPOST(req(body))
+      expect(res.status).toBe(200)
+      expect(mocks.adminRpc.mock.calls[0][1].p_draft.items[0].needs_label).toBe(false)
     })
 
     it('400 for a line without quantity or with a negative cost', async () => {
@@ -256,6 +273,15 @@ describe('delivery API routes', () => {
       }))
       const body = await res.json()
       expect(body.suggested.supplier_id).toBe(STORE)
+    })
+
+    it('before the label_kind migration it is made on needs_label alone', async () => {
+      mocks.insertErrors = [{ code: 'PGRST204', message: "Could not find the 'label_kind' column of 'products' in the schema cache" }]
+      const res = await productPOST(req({ name: 'Нов крем', price: 9.9, label_kind: 'price' }))
+      expect(res.status).toBe(200)
+      expect(mocks.adminInsert).toHaveBeenNthCalledWith(1, expect.objectContaining({ label_kind: 'price', needs_label: false }))
+      expect(mocks.adminInsert.mock.calls[1][0]).not.toHaveProperty('label_kind')
+      expect(mocks.adminInsert.mock.calls[1][0]).toMatchObject({ needs_label: false })
     })
 
     it('400 without a sale price', async () => {

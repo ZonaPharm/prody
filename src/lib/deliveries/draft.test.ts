@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { draftTotals, lineProblem, parseMoney, parseQty, saveBlocker, toDraftPayload, type DraftLineState } from './draft'
+import { draftTotals, lineMissing, lineProblem, parseMoney, parseQty, saveBlocker, toDraftPayload, type DraftLineState } from './draft'
 
 function line(over: Partial<DraftLineState> = {}): DraftLineState {
   return {
@@ -72,6 +72,18 @@ describe('a line', () => {
     const price = toDraftPayload({ order_ref: '', notes: '' }, [line({ needs_label: false, label_kind: 'price', label_changed: true })]).items[0]
     expect([price.label_kind, price.needs_label]).toEqual(['price', false])
     expect(toDraftPayload({ order_ref: '', notes: '' }, [line({ label_kind: 'price' })]).items[0].label_kind).toBeNull()
+  })
+})
+
+describe('what a line still needs', () => {
+  it('a complete line needs nothing', () => {
+    expect(lineMissing(line())).toEqual([])
+  })
+  it('a freshly picked product asks for count and price together', () => {
+    expect(lineMissing(line({ quantity: '', unit_cost: '' }))).toEqual(['бройки', 'цена'])
+  })
+  it('names a bad box size and a bad distribution', () => {
+    expect(lineMissing(line({ pack_size: '0', plan: { a: 'x' } }))).toEqual(['бройки в кутия', 'разпределение'])
   })
 })
 

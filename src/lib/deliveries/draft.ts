@@ -58,6 +58,21 @@ export function lineProblem(line: DraftLineState): string | null {
   return null
 }
 
+/**
+ * Everything a line still needs, in the order it is filled in on screen, so the
+ * row can say "Попълнете: бройки, цена" instead of one thing at a time.
+ */
+export function lineMissing(line: DraftLineState): string[] {
+  const out: string[] = []
+  const qty = parseQty(line.quantity)
+  if (qty == null || qty < 1) out.push('бройки')
+  const pack = line.pack_size.trim() === '' ? 1 : parseQty(line.pack_size)
+  if (pack == null || pack < 1) out.push('бройки в кутия')
+  if (parseMoney(line.unit_cost) == null) out.push('цена')
+  if (Object.values(line.plan).some(v => v.trim() !== '' && parseQty(v) == null)) out.push('разпределение')
+  return out
+}
+
 export function planOf(line: DraftLineState): { store_id: string; planned_qty: number }[] {
   return Object.entries(line.plan)
     .map(([store_id, v]) => ({ store_id, planned_qty: parseQty(v) ?? 0 }))
