@@ -316,6 +316,7 @@ export async function getShipment(supabase: any, id: string, opts: { store?: boo
 
 export type StoreShipmentRow = {
   id: string
+  trip_id: string
   number: number
   status: ShipmentStatus
   box_count: number | null
@@ -333,7 +334,7 @@ export async function getStoreShipments(supabase: any, storeId: string): Promise
     supabase
       .from('shipments')
       .select(
-        'id, number, status, box_count, sent_at, received_at, ' +
+        'id, trip_id, number, status, box_count, sent_at, received_at, ' +
           'sender:users!shipments_sent_by_fkey(display_name), receiver:users!shipments_received_by_fkey(display_name), ' +
           'lines:shipment_lines!shipment_lines_shipment_id_fkey(qty)',
       )
@@ -343,6 +344,7 @@ export async function getStoreShipments(supabase: any, storeId: string): Promise
   )
   return rows.map(r => ({
     id: r.id,
+    trip_id: r.trip_id,
     number: r.number,
     status: r.status,
     box_count: r.box_count,
