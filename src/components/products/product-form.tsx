@@ -23,6 +23,7 @@ import { Loader2, Upload, Star, ScanBarcode } from 'lucide-react'
 import { factoryBarcodeProblem, normalizeCode } from '@/lib/barcodes'
 import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 import { LabelKindSelect } from '@/components/deliveries/label-kind-select'
+import { Hint, Meta, Note, SectionTitle } from '@/components/ui/text'
 
 type CategoryOption = { id: string; name: string }
 
@@ -463,9 +464,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
       {/* Row 3b: barcodes */}
       <div className="rounded-lg border p-4 space-y-4">
-        <div className="flex items-center gap-2 font-medium">
-          <ScanBarcode className="h-4 w-4" /> Баркод
-        </div>
+        <SectionTitle>
+          <span className="inline-flex items-center gap-2"><ScanBarcode className="h-4 w-4" /> Баркод и етикет</span>
+        </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="barcode">Фабричен баркод</Label>
@@ -476,11 +477,9 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
               placeholder="Сканирайте баркода от опаковката"
               aria-invalid={Boolean(barcodeProblem)} />
             {barcodeProblem ? (
-              <p className="text-xs text-red-600">{barcodeProblem}</p>
+              <Note tone="danger" small>{barcodeProblem}</Note>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Ако продуктът няма баркод, оставете празно: етикетът ще е с вътрешния код.
-              </p>
+              <Hint small>Ако продуктът няма баркод, оставете празно: етикетът ще е с вътрешния код.</Hint>
             )}
           </div>
           <div className="space-y-2">
@@ -488,9 +487,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             <div className="h-10 rounded-md border bg-slate-50 px-3 flex items-center font-mono text-sm">
               {initialData?.internal_barcode || <span className="font-sans text-muted-foreground">Ще се даде автоматично при запазване</span>}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Дава се от системата и не се променя. Касата намира продукта и по него.
-            </p>
+            <Meta>Дава се от системата и не се променя. Касата намира продукта и по него.</Meta>
           </div>
         </div>
         <label className="flex items-start gap-3 cursor-pointer">
@@ -505,18 +502,18 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           />
           <span>
             <span className="text-sm font-medium">Малък продукт, няма място за етикет</span>
-            <span className="block text-xs text-muted-foreground">
+            <Meta as="span" className="block">
               Излиза на „Карта на касата“, от която продавачът го сканира, и не чака етикетиране.
-            </span>
+            </Meta>
           </span>
         </label>
         <div className="space-y-2">
           <Label>Етикет</Label>
           <LabelKindSelect id="label_kind" value={labelKind} onChange={setLabelKind} />
           {smallItem && labelKind === 'full' && (
-            <p className="text-xs text-amber-700">
+            <Note tone="warn" small>
               Малък продукт обикновено е „Готов“: няма място за етикет и се сканира от картата на касата.
-            </p>
+            </Note>
           )}
         </div>
       </div>

@@ -5,7 +5,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Package, Star, Send, ScanBarcode } from 'lucide-react'
+import { Search, Package, Star, Send } from 'lucide-react'
+import { Note } from '@/components/ui/text'
 import { Product } from './cart-types'
 import { getImageSrc } from '@/lib/images'
 import { looksLikeCode, matchesCode } from '@/lib/barcodes'
@@ -131,14 +132,8 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
         />
       </div>
       {notice && (
-        <div
-          role="status"
-          className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
-            notice.ok ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-200 bg-amber-50 text-amber-900'
-          }`}
-        >
-          <ScanBarcode className="h-4 w-4 shrink-0" />
-          {notice.text}
+        <div role="status">
+          <Note tone={notice.ok ? 'success' : 'warn'}>{notice.text}</Note>
         </div>
       )}
 

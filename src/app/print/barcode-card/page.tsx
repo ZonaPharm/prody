@@ -7,6 +7,7 @@ import { formatMoney } from '@/lib/deliveries/format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { Barcode } from '@/components/labels/barcode'
 import { PrintButton } from '@/components/deliveries/print-button'
+import { Hint, Note } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Карта на касата' }
@@ -41,7 +42,7 @@ export default async function BarcodeCardPage() {
   if (error) {
     console.error('barcode-card read failed:', JSON.stringify(error))
     return (
-      <Message>
+      <Message tone="danger">
         Картата още не може да се отвори: базата няма полетата за баркод. Нужно е да се пусне
         миграцията 20261112_product_internal_barcode.sql.
       </Message>
@@ -66,9 +67,9 @@ export default async function BarcodeCardPage() {
   return (
     <div className="mx-auto max-w-[210mm] p-6 text-black print:p-0">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <span className="text-sm text-muted-foreground">
-          {products.length} {products.length === 1 ? 'продукт' : 'продукта'} · сканирайте от картата при продажба
-        </span>
+        <Hint>
+          {products.length} {products.length === 1 ? 'продукт' : 'продукта'}. Отпечатайте и сложете до касата: при продажба сканирайте баркода от картата.
+        </Hint>
         <PrintButton />
       </div>
       <div className="mb-3 flex items-baseline justify-between border-b-2 border-black pb-1">
@@ -100,6 +101,10 @@ export default async function BarcodeCardPage() {
   )
 }
 
-function Message({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-xl p-6 text-sm">{children}</div>
+function Message({ children, tone = 'info' }: { children: React.ReactNode; tone?: 'info' | 'danger' }) {
+  return (
+    <div className="mx-auto max-w-xl p-6">
+      <Note tone={tone}>{children}</Note>
+    </div>
+  )
 }
