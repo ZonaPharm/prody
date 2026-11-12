@@ -2,6 +2,11 @@ import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { MyRequestsClient } from './client'
+import { deliveriesActive } from '@/lib/deliveries/feature'
+import { getStoreIncomingAll } from '@/lib/deliveries/tasks-data'
+import { incomingByProduct, incomingText } from '@/lib/deliveries/tasks'
+import { fetchAll, fetchByIds } from '@/lib/fetch-all'
+import { getOfficeStock, notRequestable, notRequestableReason, type OfficeStockMap } from '@/lib/requests/office-stock'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,12 +31,25 @@ export default async function MyRequestsPage({
     if (store) storeId = store.id
   }
 
-  // Products for request form (with images + categories for grid view)
-  const [{ data: products }, { data: categories }, { data: images }] = await Promise.all([
-    (admin.from('products') as any).select('id, name, price, quantity_on_hand, category_id').eq('status', 'active').order('name'),
+  // Products for request form (with images + categories for grid view). A store
+  // may ask only for what Офис can send now (free Офис stock): the rest of the
+  // catalog is not offered, only named with the reason when searched for.
+  const [catalog, { data: categories }, { data: images }, office] = await Promise.all([
+    fetchAll<any>(() => (admin.from('products') as any).select('id, name, price, category_id').eq('status', 'active').order('name').order('id')),
     (admin.from('categories') as any).select('id, name').order('name'),
     (admin.from('product_images') as any).select('product_id, url').eq('is_primary', true),
+    getOfficeStock(admin).catch((e: unknown) => {
+      console.error('requests: office stock failed:', e instanceof Error ? e.message : JSON.stringify(e))
+      return null as OfficeStockMap | null
+    }),
   ])
+  const officeStock: OfficeStockMap = office ?? {}
+  const products = catalog
+    .filter((p: any) => (officeStock[p.id]?.free ?? 0) > 0)
+    .map((p: any) => ({ ...p, office_qty: officeStock[p.id].free }))
+  const unavailable = catalog
+    .filter((p: any) => !((officeStock[p.id]?.free ?? 0) > 0))
+    .map((p: any) => ({ id: p.id, name: p.name, why: notRequestable(officeStock[p.id]) ?? 'none' }))
 
   const imageMap: Record<string, string> = {}
   ;(images || []).forEach((img: any) => { if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url })
@@ -59,51 +77,66 @@ export default async function MyRequestsPage({
 
   // Low stock data
   let lowStockItems: any[] = []
-  let lowStockAllProducts: any[] = []
   let lowStockImageMap: Record<string, string> = {}
   if (activeTab === 'low') {
     if (storeId) {
-      const { data: batches } = await (admin.from('stock_batches') as any)
-        .select('product_id, quantity_remaining').eq('store_id', storeId)
+      const batches = await fetchAll<any>(() => (admin.from('stock_batches') as any)
+        .select('id, product_id, quantity_remaining').eq('store_id', storeId).order('id'))
       const productQtys: Record<string, number> = {}
       ;(batches || []).forEach((b: any) => { productQtys[b.product_id] = (productQtys[b.product_id] || 0) + b.quantity_remaining })
 
       const productIds = Object.keys(productQtys)
-      const { data: lowProducts } = productIds.length > 0
-        ? await (admin.from('products') as any).select('id, name, price, min_quantity, category:categories(name)').in('id', productIds).order('name')
-        : { data: [] }
+      const lowProducts = (await fetchByIds<any>(
+        ids => (admin.from('products') as any).select('id, name, price, min_quantity, category:categories(name)').in('id', ids),
+        productIds,
+      )).sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'bg'))
 
       lowStockItems = (lowProducts || []).map((p: any) => ({
         id: p.id, name: p.name, price: p.price,
         category: Array.isArray(p.category) ? p.category[0]?.name : p.category?.name,
         min_quantity: p.min_quantity || 5,
         current_qty: productQtys[p.id] || 0,
+        office_qty: officeStock[p.id]?.free ?? 0,
+        office_reason: notRequestableReason(officeStock[p.id]),
       })).filter((p: any) => p.current_qty <= p.min_quantity).sort((a: any, b: any) => a.current_qty - b.current_qty)
 
-      // All products for request form
-      const { data: allProds } = await (admin.from('products') as any)
-        .select('id, name, price, min_quantity, category:categories(name)').eq('status', 'active').order('name')
-      lowStockAllProducts = allProds || []
-
-      // Product images
-      const allIds = [...lowStockItems.map((i: any) => i.id), ...(allProds || []).map((p: any) => p.id)]
-      const { data: images } = allIds.length > 0
-        ? await (admin.from('product_images') as any).select('product_id, url').in('product_id', allIds).eq('is_primary', true)
+      // Pictures of the low-stock rows only (a short list: .in() stays short).
+      const lowIds = lowStockItems.map((i: any) => i.id).slice(0, 300)
+      const { data: images } = lowIds.length > 0
+        ? await (admin.from('product_images') as any).select('product_id, url').in('product_id', lowIds).eq('is_primary', true)
         : { data: [] }
       ;(images || []).forEach((img: any) => { if (!lowStockImageMap[img.product_id]) lowStockImageMap[img.product_id] = img.url })
     }
   }
 
+  // What already comes to this store from Офис (on the way, on a trip, being
+  // prepared), so nobody asks for it again. Read with the service-role client,
+  // only for this store; a failure just leaves the hints out.
+  const incoming: Record<string, string> = {}
+  if (storeId && deliveriesActive() && activeTab !== 'my') {
+    try {
+      const { ships, planned } = await getStoreIncomingAll(admin, storeId)
+      for (const [productId, x] of Object.entries(incomingByProduct(ships, planned))) {
+        const text = incomingText(x)
+        if (text) incoming[productId] = text
+      }
+    } catch (e) {
+      console.error('requests: incoming failed:', e instanceof Error ? e.message : JSON.stringify(e))
+    }
+  }
+
   return (
     <MyRequestsClient
-      products={(products || []) as any[]}
+      incoming={incoming}
+      products={products}
+      unavailable={unavailable}
+      officeFailed={office === null}
       categories={(categories || []) as any[]}
       imageMap={imageMap}
       myRequests={myRequests}
       activeTab={activeTab}
       storeId={storeId}
       lowStockItems={lowStockItems}
-      lowStockAllProducts={lowStockAllProducts}
       lowStockImageMap={lowStockImageMap}
       initialProductId={sp.product}
     />

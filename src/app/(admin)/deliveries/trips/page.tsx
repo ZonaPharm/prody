@@ -1,7 +1,8 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { getStoreOptions } from '@/lib/deliveries/queries'
-import { countOpenProblems, getOpenPlanRows, getTrips, getUnsentLines } from '@/lib/deliveries/work'
+import { countOpenProblems, getDriverOptions, getOpenPlanRows, getTrips, getUnsentLines } from '@/lib/deliveries/work'
+import { sofiaToday } from '@/lib/date-utils'
 import { readyByStore, readyLinesByStore } from '@/lib/deliveries/queue'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { TripsBoard } from '@/components/deliveries/trips-board'
@@ -15,12 +16,13 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams
   const filter = sp.filter === 'all' ? 'all' : 'active'
   const supabase = await createServerSupabaseClient()
-  const [trips, plan, unsent, stores, problems] = await Promise.all([
+  const [trips, plan, unsent, stores, problems, drivers] = await Promise.all([
     getTrips(supabase, filter),
     getOpenPlanRows(supabase),
     getUnsentLines(supabase),
     getStoreOptions(supabase),
     countOpenProblems(supabase),
+    getDriverOptions(supabase),
   ])
   const storeName = Object.fromEntries(stores.map(s => [s.id, s.name]))
   const readyLines = readyLinesByStore(plan, unsent)
@@ -38,11 +40,12 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
       <DeliveriesTabs active="trips" problems={problems} />
       <PageHeader title="Курсове" intro="Курсът (К-…) е едно тръгване на машината с по една пратка (П-…) за всеки магазин." />
       <ChecklistSteps steps={[
-        <>Отметнете магазините и натиснете <b>„Направи курс“</b>. Влиза всичко, което е готово за тях.</>,
+        <>Отметнете магазините, изберете <b>шофьор и ден</b> и натиснете <b>„Направи курс“</b>. Шофьорът и магазините получават известие.</>,
         <>В курса натиснете <b>„Опаковай“</b> за всяка пратка: отметнете какво е в кашона и подпишете.</>,
         <><b>Шофьорът подписва</b> с паролата си и курсът тръгва. Магазинът приема пратката от „Пратки“.</>,
       ]} />
       <TripsBoard trips={trips} ready={ready} storeName={storeName} filter={filter} waitingLabel={waitingLabel}
+        drivers={drivers} today={sofiaToday()}
         stores={stores.filter(s => !s.is_warehouse).map(s => ({ id: s.id, name: s.name }))} />
     </div>
   )

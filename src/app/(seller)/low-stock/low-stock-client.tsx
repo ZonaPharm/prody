@@ -9,6 +9,7 @@ import { AlertTriangle, Send, Search, ShoppingCart, X, Plus, Minus, Package, Che
 import { RejectRequestButton } from '@/components/inventory/reject-request-button'
 import { sofiaDate, sofiaDateTime } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
+import { PageHeader } from '@/components/ui/text'
 
 interface ProductItem {
   id: string
@@ -17,6 +18,9 @@ interface ProductItem {
   category: string | null
   min_quantity: number
   current_qty: number
+  /** Free in Офис: the most that can be asked for now. */
+  office_qty: number
+  office_reason: string | null
 }
 
 interface RequestHistory {
@@ -35,7 +39,8 @@ export function LowStockClient({
 }: {
   items: ProductItem[]
   storeId: string
-  allProducts: { id: string; name: string; price: number | null; category: { name: string } | null }[]
+  /** Only what Офис can send now, with office_qty. */
+  allProducts: { id: string; name: string; price: number | null; category: { name: string } | null; office_qty: number }[]
   imageMap: Record<string, string>
 }) {
   const [search, setSearch] = useState('')
@@ -69,10 +74,16 @@ export function LowStockClient({
       .then(setHistory)
   }, [storeId])
 
+  const flash = (text: string) => { setToast(text); setTimeout(() => setToast(''), 3000) }
+
   const addToCart = (product: any) => {
+    const max = Number(product.office_qty ?? 0)
+    if (max <= 0) return
+    const existing = cart.find(i => i.product.id === product.id)
+    if (existing && existing.qty >= max) { flash(`В Офис има ${max} бр. — толкова може да се заяви`); return }
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id)
-      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
+      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: Math.min(i.qty + 1, max) } : i)
       return [...prev, { product, qty: 1 }]
     })
   }
@@ -83,6 +94,9 @@ export function LowStockClient({
 
   const setCartQty = (productId: string, qty: number) => {
     if (qty <= 0) { removeFromCart(productId); return }
+    const item = cart.find(i => i.product.id === productId)
+    const max = Number(item?.product.office_qty ?? 0)
+    if (item && qty > max) { flash(`В Офис има ${max} бр. — толкова може да се заяви`); return }
     setCart(prev => prev.map(i => i.product.id === productId ? { ...i, qty } : i))
   }
 
@@ -100,8 +114,9 @@ export function LowStockClient({
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Грешка')
+        const err = await res.json().catch(() => ({}))
+        flash(err.error || 'Заявката не мина')
+        return
       }
       setCart([])
       setShowCart(false)
@@ -171,20 +186,16 @@ export function LowStockClient({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Заявки</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Заявете необходимите ви количества
-          </p>
-        </div>
-        {cart.length > 0 && (
+      <PageHeader
+        title="Заявки"
+        intro="Заявете от Офис каквото ви трябва. Тук са само продуктите, които Офис може да изпрати сега."
+        actions={cart.length > 0 && (
           <Button onClick={() => setShowCart(!showCart)} variant={showCart ? 'default' : 'outline'}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Кошница ({cart.length})
           </Button>
         )}
-      </div>
+      />
 
       {/* Cart panel */}
       {showCart && cart.length > 0 && (
@@ -258,6 +269,7 @@ export function LowStockClient({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">в Офис {p.office_qty} бр.</p>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => addToCart(p)}>
                   <Plus className="mr-1 h-3 w-3" /> Добави
@@ -308,9 +320,15 @@ export function LowStockClient({
                     </td>
                     <td className="px-4 py-3 text-center text-muted-foreground hidden sm:table-cell tabular-nums">{item.min_quantity}</td>
                     <td className="px-2">
-                      <Button size="sm" variant="ghost" onClick={() => addToCart(item)}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                      {item.office_qty > 0 ? (
+                        <Button size="sm" variant="ghost" onClick={() => addToCart(item)} title={`в Офис ${item.office_qty} бр.`}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="block max-w-[8rem] text-right text-[11px] leading-tight text-muted-foreground">
+                          {item.office_reason ?? 'Няма го в Офис'}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

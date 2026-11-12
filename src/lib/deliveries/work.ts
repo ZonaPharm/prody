@@ -122,11 +122,16 @@ export type TripListRow = {
   creator: string | null
   driver: string | null
   notes: string | null
+  /** Who is to drive it and when ("Шофьор и ден"); null until chosen. */
+  planned_driver: string | null
+  planned_date: string | null
+  planned_time: string | null
   shipments: { id: string; number: number; store_id: string; status: ShipmentStatus; lines: number; units: number }[]
 }
 
 const TRIP_SELECT =
   'id, number, status, notes, created_at, departed_at, completed_at, cancelled_at, cancel_reason, driver_id, ' +
+  'planned_driver_id, planned_date, planned_time, planned_driver:users!trips_planned_driver_id_fkey(display_name), ' +
   'creator:users!trips_created_by_fkey(display_name), driver:users!trips_driver_id_fkey(display_name), ' +
   'canceller:users!trips_cancelled_by_fkey(display_name)'
 
@@ -151,6 +156,9 @@ export async function getTrips(supabase: any, filter: 'active' | 'all'): Promise
     creator: t.creator?.display_name ?? null,
     driver: t.driver?.display_name ?? null,
     notes: t.notes,
+    planned_driver: t.planned_driver?.display_name ?? null,
+    planned_date: t.planned_date ?? null,
+    planned_time: t.planned_time ? String(t.planned_time).slice(0, 5) : null,
     shipments: (t.shipments ?? [])
       .map((s: any) => ({
         id: s.id,
@@ -210,6 +218,10 @@ export type TripDetail = {
   creator: string | null
   driver: string | null
   canceller: string | null
+  planned_driver_id: string | null
+  planned_driver: string | null
+  planned_date: string | null
+  planned_time: string | null
   shipments: ShipmentView[]
 }
 
@@ -295,6 +307,10 @@ export async function getTripDetail(supabase: any, id: string): Promise<TripDeta
     creator: t.creator?.display_name ?? null,
     driver: t.driver?.display_name ?? null,
     canceller: t.canceller?.display_name ?? null,
+    planned_driver_id: t.planned_driver_id ?? null,
+    planned_driver: t.planned_driver?.display_name ?? null,
+    planned_date: t.planned_date ?? null,
+    planned_time: t.planned_time ? String(t.planned_time).slice(0, 5) : null,
     shipments: (ships ?? []).map((s: any) => toShipment(s, lines)).sort((a: ShipmentView, b: ShipmentView) => a.store_name.localeCompare(b.store_name, 'bg')),
   }
 }

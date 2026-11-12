@@ -4,6 +4,7 @@ import { logAction } from '@/lib/audit'
 import { deliveriesGate, parseBody, rpcFailure } from '@/lib/deliveries/api'
 import { officeAddSchema } from '@/lib/deliveries/schemas'
 import { formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
+import { notifyTripCreated } from '@/lib/deliveries/notify'
 
 /**
  * "Добави от Офис": products Офис already holds (no delivery) go into one store's
@@ -35,5 +36,11 @@ export async function POST(request: Request) {
     details: `${formatTripNumber(data?.trip_number)}${data?.new_trip ? ' (нов)' : ''}, ${formatShipmentNumber(data?.shipment_number)}: `
       + `от Офис ${data?.units ?? 0} бр.${data?.reopened ? ', пратката е отворена за ново опаковане' : ''}`,
   }, gate.supabase as any)
+
+  // The store hears what comes to it (a new trip: its driver too, once chosen).
+  // Best effort: never fails the change.
+  if (data?.trip_id) {
+    await notifyTripCreated(admin, data.trip_id, data.new_trip ? {} : { shipmentIds: data.shipment_id ? [data.shipment_id] : [] })
+  }
   return NextResponse.json({ success: true, ...data, shipment_ids: data?.shipment_id ? [data.shipment_id] : [] })
 }

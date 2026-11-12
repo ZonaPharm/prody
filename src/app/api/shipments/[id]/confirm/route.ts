@@ -6,6 +6,7 @@ import { isUuid, parseBody, rpcFailure } from '@/lib/deliveries/api'
 import { deliveriesActive } from '@/lib/deliveries/feature'
 import { confirmSchema } from '@/lib/deliveries/schemas'
 import { formatShipmentNumber } from '@/lib/deliveries/format'
+import { notifyShipmentIssue } from '@/lib/deliveries/notify'
 
 /**
  * The store's checklist for a shipment that arrived (confirm_shipment). Any
@@ -43,6 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     })),
   })
   if (error) return rpcFailure('confirm_shipment', error, 'Потвърждението не мина')
+  await notifyShipmentIssue(admin, id, Number(data?.signals ?? 0))
 
   const { data: ship } = await (admin.from('shipments') as any).select('number').eq('id', id).maybeSingle()
   await logAction({

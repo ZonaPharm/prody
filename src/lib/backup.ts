@@ -29,6 +29,7 @@ const TABLES = [
   'shipment_lines',
   'delivery_signals',
   'delivery_events',
+  'notifications',
   'stock_batches',
   'sales',
   'stock_movements',
@@ -60,6 +61,8 @@ const TABLES_PENDING_MIGRATION = new Set([
   'shipment_lines',
   'delivery_signals',
   'delivery_events',
+  // 20261112_deliveries_tasks_notifications
+  'notifications',
 ])
 
 const BUCKET = 'db-backups'

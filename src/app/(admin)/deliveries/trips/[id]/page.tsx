@@ -7,6 +7,7 @@ import { countOpenProblems, getDriverOptions, getOpenPlanRows, getTripDetail, ge
 import { readyByStore } from '@/lib/deliveries/queue'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { TripView } from '@/components/deliveries/trip-view'
+import { sofiaToday } from '@/lib/date-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="trips" problems={problems} />
-      <TripView trip={trip} drivers={drivers} ready={ready} stores={stores.filter(s => !s.is_warehouse).map(s => ({ id: s.id, name: s.name }))} />
+      <TripView trip={trip} drivers={drivers} ready={ready} today={sofiaToday()}
+        stores={stores.filter(s => !s.is_warehouse).map(s => ({ id: s.id, name: s.name }))} />
     </div>
   )
 }
