@@ -10,11 +10,15 @@ import { UsersManager } from './users-manager'
 import { AuditLogs } from './audit-logs'
 import { BackupSettings } from './backup-settings'
 import { ExternalImages } from './external-images'
+import { SuppliersManager } from './suppliers-manager'
+import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
-  await requireAdmin()
+  const user = await requireAdmin()
+  // Suppliers belong to the deliveries feature and show only where it is on.
+  const deliveries = deliveriesEnabledFor(user.email)
   const supabase = await createServerSupabaseClient()
 
   const { data: products } = await (supabase.from('products') as any)
@@ -29,6 +33,7 @@ export default async function SettingsPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="categories">Категории</TabsTrigger>
           <TabsTrigger value="stores">Магазини</TabsTrigger>
+          {deliveries && <TabsTrigger value="suppliers">Доставчици</TabsTrigger>}
           <TabsTrigger value="min-qty">Мин. количества</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="email">Имейл</TabsTrigger>
@@ -42,6 +47,11 @@ export default async function SettingsPage() {
         <TabsContent value="stores">
           <StoresManager />
         </TabsContent>
+        {deliveries && (
+          <TabsContent value="suppliers">
+            <SuppliersManager />
+          </TabsContent>
+        )}
         <TabsContent value="min-qty">
           <MinQtyManager products={products || []} />
         </TabsContent>

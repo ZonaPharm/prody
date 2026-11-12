@@ -1,0 +1,35 @@
+import Link from 'next/link'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
+import { getDeliveriesList, type ListFilter } from '@/lib/deliveries/queries'
+import { DeliveriesList } from '@/components/deliveries/deliveries-list'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
+
+const FILTERS: ListFilter[] = ['open', 'completed', 'cancelled', 'all']
+
+export default async function DeliveriesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  await requireDeliveriesAdmin()
+  const sp = await searchParams
+  const filter: ListFilter = FILTERS.includes(sp.filter as ListFilter) ? (sp.filter as ListFilter) : 'open'
+
+  const supabase = await createServerSupabaseClient()
+  const rows = await getDeliveriesList(supabase, filter)
+
+  return (
+    <div className="space-y-4 max-w-7xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Доставки</h1>
+          <p className="text-sm text-muted-foreground">Стоката от доставчиците: въвеждане, получаване в Офис и дневник.</p>
+        </div>
+        <Button asChild>
+          <Link href="/deliveries/new"><Plus className="mr-2 h-4 w-4" />Нова доставка</Link>
+        </Button>
+      </div>
+      <DeliveriesList rows={rows} filter={filter} />
+    </div>
+  )
+}
