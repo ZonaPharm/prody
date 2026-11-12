@@ -1,5 +1,6 @@
 import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 import { fetchAll } from '@/lib/fetch-all'
+import { missingLabelKind, withoutLabelKind } from './label-kind-compat'
 import type { DeliveryStatus } from './format'
 import { primaryImage } from './products'
 import type { TrackLine } from './track'
@@ -158,6 +159,17 @@ export type DeliveryDetail = {
   ship_lines: TrackLine[]
 }
 
+const ITEM_COLUMNS =
+  'id, product_id, supplier_id, doc_number, pack_size, quantity, unit_cost, received_qty, labelled_qty, sort_order, ' +
+  'product:products(name, sku, price, status, needs_label, label_kind, images:product_images(url, is_primary, sort_order)), ' +
+  'supplier:suppliers(name)'
+
+function fetchItems(supabase: any, id: string, columns: string) {
+  return fetchAll<any>(() =>
+    supabase.from('delivery_items').select(columns).eq('delivery_id', id).order('sort_order').order('id'),
+  )
+}
+
 export async function getDeliveryDetail(supabase: any, id: string): Promise<DeliveryDetail | null> {
   const { data: d, error } = await supabase
     .from('deliveries')
@@ -168,18 +180,11 @@ export async function getDeliveryDetail(supabase: any, id: string): Promise<Deli
   if (!d) return null
 
   const [items, plan, events, signals, shipLines] = await Promise.all([
-    fetchAll<any>(() =>
-      supabase
-        .from('delivery_items')
-        .select(
-          'id, product_id, supplier_id, doc_number, pack_size, quantity, unit_cost, received_qty, labelled_qty, sort_order, ' +
-            'product:products(name, sku, price, status, needs_label, label_kind, images:product_images(url, is_primary, sort_order)), ' +
-            'supplier:suppliers(name)',
-        )
-        .eq('delivery_id', id)
-        .order('sort_order')
-        .order('id'),
-    ),
+    // Before the label_kind migration the column is missing: read the lines without it.
+    fetchItems(supabase, id, ITEM_COLUMNS).catch((e: unknown) => {
+      if (missingLabelKind(e)) return fetchItems(supabase, id, withoutLabelKind(ITEM_COLUMNS))
+      throw e
+    }),
     fetchAll<any>(() =>
       supabase
         .from('delivery_item_plan')
