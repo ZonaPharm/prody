@@ -172,6 +172,21 @@ export const tripAddSchema = z.object({
   store_ids: z.array(id).min(1, 'Изберете поне един обект').max(100),
 })
 
+/**
+ * "Добави от Офис": products from Office stock (no delivery) into one store's shipment
+ * of an open trip, or of a new trip when trip_id is null.
+ */
+export const officeAddSchema = z.object({
+  trip_id: id.nullable().optional(),
+  store_id: id,
+  lines: z
+    .array(z.object({ product_id: id, qty: z.number().int('Цяло число бройки').min(1, 'Бройката е поне 1').max(100_000) }))
+    .min(1, 'Добавете поне един продукт')
+    .max(200)
+    .refine(l => new Set(l.map(x => x.product_id)).size === l.length, { message: 'Продукт се повтаря: въведете го веднъж с общия брой' }),
+})
+export type OfficeAddInput = z.infer<typeof officeAddSchema>
+
 /** "Махни от курса": one store's shipment leaves a trip that has not left. */
 export const shipmentRemoveSchema = cancelSchema
 

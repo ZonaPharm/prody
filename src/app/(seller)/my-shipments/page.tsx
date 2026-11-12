@@ -11,7 +11,7 @@ import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { isUuid } from '@/lib/deliveries/api'
 import { AsAdminLink } from '@/components/admin/as-admin-link'
-import { shipmentPeople, shipmentProducts, type ShipmentProductLine } from '@/lib/deliveries/store-people'
+import { shipmentPeople, shipmentProducts, upcomingShipments, type ShipmentProductLine } from '@/lib/deliveries/store-people'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,8 +42,9 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
   const rows = storeId ? await getStoreShipments(supabase, storeId) : []
   const waiting = rows.filter(r => r.status === 'sent')
   const done = rows.filter(r => r.status !== 'sent').slice(0, DONE_SHOWN)
+  const upcoming = storeId ? await upcomingShipments(supabase, storeId).catch(() => []) : []
   // Every seller of the store sees who drove and who accepted, and what came.
-  const shown = [...waiting, ...done].map(r => r.id)
+  const shown = [...waiting, ...done, ...upcoming].map(r => r.id)
   const [people, products] = await Promise.all([shipmentPeople(shown), shipmentProducts(supabase, shown)])
   const who = (id: string) => people.get(id)
 
@@ -89,6 +90,27 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
               </p>
             )
           )}
+        </section>
+      )}
+
+      {upcoming.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-semibold">Подготвят се в Офис ({upcoming.length})</h2>
+          <p className="text-sm text-muted-foreground">Офис вече подготвя тази стока за Вас: опакова я, после шофьорът я кара. Не я заявявайте отново. Влиза в наличността Ви, когато шофьорът тръгне.</p>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {upcoming.map(r => (
+              <li key={r.id} className="rounded-lg border bg-white px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="font-semibold tabular-nums">{formatShipmentNumber(r.number)}</span>
+                  <span className={cn('rounded-full border px-2 py-0.5 text-xs', SHIPMENT_STATUS_TONE[r.status])}>
+                    {r.status === 'packed' ? 'Опакована, чака транспорт' : 'Опакова се в Офис'}
+                  </span>
+                  <span>{r.units} бр.</span>
+                </div>
+                <p className="mt-0.5 truncate">{productsText(products.get(r.id))}</p>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
