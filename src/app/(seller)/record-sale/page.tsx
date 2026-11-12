@@ -189,6 +189,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
       frequentlySold={frequentlySold}
       stores={stores as Store[]}
       defaultStoreId={defaultStoreId!}
+      homeStoreId={user.store_id}
+      userId={user.id}
       outOfStock={outOfStockFinal as Product[]}
     />
   )
