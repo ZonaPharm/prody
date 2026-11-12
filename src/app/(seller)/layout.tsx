@@ -3,6 +3,8 @@
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { SellerLayoutClient } from './layout-client'
+import { deliveriesActive } from '@/lib/deliveries/feature'
+import { countWaitingShipments } from '@/lib/deliveries/work'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,12 +29,25 @@ export default async function SellerLayout({ children }: { children: React.React
     requestBadge = count || 0
   } catch {}
 
+  // "Пратки": shipments from Офис for this store, while deliveries are on
+  // anywhere (src/lib/deliveries/feature.ts). The badge counts those waiting
+  // for the store's checklist.
+  const shipmentsOn = deliveriesActive()
+  let shipmentBadge = 0
+  if (shipmentsOn) {
+    try {
+      shipmentBadge = await countWaitingShipments(supabase, user.store_id)
+    } catch {}
+  }
+  const items = shipmentsOn ? [...navItems, { href: '/my-shipments', label: 'Пратки' }] : navItems
+
   return (
     <SellerLayoutClient
-      navItems={navItems}
+      navItems={items}
       displayName={user.display_name}
       isAdminImpersonating={user.role === 'admin' && effectiveRole === 'seller'}
       requestBadge={requestBadge}
+      shipmentBadge={shipmentBadge}
     >
       {children}
     </SellerLayoutClient>

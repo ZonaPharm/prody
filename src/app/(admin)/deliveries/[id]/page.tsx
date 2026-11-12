@@ -6,6 +6,8 @@ import { isUuid } from '@/lib/deliveries/api'
 import { getCategories } from '@/lib/db/categories'
 import { DeliveryEditor, type DraftInitial } from '@/components/deliveries/delivery-editor'
 import { DeliveryView } from '@/components/deliveries/delivery-view'
+import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
+import { countOpenProblems } from '@/lib/deliveries/work'
 import type { DeliveryDetail } from '@/lib/deliveries/queries'
 
 export const dynamic = 'force-dynamic'
@@ -55,5 +57,11 @@ export default async function DeliveryPage({ params }: { params: Promise<{ id: s
     )
   }
 
-  return <DeliveryView delivery={delivery} stores={stores} userName={user.display_name} />
+  const problems = await countOpenProblems(supabase)
+  return (
+    <div className="space-y-4">
+      <DeliveriesTabs active="list" problems={problems} />
+      <DeliveryView delivery={delivery} stores={stores} userName={user.display_name} />
+    </div>
+  )
 }

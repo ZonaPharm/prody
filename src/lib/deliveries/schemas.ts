@@ -88,6 +88,103 @@ export const supplierUpdateSchema = z
   })
   .refine(v => Object.keys(v).length > 0, { message: 'Няма промени' })
 
+// ---------------------------------------------------------------------------
+// Phase 3: labelling, trips, packing, the driver, the store, the problems.
+// ---------------------------------------------------------------------------
+
+const note = z.string().trim().max(500).nullable().optional()
+const needsNote = (s: { reason?: string; note?: string | null }) => s.reason !== 'other' || !!(s.note && s.note.length > 0)
+const OTHER_NOTE = { message: 'За причина „Друго“ напишете кратка бележка' }
+
+export const STEP_SIGNAL_REASONS = ['damaged', 'wrong_label', 'wrong_product', 'missing', 'other'] as const
+
+const stepSignal = {
+  reason: z.enum(STEP_SIGNAL_REASONS),
+  qty_expected: units().nullable().optional(),
+  qty_actual: units().nullable().optional(),
+  note,
+}
+
+export const readySchema = z
+  .object({
+    rows: z
+      .array(
+        z
+          .object({
+            item_id: id,
+            qty: z.number().int().min(1).max(1_000_000),
+            // Part of a line: where these units go (store_id null = Офис), inside the plan.
+            split: z
+              .array(z.object({ store_id: id.nullable(), qty: z.number().int().min(1, 'Всяка част е поне 1 бр.').max(1_000_000) }))
+              .max(100)
+              .optional(),
+          })
+          .refine(r => !r.split?.length || r.split.reduce((n, p) => n + p.qty, 0) === r.qty, {
+            message: 'Разпределението трябва да е точно колкото етикетираните бройки',
+          })
+          .refine(r => !r.split || new Set(r.split.map(p => p.store_id ?? 'office')).size === r.split.length, {
+            message: 'Обект се повтаря в разпределението',
+          }),
+      )
+      .max(5000)
+      .default([]),
+    signals: z.array(z.object({ item_id: id, ...stepSignal }).refine(needsNote, OTHER_NOTE)).max(5000).default([]),
+  })
+  .refine(v => v.rows.length > 0 || v.signals.length > 0, {
+    message: 'Нищо не е отметнато: отметнете етикетираните редове или отбележете „Не е наред“',
+  })
+
+export const tripCreateSchema = z.object({
+  store_ids: z.array(id).min(1, 'Изберете поне един обект').max(100),
+  notes: z.string().trim().max(500).nullable().optional(),
+})
+
+export const tripCancelSchema = cancelSchema
+
+/** "Добави в курса": the stores whose newly ready units go into an open trip. */
+export const tripAddSchema = z.object({
+  store_ids: z.array(id).min(1, 'Изберете поне един обект').max(100),
+})
+
+/** "Махни от курса": one store's shipment leaves a trip that has not left. */
+export const shipmentRemoveSchema = cancelSchema
+
+export const tripSendSchema = z.object({
+  driver_id: id,
+  password: z.string().min(1, 'Шофьорът въвежда паролата си').max(200),
+})
+
+export const packSchema = z.object({
+  lines: z.array(z.object({ line_id: id, qty: units() })).min(1, 'Няма редове').max(5000),
+  box_count: z.number().int('Цяло число кашони').min(1, 'Поне 1 кашон').max(10_000),
+  signals: z.array(z.object({ line_id: id, ...stepSignal }).refine(needsNote, OTHER_NOTE)).max(5000).default([]),
+})
+
+export const STORE_SIGNAL_REASONS = ['short', 'damaged', 'wrong_product', 'missing', 'other'] as const
+
+export const confirmSchema = z.object({
+  lines: z
+    .array(
+      z
+        .object({
+          line_id: id,
+          received_qty: units(),
+          reason: z.enum(STORE_SIGNAL_REASONS).optional(),
+          note,
+        })
+        .refine(needsNote, OTHER_NOTE),
+    )
+    .min(1, 'Няма редове')
+    .max(5000),
+})
+
+export const SIGNAL_RESOLUTIONS = ['corrected', 'returned_to_supplier', 'found', 'other'] as const
+
+export const resolveSchema = z.object({
+  resolution: z.enum(SIGNAL_RESOLUTIONS, 'Изберете решение'),
+  note: z.string().trim().max(500).nullable().optional(),
+})
+
 /** The first problem as one Bulgarian sentence, for a 400 answer. */
 export function firstIssue(error: z.ZodError): string {
   const issue = error.issues[0]

@@ -22,6 +22,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 interface NavItem {
   href: string
   label: string
+  badge?: number
 }
 
 export function AdminLayoutClient({
@@ -108,6 +109,9 @@ function SidebarContent({
               {Icon && <Icon className="mr-2 h-4 w-4" />}
               {item.label}
               {item.href === '/requests' && <RequestsBadge />}
+              {item.badge ? (
+                <span className="ml-auto rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white" title="Отворени проблеми по доставките">{item.badge}</span>
+              ) : null}
             </Button>
           )
         })}

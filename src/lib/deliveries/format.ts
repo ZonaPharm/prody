@@ -63,6 +63,8 @@ export function formatQtyWithPacks(qty: number, packSize: number | null | undefi
 export type LineCounters = {
   quantity: number
   received_qty: number
+  /** When given: received units still without a label make the line "Чака етикет". */
+  labelled_qty?: number
   plan: { planned_qty: number; ready_qty: number; shipped_qty: number }[]
 }
 
@@ -79,7 +81,7 @@ export const LINE_STATUS_LABEL: Record<LineStatus, string> = {
   expected: 'Очаква се',
   partially_received: 'Частично получен',
   received: 'Получен (остава в Офис)',
-  waiting_label: 'Чака преопаковане',
+  waiting_label: 'Чака етикет',
   ready: 'Готов за изпращане',
   partially_shipped: 'Частично изпратен',
   shipped: 'Изпратен',
@@ -87,7 +89,7 @@ export const LINE_STATUS_LABEL: Record<LineStatus, string> = {
 
 /**
  * The status of one line follows its counters; nobody picks it by hand.
- * Очаква се → Частично получен → Чака преопаковане → Готов за изпращане →
+ * Очаква се → Частично получен → Чака етикет → Готов за изпращане →
  * Частично изпратен → Изпратен. A line with no plan stays in Офис once received.
  */
 export function lineStatus(line: LineCounters): LineStatus {
@@ -96,6 +98,7 @@ export function lineStatus(line: LineCounters): LineStatus {
   const planned = line.plan.reduce((s, p) => s + p.planned_qty, 0)
   const ready = line.plan.reduce((s, p) => s + p.ready_qty, 0)
   const shipped = line.plan.reduce((s, p) => s + p.shipped_qty, 0)
+  if (line.labelled_qty != null && line.labelled_qty < line.received_qty) return 'waiting_label'
   if (planned <= 0) return 'received'
   if (shipped >= planned) return 'shipped'
   if (shipped > 0) return 'partially_shipped'
@@ -173,11 +176,20 @@ export function eventText(e: EventForText): string {
       return `Променено разпределение на ${product}${change ? `: ${change}` : ''}`.trim()
     }
     case 'ready':
-      return `${d.auto ? 'Готови без етикет' : 'Готови'} ${qty} бр. ${product}${store ? ` за ${store}` : ''}`
+      if (qty < 0) return `Махнати от готовите ${-qty} бр. ${product}${store ? ` за ${store}` : ''}${d.plan ? ' (променен план)' : ''}`
+      return `${d.auto === true ? 'Готови без етикет' : 'Готови'} ${qty} бр. ${product}${store ? ` за ${store}` : ''}`
+    case 'labelled':
+      return `Етикетирани ${qty} бр. ${product}`.trim()
     case 'trip_created':
       return 'Създаден курс'
     case 'packed':
       return 'Опакована пратка'
+    case 'unpacked':
+      return 'Опаковането е отворено отново'
+    case 'trip_changed':
+      return d.action === 'removed'
+        ? `Пратката е махната от курса${store ? ` (${store})` : ''}${typeof d.reason === 'string' && d.reason ? `: ${d.reason}` : ''}`
+        : `Добавени ${qty} бр. в курса`
     case 'sent':
       return `Изпратена пратка${store ? ` към ${store}` : ''}`
     case 'store_received':

@@ -10,7 +10,7 @@ Each backup (.json.gz) holds every row of these tables, listed here — and in
 `TABLES` in `src/lib/backup.ts` — in foreign-key order, so a restore that inserts
 them in this order never meets a missing parent:
 
-categories, stores, users, products, product_images, labels,
+categories, stores, users, products, product_images, labels, label_sheet_profiles,
 suppliers, deliveries, delivery_items, delivery_item_plan, trips, shipments,
 shipment_lines, delivery_signals, delivery_events,
 stock_batches, sales, stock_movements, stock_requests, request_events,
@@ -21,7 +21,8 @@ Not in the backup: `auth.users`, which `users`, `audit_logs`, `stock_requests`,
 before those tables are restored.
 
 The deliveries tables (suppliers … delivery_events) come from
-`20261110_deliveries_schema.sql`. Until that migration is applied where the
+`20261110_deliveries_schema.sql`, and `label_sheet_profiles` from
+`20261111_label_sheet_profiles.sql`. Until that migration is applied where the
 backup runs, they are skipped and the email's details say `още няма: …`.
 
 ### Restoring the deliveries tables
@@ -37,6 +38,11 @@ backup runs, they are skipped and the email's details say `още няма: …`
   restore, disable its triggers for the duration of the restore and enable them
   again afterwards (`alter table public.delivery_events disable trigger user;` …
   `enable trigger user;`). `TRUNCATE` is blocked by a statement trigger too.
+- **`delivery_items.unlabelled_qty` is a generated column** (`received_qty − labelled_qty`).
+  Leave it out of the restored rows: Postgres refuses a value for it. Restore
+  `delivery_items` before `delivery_item_plan`, with the triggers of both tables disabled
+  (`alter table … disable trigger user;` … `enable trigger user;`), so `labelled_qty`
+  comes back exactly as backed up.
 - `trips.number`, `shipments.number` and `deliveries.number` come from sequences.
   After a restore set each sequence past the highest number restored, e.g.
   `select setval('public.delivery_number_seq', coalesce((select max(number) from public.deliveries), 0) + 1, false);`
