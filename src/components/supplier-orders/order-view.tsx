@@ -14,6 +14,7 @@ import { formatDeliveryNumber } from '@/lib/deliveries/format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import type { OrderDetail } from '@/lib/supplier-orders/queries'
 import { cn } from '@/lib/utils'
+import { Meta, Note, PageHeader } from '@/components/ui/text'
 
 /**
  * A sent, arrived or cancelled order. Steps on top (Поръчана → Изпратена →
@@ -115,25 +116,19 @@ export function OrderView({ order, text, mailReady, justSent }: {
 
   return (
     <div className="space-y-4 max-w-4xl">
-      <div>
-        <Link href="/deliveries/orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-slate-900">
-          <ArrowLeft className="h-4 w-4" />Поръчки
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-bold">Поръчка {formatOrderNumber(order.number)}</h1>
-          <OrderStatusBadge status={order.status} />
-        </div>
-        <p className="text-sm text-muted-foreground">
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries/orders" aria-label="Назад към поръчките"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={<span className="inline-flex flex-wrap items-center gap-3">Поръчка {formatOrderNumber(order.number)}<OrderStatusBadge status={order.status} className="tracking-normal" /></span>}
+        intro={<>
           {order.supplier.name}{order.supplier.phone ? <> · <a className="underline" href={`tel:${order.supplier.phone}`}>{order.supplier.phone}</a></> : ''}
           {order.creator ? ` · създадена от ${order.creator}` : ''}
-        </p>
-      </div>
+        </>}
+      />
 
       {justSent && order.status === 'sent' && (
-        <p className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          <Check className="h-4 w-4 shrink-0" />
+        <Note tone="success">
           {justSent === 'email' ? `Поръчката тръгна по имейл до ${order.sent_to.join(', ')}. Копие има и във вашата поща.` : 'Отбелязана е като поръчана. Сега чака стоката.'}
-        </p>
+        </Note>
       )}
 
       {order.status !== 'cancelled' && (
@@ -156,7 +151,7 @@ export function OrderView({ order, text, mailReady, justSent }: {
         </ol>
       )}
 
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
+      {error && <Note tone="danger">{error}</Note>}
 
       {/* The one next step */}
       {(order.status === 'sent' || deliveryGone) && (
@@ -189,9 +184,9 @@ export function OrderView({ order, text, mailReady, justSent }: {
         </Link>
       )}
       {order.status === 'cancelled' && (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <Note tone="danger">
           Отказана{order.cancelled_at ? ` на ${sofiaDateTime(order.cancelled_at)}` : ''}{order.cancel_reason ? `: ${order.cancel_reason}` : ''}.
-        </p>
+        </Note>
       )}
 
       <section className="rounded-xl border bg-white">
@@ -221,9 +216,7 @@ export function OrderView({ order, text, mailReady, justSent }: {
               <ProductThumb src={l.product.image} size={36} />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{l.product.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  наличност {l.product.quantity_on_hand} бр.{l.note ? ` · ${l.note}` : ''}
-                </div>
+                <Meta as="div">наличност {l.product.quantity_on_hand} бр.{l.note ? ` · ${l.note}` : ''}</Meta>
               </div>
               <span className="text-base font-semibold tabular-nums">{l.quantity} бр.</span>
             </li>

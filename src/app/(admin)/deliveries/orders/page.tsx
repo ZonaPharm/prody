@@ -7,6 +7,7 @@ import { OrdersList } from '@/components/supplier-orders/orders-list'
 import { getOrdersList, type OrderFilter } from '@/lib/supplier-orders/queries'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import { PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,15 +24,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-4 max-w-7xl">
       <DeliveriesTabs active="orders" problems={problems} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Поръчки към доставчици</h1>
-          <p className="text-sm text-muted-foreground">Изберете доставчик и продукти, изпратете му поръчката. Когато стоката дойде, тя става доставка.</p>
-        </div>
-        <Button asChild>
-          <Link href="/deliveries/orders/new"><Plus className="mr-2 h-4 w-4" />Нова поръчка</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Поръчки към доставчици"
+        intro="Изберете доставчик и продукти, изпратете му поръчката. Когато стоката дойде, тя става доставка."
+        actions={<Button asChild><Link href="/deliveries/orders/new"><Plus className="mr-2 h-4 w-4" />Нова поръчка</Link></Button>}
+      />
       <OrdersList rows={rows} filter={filter} />
     </div>
   )

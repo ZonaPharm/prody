@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Check, Loader2, Mail, Pencil, X } from 'lucide-react'
 import { parseEmails } from '@/lib/supplier-orders/format'
+import { Hint, Note, SectionTitle } from '@/components/ui/text'
 
 type Supplier = {
   id: string
@@ -198,15 +199,15 @@ function OrderSignature() {
 
   return (
     <section className="space-y-2 rounded-lg border bg-white p-3">
-      <h3 className="font-semibold">Подпис на поръчките</h3>
-      <p className="text-xs text-muted-foreground">
+      <SectionTitle>Подпис на поръчките</SectionTitle>
+      <Hint small>
         Стои в края на всяка поръчка към доставчик. Първият ред е името на фирмата (то е и в темата на имейла). Добавете адрес за доставка и телефон.
-      </p>
+      </Hint>
       <Textarea rows={4} maxLength={1000} value={value} onChange={e => { setValue(e.target.value); if (state === 'done') setState('idle') }}
         placeholder={'Зона Фарма ЕООД\nАдрес за доставка: …\nТел.: …'} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!mailReady && (
-        <p className="text-xs text-amber-800">Пощата на приложението не е настроена (раздел „Имейл“), затова поръчките още не могат да тръгват по имейл.</p>
+        <Note tone="warn" small>Пощата на приложението не е настроена (раздел „Имейл“), затова поръчките още не могат да тръгват по имейл.</Note>
       )}
       <Button size="sm" onClick={save} disabled={state === 'saving' || value.trim() === saved}>
         {state === 'saving' ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}

@@ -11,6 +11,7 @@ import { ProductPicker, ProductThumb } from '@/components/deliveries/product-pic
 import { formatOrderNumber, orderText, orderTotals } from '@/lib/supplier-orders/format'
 import type { SupplierContact, SupplierProduct } from '@/lib/supplier-orders/queries'
 import { cn } from '@/lib/utils'
+import { Empty, Hint, Meta, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 
 /**
  * A new order to a supplier, in three steps shown at the top:
@@ -222,17 +223,11 @@ export function OrderEditor({
 
   return (
     <div className="space-y-4 max-w-6xl">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Link href="/deliveries/orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-slate-900">
-            <ArrowLeft className="h-4 w-4" />Поръчки
-          </Link>
-          <h1 className="text-2xl font-bold">
-            {number ? `Поръчка ${formatOrderNumber(number)}` : 'Нова поръчка към доставчик'}
-            <span className="ml-2 align-middle text-sm font-normal text-muted-foreground">чернова{dirty ? ' · има незаписани промени' : id ? ' · записана' : ''}</span>
-          </h1>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries/orders" aria-label="Назад към поръчките"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={number ? `Поръчка ${formatOrderNumber(number)}` : 'Нова поръчка към доставчик'}
+        intro={`Чернова${dirty ? ': има незаписани промени' : id ? ': записана' : ''}. Три стъпки: доставчик, продукти, изпращане.`}
+        actions={<>
           {id && step !== 1 && (
             <Button variant="outline" onClick={() => void save()} disabled={!!busy || !dirty}>
               {busy === 'save' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}Запази черновата
@@ -241,8 +236,8 @@ export function OrderEditor({
           <Button variant="ghost" className="text-red-600" onClick={removeDraft} disabled={!!busy}>
             <Trash2 className="mr-2 h-4 w-4" />{id ? 'Изтрий' : 'Откажи'}
           </Button>
-        </div>
-      </div>
+        </>}
+      />
 
       <ol className="grid grid-cols-3 gap-1 rounded-xl border bg-white p-2" aria-label="Стъпки">
         {steps.map(s => {
@@ -272,7 +267,7 @@ export function OrderEditor({
         })}
       </ol>
 
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
+      {error && <Note tone="danger">{error}</Note>}
 
       {step === 1 && (
         <SupplierStep
@@ -288,15 +283,10 @@ export function OrderEditor({
       {step === 2 && supplier && (
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
           <section className="space-y-3 rounded-xl border bg-white p-3 lg:order-2" aria-label="Поръчката">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="font-semibold">Поръчвам от {supplier.name}</h2>
-              <span className="text-sm text-muted-foreground tabular-nums">{totals.lines} {totals.lines === 1 ? 'продукт' : 'продукта'}, {totals.units} бр.</span>
-            </div>
+            <SectionTitle count={`${totals.lines} ${totals.lines === 1 ? 'продукт' : 'продукта'}, ${totals.units} бр.`}>Поръчвам от {supplier.name}</SectionTitle>
             <ProductPicker onPick={p => addProduct({ id: p.id, name: p.name, sku: p.sku, image: p.image, quantity_on_hand: p.quantity_on_hand, status: p.status })} />
             {lines.length === 0 ? (
-              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Потърсете продукт горе или натиснете <Plus className="inline h-3.5 w-3.5" /> до продукт от списъка „Обикновено взимаме“.
-              </p>
+              <Hint>Потърсете продукт горе или натиснете <Plus className="inline h-3.5 w-3.5" /> до продукт от списъка „Обикновено взимаме“. После напишете колко бройки.</Hint>
             ) : (
               <ul className="divide-y rounded-lg border">
                 {lines.map(l => {
@@ -307,7 +297,7 @@ export function OrderEditor({
                         <ProductThumb src={l.product.image} size={36} />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">{l.product.name}</div>
-                          <div className="text-xs text-muted-foreground">наличност {l.product.quantity_on_hand} бр.{l.hint ? ` · последно ${l.hint} бр.` : ''}</div>
+                          <Meta as="div">наличност {l.product.quantity_on_hand} бр.{l.hint ? ` · последно ${l.hint} бр.` : ''}</Meta>
                         </div>
                         <Input
                           ref={el => { if (el) qtyRefs.current.set(l.product.id, el); else qtyRefs.current.delete(l.product.id) }}
@@ -353,11 +343,11 @@ export function OrderEditor({
       {step === 3 && supplier && (
         <div className="grid gap-4 lg:grid-cols-[1fr_360px] lg:items-start">
           <section className="rounded-xl border bg-white p-4" aria-label="Както ще я види доставчикът">
-            <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Така ще я види {supplier.name}</h2>
+            <SectionTitle className="mb-2">Така ще я види {supplier.name}</SectionTitle>
             <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">{preview}</pre>
           </section>
           <section className="space-y-3 rounded-xl border bg-white p-4" aria-label="Изпращане">
-            <h2 className="font-semibold">Как да тръгне?</h2>
+            <SectionTitle>Как да тръгне?</SectionTitle>
             {supplier.order_emails.length > 0 && mailReady ? (
               <Button className="h-auto w-full flex-col items-start gap-0.5 py-3 text-left" onClick={() => send('email')} disabled={!!busy}>
                 <span className="flex items-center text-base">
@@ -366,11 +356,11 @@ export function OrderEditor({
                 <span className="text-xs font-normal opacity-80 break-all">до {supplier.order_emails.join(', ')}. Копие отива и при вас.</span>
               </Button>
             ) : (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <Note tone="warn">
                 {supplier.order_emails.length === 0
                   ? <>{supplier.name} няма имейл за поръчки. Добавете го в <Link className="underline" href="/settings?tab=suppliers">Настройки → Доставчици</Link> или поръчайте по телефона и натиснете „Поръчах я сам“.</>
                   : <>Пощата на приложението не е настроена (<Link className="underline" href="/settings?tab=email">Настройки → Имейл</Link>). Поръчайте сами и натиснете „Поръчах я сам“.</>}
-              </p>
+              </Note>
             )}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={copyText} disabled={!!busy}>
@@ -381,14 +371,14 @@ export function OrderEditor({
               </Button>
             </div>
             <div className="border-t pt-3">
-              <p className="mb-2 text-xs text-muted-foreground">Поръчахте по телефона, Viber или на хартия? Отбележете го, за да чака стоката в „Поръчки“.</p>
+              <Hint small className="mb-2">Поръчахте по телефона, Viber или на хартия? Отбележете го, за да чака стоката в „Поръчки“.</Hint>
               <Button variant="secondary" className="w-full" onClick={() => {
                 if (confirm(`Поръчахте ли ${formatOrderNumber(number)} от ${supplier.name} сами (телефон, Viber, хартия)?`)) void send('manual')
               }} disabled={!!busy}>
                 {busy === 'manual' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Phone className="mr-2 h-4 w-4" />}Поръчах я сам
               </Button>
             </div>
-            {supplier.phone && <p className="text-xs text-muted-foreground">Телефон на {supplier.contact_name || supplier.name}: <a className="underline" href={`tel:${supplier.phone}`}>{supplier.phone}</a></p>}
+            {supplier.phone && <Meta>Телефон на {supplier.contact_name || supplier.name}: <a className="underline" href={`tel:${supplier.phone}`}>{supplier.phone}</a></Meta>}
             <Button variant="ghost" className="w-full" onClick={() => setStep(2)} disabled={!!busy}>
               <ArrowLeft className="mr-2 h-4 w-4" />Промени продуктите
             </Button>
@@ -405,7 +395,7 @@ function SupplierStep({ suppliers, selected, onPick }: { suppliers: SupplierCont
   const shown = active.filter(s => s.name.toLowerCase().includes(q.trim().toLowerCase()))
   return (
     <section className="space-y-3" aria-label="Доставчик">
-      <h2 className="font-semibold">От кого поръчваме?</h2>
+      <SectionTitle>От кого поръчваме?</SectionTitle>
       {active.length > 8 && (
         <div className="relative max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -413,9 +403,9 @@ function SupplierStep({ suppliers, selected, onPick }: { suppliers: SupplierCont
         </div>
       )}
       {active.length === 0 ? (
-        <p className="rounded-lg border bg-white p-6 text-sm text-muted-foreground">
+        <Empty className="rounded-lg border bg-white">
           Няма доставчици. Добавете ги в <Link className="underline" href="/settings?tab=suppliers">Настройки → Доставчици</Link>.
-        </p>
+        </Empty>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map(s => (
@@ -426,9 +416,9 @@ function SupplierStep({ suppliers, selected, onPick }: { suppliers: SupplierCont
                 className={cn('w-full rounded-xl border bg-white p-3 text-left hover:border-primary hover:bg-primary/5', selected === s.id && 'border-primary ring-2 ring-primary/20')}
               >
                 <span className="block font-medium">{s.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">
+                <Meta as="span" className="block truncate">
                   {s.order_emails.length ? <><Mail className="mr-1 inline h-3 w-3" />{s.order_emails[0]}{s.order_emails.length > 1 ? ` +${s.order_emails.length - 1}` : ''}</> : 'без имейл: поръчва се по телефона'}
-                </span>
+                </Meta>
               </button>
             </li>
           ))}
@@ -465,23 +455,18 @@ function SupplierProducts({ supplier, inOrder, onAdd }: {
 
   return (
     <section className="space-y-2 rounded-xl border bg-white p-3 lg:order-1" aria-label="Обикновено взимаме">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-semibold">Обикновено взимаме от {supplier.name}</h2>
-        {items && <span className="text-xs text-muted-foreground">{items.length}</span>}
-      </div>
+      <SectionTitle count={items ? items.length : undefined}>Обикновено взимаме от {supplier.name}</SectionTitle>
       {items && items.length > 8 && (
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Филтър" className="pl-8 bg-white" />
         </div>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <Note tone="danger">{error}</Note>}
       {!items && !error ? (
         <Loader2 className="h-5 w-5 animate-spin" />
       ) : items && items.length === 0 ? (
-        <p className="p-4 text-center text-sm text-muted-foreground">
-          Още нищо не сме взимали от {supplier.name} през приложението. Потърсете продуктите в полето горе.
-        </p>
+        <Empty>Още нищо не сме взимали от {supplier.name} през приложението. Потърсете продуктите в полето горе.</Empty>
       ) : (
         <ul className="max-h-[60vh] divide-y overflow-auto">
           {shown.map(p => {

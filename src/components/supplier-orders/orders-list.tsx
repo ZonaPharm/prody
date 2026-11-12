@@ -11,6 +11,7 @@ import { formatDeliveryNumber } from '@/lib/deliveries/format'
 import { sofiaDate } from '@/lib/date-utils'
 import type { OrderFilter, OrderListRow } from '@/lib/supplier-orders/queries'
 import { cn } from '@/lib/utils'
+import { Empty, Meta } from '@/components/ui/text'
 
 const TABS: { value: OrderFilter; label: string }[] = [
   { value: 'open', label: 'Чакат' },
@@ -61,13 +62,13 @@ export function OrdersList({ rows, filter }: { rows: OrderListRow[]; filter: Ord
       </div>
 
       {shown.length === 0 ? (
-        <div className="rounded-lg border bg-white p-8 text-center text-sm text-muted-foreground">
+        <Empty className="rounded-lg border bg-white">
           {rows.length === 0
             ? filter === 'open'
               ? 'Няма поръчки, които чакат. Натиснете „Нова поръчка“, за да поръчате от доставчик.'
               : 'Няма поръчки тук.'
             : 'Нищо не отговаря на търсенето.'}
-        </div>
+        </Empty>
       ) : (
         <ul className="divide-y rounded-xl border bg-white">
           {shown.map(r => (
@@ -79,13 +80,11 @@ export function OrdersList({ rows, filter }: { rows: OrderListRow[]; filter: Ord
                     <span className="font-medium">{r.supplier_name}</span>
                     <OrderStatusBadge status={r.status} />
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {whereText(r)}
-                  </div>
+                  <Meta as="div">{whereText(r)}</Meta>
                 </div>
                 <div className="text-right text-sm tabular-nums">
                   <div>{r.lines} {r.lines === 1 ? 'продукт' : 'продукта'}, {r.units} бр.</div>
-                  <div className="text-xs text-muted-foreground">{sofiaDate(r.created_at)}{r.creator ? ` · ${r.creator}` : ''}</div>
+                  <Meta as="div">{sofiaDate(r.created_at)}{r.creator ? ` · ${r.creator}` : ''}</Meta>
                 </div>
               </Link>
             </li>

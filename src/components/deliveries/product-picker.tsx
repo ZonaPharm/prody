@@ -11,7 +11,15 @@ import { cn } from '@/lib/utils'
  * the mouse or with ↑ ↓ and Enter. Enter on a fresh search takes the first hit,
  * so a barcode scanner (which types and presses Enter) adds the line at once.
  */
-export function ProductPicker({ onPick, disabled }: { onPick: (p: DeliveryProduct) => void; disabled?: boolean }) {
+export function ProductPicker({ onPick, disabled, placeholder = 'Добави продукт: име, код или баркод и Enter', autoFocus, className, scrollOnFocus }: {
+  onPick: (p: DeliveryProduct) => void
+  disabled?: boolean
+  placeholder?: string
+  autoFocus?: boolean
+  className?: string
+  /** On a phone the list opens under the field: bring the field up first so the list fits above the keyboard. */
+  scrollOnFocus?: boolean
+}) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<DeliveryProduct[]>([])
   const [loading, setLoading] = useState(false)
@@ -88,10 +96,14 @@ export function ProductPicker({ onPick, disabled }: { onPick: (p: DeliveryProduc
         disabled={disabled}
         onChange={e => { setQ(e.target.value); setOpen(true) }}
         onKeyDown={onKeyDown}
-        onFocus={() => results.length && setOpen(true)}
+        onFocus={() => {
+          if (results.length) setOpen(true)
+          if (scrollOnFocus && window.innerWidth < 640) inputRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+        }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Добави продукт: име, код или баркод и Enter"
-        className="pl-8 bg-white"
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className={cn('pl-8 bg-white scroll-mt-24', className)}
         aria-label="Търсене на продукт"
       />
       {loading && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}

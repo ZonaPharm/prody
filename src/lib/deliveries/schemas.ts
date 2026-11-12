@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supplierEmailsSchema } from '@/lib/supplier-orders/schemas'
+import { LABEL_KINDS } from '@/lib/label-kind'
 
 /**
  * What the delivery API routes accept. Checked on the server before anything
@@ -19,6 +20,8 @@ export const draftItemSchema = z.object({
   quantity: z.number().int('Количеството е цяло число').min(1, 'Количеството е поне 1').max(1_000_000),
   unit_cost: z.number().min(0, 'Доставната цена не може да е отрицателна').max(1_000_000),
   needs_label: z.boolean().nullable().optional(),
+  /** Set only when changed on the entry screen; written to the product. */
+  label_kind: z.enum(LABEL_KINDS).nullable().optional(),
   plan: z.array(z.object({ store_id: id, planned_qty: units() })).max(100).default([]),
 })
 
@@ -74,6 +77,7 @@ export const newProductSchema = z.object({
   category_id: id.nullable().optional(),
   supplier_id: id.nullable().optional(),
   needs_label: z.boolean().default(true),
+  label_kind: z.enum(LABEL_KINDS).nullable().optional(),
 })
 
 export const supplierCreateSchema = z.object({
