@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { supplierEmailsSchema } from '@/lib/supplier-orders/schemas'
 
 /**
  * What the delivery API routes accept. Checked on the server before anything
@@ -85,6 +86,10 @@ export const supplierUpdateSchema = z
     name: z.string().trim().min(1, 'Въведете име').max(120).optional(),
     notes: z.string().trim().max(1000).nullable().optional(),
     is_active: z.boolean().optional(),
+    // Orders to suppliers (migration 20261112_supplier_orders).
+    order_emails: supplierEmailsSchema.optional(),
+    contact_name: z.string().trim().max(120).nullable().optional(),
+    phone: z.string().trim().max(60).nullable().optional(),
   })
   .refine(v => Object.keys(v).length > 0, { message: 'Няма промени' })
 

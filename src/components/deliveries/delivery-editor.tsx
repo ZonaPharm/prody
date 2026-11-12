@@ -29,6 +29,10 @@ import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
+import { compareWithOrder, diffSentence, formatOrderNumber, type OrderedLine } from '@/lib/supplier-orders/format'
+
+/** The order this draft delivery was made from ("Пристигна"), to check what came against it. */
+export type FromOrder = { id: string; number: number; lines: OrderedLine[] }
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Option = { id: string; name: string }
@@ -65,11 +69,13 @@ export function DeliveryEditor({
   stores,
   suppliers: initialSuppliers,
   categories,
+  fromOrder = null,
 }: {
   initial: DraftInitial | null
   stores: StoreOption[]
   suppliers: SupplierOption[]
   categories: Option[]
+  fromOrder?: FromOrder | null
 }) {
   const router = useRouter()
   const warehouse = stores.find(s => s.is_warehouse)
@@ -81,6 +87,13 @@ export function DeliveryEditor({
   const [header, setHeader] = useState<DraftHeaderState>(initial?.header ?? { order_ref: '', notes: '' })
   const [lines, setLines] = useState<DraftLineState[]>(initial?.lines ?? [])
   const [suppliers, setSuppliers] = useState<SupplierOption[]>(initialSuppliers)
+  const orderedQty = useMemo(() => new Map((fromOrder?.lines ?? []).map(o => [o.product_id, o.quantity])), [fromOrder])
+  const orderDiff = useMemo(
+    () => fromOrder
+      ? compareWithOrder(fromOrder.lines, lines.map(l => ({ product_id: l.product.id, name: l.product.name, quantity: parseQty(l.quantity) ?? 0 })))
+      : null,
+    [fromOrder, lines],
+  )
   const [defaultSupplier, setDefaultSupplier] = useState<string | null>(null)
   const [defaultDoc, setDefaultDoc] = useState('')
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
@@ -376,6 +389,26 @@ export function DeliveryEditor({
         </div>
       </section>
 
+      {fromOrder && orderDiff && (
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" aria-label="Сверете с фактурата">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-semibold">
+              От поръчка <Link className="underline" href={`/deliveries/orders/${fromOrder.id}`}>{formatOrderNumber(fromOrder.number)}</Link>: сверете с фактурата
+            </h2>
+            <span className={cn('font-medium', orderDiff.same ? 'text-emerald-800' : 'text-amber-800')}>{diffSentence(orderDiff)}</span>
+          </div>
+          <ol className="mt-2 list-decimal space-y-0.5 pl-5">
+            <li>Поправете бройките, които са дошли различно (до всеки ред пише колко сме поръчали).</li>
+            <li>Махнете с кошчето каквото не е дошло.</li>
+            <li>Добавете дошлото извън поръчката: търсене, „Каталог“ или „Нов продукт“ отдолу.</li>
+            <li>Сложете цените и номера от фактурата, разпределете по магазини и запазете.</li>
+          </ol>
+          {orderDiff.missing.length > 0 && (
+            <p className="mt-2 text-xs">Не са в доставката: {orderDiff.missing.map(m => `${m.name} (${m.quantity} бр.)`).join(', ')}</p>
+          )}
+        </section>
+      )}
+
       <section className="rounded-lg border bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b p-3">
           <div className="flex-1 min-w-[260px]"><ProductPicker onPick={p => addProducts([p])} disabled={fatal} /></div>
@@ -409,6 +442,19 @@ export function DeliveryEditor({
                         {l.product.status !== 'active' && <span className="ml-1 text-amber-700">(неактивен)</span>}
                         {dup && <span className="ml-1 text-amber-700">· продуктът е на повече от един ред</span>}
                       </div>
+                      {fromOrder && (() => {
+                        const ordered = orderedQty.get(l.product.id)
+                        if (ordered == null) return <div className="text-xs font-medium text-blue-800">извън поръчката</div>
+                        const came = orderDiff?.changed.find(c => c.product_id === l.product.id)
+                        return (
+                          <div className={cn('text-xs font-medium', came ? 'text-amber-700' : 'text-slate-600')}>
+                            поръчани: {ordered} бр.{came ? ` · дошли общо ${came.came}` : ''}
+                          </div>
+                        )
+                      })()}
+                      {fromOrder && cost === 0 && (
+                        <div className="text-xs text-amber-700">Цената е 0: сложете я от фактурата</div>
+                      )}
                       <label className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-600">
                         <input type="checkbox" className="h-3.5 w-3.5" checked={!l.needs_label} disabled={fatal}
                           onChange={e => setNeedsLabel(l.product.id, !e.target.checked)} />
