@@ -20,6 +20,7 @@ import {
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
+import { RowTick } from './checklist-ui'
 
 export type ReceiveRowView = {
   item_id: string
@@ -149,17 +150,10 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
               const problem = s?.problem ?? null
               const checked = !!s?.checked && !problem
               return (
-                <li key={r.item_id} className={cn('flex flex-wrap items-center gap-3 px-3 py-3', checked && 'bg-emerald-50/60', problem && 'bg-red-50/60')} data-testid="receive-row">
-                  <input
-                    type="checkbox"
-                    className="h-6 w-6 shrink-0"
-                    aria-label={`Получено: ${r.product_name}`}
-                    checked={checked}
-                    disabled={!!problem}
-                    onChange={e => setRow(r.item_id, { checked: e.target.checked })}
-                  />
+                <li key={r.item_id} className={cn('flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center', checked && 'bg-emerald-50/60', problem && 'bg-red-50/60')} data-testid="receive-row">
+                  <div className="flex flex-1 min-w-0 gap-3">
                   <ProductThumb src={r.image} size={40} />
-                  <div className="flex-1 min-w-[180px]">
+                  <div className="flex-1 min-w-0">
                     <div className="font-medium leading-tight">{r.product_name}</div>
                     <div className="text-xs text-muted-foreground">
                       {r.supplier_name ?? '—'}{r.doc_number ? ` · ф-ра ${r.doc_number}` : ''}{!r.needs_label ? ' · без етикет' : ''}
@@ -177,13 +171,17 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
                       </div>
                     )}
                   </div>
-                  {problem ? (
-                    <Button variant="ghost" size="sm" onClick={() => setRow(r.item_id, { problem: null })}>Отмени</Button>
-                  ) : (
-                    <Button variant="outline" size="sm" className="text-red-700 border-red-200" onClick={() => setProblemFor(r)}>
-                      <AlertTriangle className="mr-1 h-4 w-4" />Не е наред
-                    </Button>
-                  )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                    <RowTick state={s} text="Получено" label={`Получено: ${r.product_name}`} onChange={on => setRow(r.item_id, { checked: on })} />
+                    {problem ? (
+                      <Button variant="ghost" size="sm" onClick={() => setRow(r.item_id, { problem: null })}>Отмени</Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="text-red-700 border-red-200" onClick={() => setProblemFor(r)}>
+                        <AlertTriangle className="mr-1 h-4 w-4" />Не е наред
+                      </Button>
+                    )}
+                  </div>
                 </li>
               )
             })}

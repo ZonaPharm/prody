@@ -11,7 +11,7 @@ import { formatDeliveryNumber, formatMoney } from '@/lib/deliveries/format'
 import { defaultSplit, splitError, splitTargets, splitText, type LabelItem } from '@/lib/deliveries/queue'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
-import { ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
+import { ChecklistSteps, ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
 
 /** The label sheets for these lines (at most 300 in one go), in a new tab. */
 function printHref(itemIds: string[]): string {
@@ -131,6 +131,11 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
         </div>
       ) : (
         <>
+          <ChecklistSteps steps={[
+            <><b>По избор:</b> ако етикетите ги няма, отпечатайте ги. Ако вече са залепени, направо към стъпка 2.</>,
+            <>Натиснете <b>„С етикет“</b> на всеки ред, който е готов. Ако е готова само част, „Само част“.</>,
+            <>Натиснете <b>„Подписвам“</b> долу. Чак тогава стоката става готова за курс.</>,
+          ]} />
           <div className="flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -144,7 +149,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
             )}
             <Button variant="outline" onClick={() => setState({})}>Махни отметките</Button>
             {shown.length > 0 && (
-              <Button asChild>
+              <Button asChild variant="outline">
                 <Link href={printHref(shown.map(r => r.item_id))} target="_blank"><Printer className="mr-2 h-4 w-4" />Печат на етикетите ({shown.reduce((n, r) => n + r.expected, 0)} бр.)</Link>
               </Button>
             )}
@@ -158,10 +163,10 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
               const sp = part != null ? splitOf(r, part) : []
               const spErr = part != null ? splitError(targets, sp, part, storeName) : null
               return (
-                <li key={r.item_id} className={cn('flex flex-wrap items-center gap-3 px-3 py-3', s?.problem?.kind === 'partial' ? 'bg-amber-50/60' : rowTone(s))} data-testid="label-row">
-                  <RowTick state={s} label={`Етикетирани: ${r.product_name}`} onChange={on => setRow(r.item_id, { checked: on })} />
+                <li key={r.item_id} className={cn('flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center', s?.problem?.kind === 'partial' ? 'bg-amber-50/60' : rowTone(s))} data-testid="label-row">
+                  <div className="flex flex-1 min-w-0 gap-3">
                   <ProductThumb src={r.image} size={40} />
-                  <div className="flex-1 min-w-[200px]">
+                  <div className="flex-1 min-w-0">
                     <div className="font-medium leading-tight">{r.product_name}</div>
                     <div className="text-xs text-muted-foreground">
                       <Link href={`/deliveries/${r.delivery_id}`} className="hover:underline">{formatDeliveryNumber(r.delivery_number)}</Link>
@@ -176,7 +181,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
                     </div>
                     {s?.problem && s.problem.kind !== 'partial' && <ProblemText step="label" problem={s.problem} />}
                     {s?.problem?.kind === 'partial' && (
-                      <label className="mt-1 flex items-center gap-2 text-sm text-amber-900">
+                      <label className="mt-1 flex flex-wrap items-center gap-2 text-sm text-amber-900">
                         Готови сега (преопаковани и с етикет):
                         <Input
                           type="number"
@@ -224,6 +229,9 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
                       </div>
                     )}
                   </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                  <RowTick state={s} text="С етикет" label={`Етикетирани: ${r.product_name}`} onChange={on => setRow(r.item_id, { checked: on })} />
                   <Button asChild variant="ghost" size="sm">
                     <Link href={printHref([r.item_id])} target="_blank">
                       <Tag className="mr-1 h-4 w-4" />Етикет
@@ -235,6 +243,7 @@ export function LabelChecklist({ rows, storeNames, userName, initialDelivery }: 
                     </Button>
                   )}
                   <ProblemButton state={s} onOpen={() => setProblemFor(r)} onClear={() => setRow(r.item_id, { problem: null })} />
+                  </div>
                 </li>
               )
             })}

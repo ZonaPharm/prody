@@ -85,10 +85,10 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
         {lines.map(l => {
           const s = state[l.id]
           return (
-            <li key={l.id} className={cn('flex flex-wrap items-center gap-3 px-3 py-3', rowTone(s))} data-testid="shipment-row">
-              <RowTick state={s} label={`${mode === 'pack' ? 'В кашона' : 'Получено'}: ${l.product_name}`} onChange={on => setRow(l.id, { checked: on })} />
+            <li key={l.id} className={cn('flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center', rowTone(s))} data-testid="shipment-row">
+              <div className="flex flex-1 min-w-0 gap-3">
               <ProductThumb src={l.image} size={40} />
-              <div className="flex-1 min-w-[180px]">
+              <div className="flex-1 min-w-0">
                 <div className="font-medium leading-tight">{l.product_name}</div>
                 <div className="text-xs text-muted-foreground">
                   {l.product_sku ? `${l.product_sku} · ` : ''}цена {formatMoney(l.product_price)}
@@ -97,7 +97,11 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
                 <div className="text-sm"><span className="font-semibold">{l.qty} бр.</span></div>
                 {s?.problem && <ProblemText step={mode} problem={s.problem} />}
               </div>
-              <ProblemButton state={s} onOpen={() => setProblemFor(l)} onClear={() => setRow(l.id, { problem: null })} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                <RowTick state={s} text={mode === 'pack' ? 'В кашона' : 'Получено'} label={`${mode === 'pack' ? 'В кашона' : 'Получено'}: ${l.product_name}`} onChange={on => setRow(l.id, { checked: on })} />
+                <ProblemButton state={s} onOpen={() => setProblemFor(l)} onClear={() => setRow(l.id, { problem: null })} />
+              </div>
             </li>
           )
         })}

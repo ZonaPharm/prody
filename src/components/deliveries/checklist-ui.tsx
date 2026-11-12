@@ -40,17 +40,52 @@ export function rowTone(state: RowState | undefined): string {
   return ''
 }
 
-/** The tick (a big checkbox) of one row; disabled while the row has a problem. */
-export function RowTick({ state, label, onChange }: { state: RowState | undefined; label: string; onChange: (on: boolean) => void }) {
+/**
+ * The "this row is fine" switch of a checklist row: a big button with words on it
+ * ("С етикет", "Получено", "В кашона") and a checkbox inside, green when on.
+ * Disabled while the row has a problem.
+ */
+export function RowTick({ state, label, text, onChange }: {
+  state: { checked: boolean; problem: unknown } | undefined
+  label: string
+  /** The words on the button. */
+  text: string
+  onChange: (on: boolean) => void
+}) {
+  const on = !!state?.checked && !state?.problem
+  const blocked = !!state?.problem
   return (
-    <input
-      type="checkbox"
-      className="h-6 w-6 shrink-0"
-      aria-label={label}
-      checked={!!state?.checked && !state?.problem}
-      disabled={!!state?.problem}
-      onChange={e => onChange(e.target.checked)}
-    />
+    <label
+      className={cn(
+        'inline-flex h-10 shrink-0 select-none items-center gap-2 rounded-lg border-2 px-3 text-sm font-semibold transition-colors',
+        on ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-500',
+        blocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
+      )}
+    >
+      <input
+        type="checkbox"
+        className="h-5 w-5 accent-emerald-800"
+        aria-label={label}
+        checked={on}
+        disabled={blocked}
+        onChange={e => onChange(e.target.checked)}
+      />
+      {text}
+    </label>
+  )
+}
+
+/** How a checklist screen works, in three short steps, above the list. */
+export function ChecklistSteps({ steps }: { steps: React.ReactNode[] }) {
+  return (
+    <ol className="grid gap-x-4 gap-y-2 rounded-lg border bg-white p-3 text-sm sm:grid-cols-3">
+      {steps.map((step, i) => (
+        <li key={i} className="flex gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{i + 1}</span>
+          <span className="text-slate-700 leading-snug">{step}</span>
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -171,17 +206,17 @@ export function SignBar({ userName, summary, statement, disabled, disabledReason
 
   return (
     <>
-      <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
-        <div className="max-w-5xl flex flex-wrap items-center gap-3">
-          <div className="text-sm">
-            <div className="font-medium" suppressHydrationWarning>{userName} · {sofiaDateTime(now)}</div>
-            <div className="text-muted-foreground">{summary}</div>
+      <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-2.5 z-20">
+        {(error || (disabled && disabledReason)) && (
+          <div className={cn('max-w-5xl pb-2 text-sm', error ? 'text-red-600' : 'text-amber-700')}>{error || disabledReason}</div>
+        )}
+        <div className="max-w-5xl flex items-center gap-3">
+          <div className="min-w-0 flex-1 text-sm">
+            <div className="truncate font-medium" suppressHydrationWarning>{userName}<span className="hidden sm:inline"> · {sofiaDateTime(now)}</span></div>
+            <div className="truncate text-muted-foreground">{summary}</div>
           </div>
           {children}
-          {(error || (disabled && disabledReason)) && (
-            <span className={cn('text-sm', error ? 'text-red-600' : 'text-amber-700')}>{error || disabledReason}</span>
-          )}
-          <Button className="ml-auto" disabled={disabled || signing} onClick={() => setOpen(true)}>
+          <Button className="shrink-0" disabled={disabled || signing} onClick={() => setOpen(true)}>
             <PenLine className="mr-2 h-4 w-4" />Подписвам
           </Button>
         </div>
