@@ -11,7 +11,7 @@ import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/
 import {
   SHIPMENT_STATUS_LABEL,
   SHIPMENT_STATUS_TONE,
-  TRIP_STATUS_LABEL,
+  tripStatusLabel,
   TRIP_STATUS_TONE,
   boxesText,
   tripReadyToSend,
@@ -55,7 +55,7 @@ export function TripView({ trip, drivers, ready = [], today }: { trip: TripDetai
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">Курс {formatTripNumber(trip.number)}</h1>
-              <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[trip.status])}>{TRIP_STATUS_LABEL[trip.status]}</span>
+              <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[trip.status])}>{tripStatusLabel(trip.status, trip.shipments)}</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Създаден {sofiaDateTime(trip.created_at)}{trip.creator ? ` от ${trip.creator}` : ''}

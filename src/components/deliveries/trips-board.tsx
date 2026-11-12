@@ -10,7 +10,7 @@ import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/
 import { storeReadyText, type ReadyLine, type StoreReady } from '@/lib/deliveries/queue'
 import type { DriverOption, TripListRow } from '@/lib/deliveries/work'
 import { whenText } from '@/lib/deliveries/notify-text'
-import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/lib/deliveries/trip-format'
+import { TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL, tripStatusLabel } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
@@ -181,7 +181,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
               <li key={t.id}>
                 <Link href={`/deliveries/trips/${t.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-50">
                   <span className="font-semibold tabular-nums">{formatTripNumber(t.number)}</span>
-                  <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[t.status])}>{TRIP_STATUS_LABEL[t.status]}</span>
+                  <span className={cn('rounded-full border px-2 py-0.5 text-xs', TRIP_STATUS_TONE[t.status])}>{tripStatusLabel(t.status, t.shipments)}</span>
                   <span className="text-sm text-muted-foreground">
                     {t.status === 'open' && t.planned_date
                       ? `тръгва ${whenText(t.planned_date, t.planned_time, today)}`
