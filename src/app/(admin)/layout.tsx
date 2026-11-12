@@ -50,6 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       { ...TASKS_ITEM, badge: tasks },
       { href: '/deliveries/labels', label: 'Етикетиране' },
       { href: '/deliveries/trips', label: 'Курсове' },
+      { href: '/deliveries/low-stock', label: 'Ниски наличности' },
       ...(canSell(user) ? [{ href: '/record-sale', label: 'Каса' }] : []),
     ]
     return (

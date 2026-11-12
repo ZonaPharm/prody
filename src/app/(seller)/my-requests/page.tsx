@@ -31,13 +31,44 @@ export default async function MyRequestsPage({
     if (store) storeId = store.id
   }
 
+  // Each read is a round trip to the database. The reads that do not need the
+  // catalog or Офис stock start now, so they run alongside the reads below
+  // instead of after them: the "Мои заявки" list and what already comes to this
+  // store from Офис (on the way, on a trip, being prepared), so nobody asks for
+  // it again. That one is read with the service-role client, only for this
+  // store; a failure just leaves the hints out.
+  const myRequestsRead = activeTab === 'my'
+    ? (admin.from('stock_requests') as any)
+      .select('id, product:products(name), requested_qty, status, notes, created_at, accepted_at, in_transit_at, delivered_at')
+      .eq('requested_by', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100)
+      // A query builder sends nothing until it is awaited; then() sends it now.
+      .then((r: { data: any[] | null }) => r)
+    : Promise.resolve({ data: [] as any[] })
+  const incomingRead: Promise<Record<string, string>> = storeId && deliveriesActive() && activeTab !== 'my'
+    ? getStoreIncomingAll(admin, storeId).then(({ ships, planned }) => {
+        const out: Record<string, string> = {}
+        for (const [productId, x] of Object.entries(incomingByProduct(ships, planned))) {
+          const text = incomingText(x)
+          if (text) out[productId] = text
+        }
+        return out
+      }).catch((e: unknown) => {
+        console.error('requests: incoming failed:', e instanceof Error ? e.message : JSON.stringify(e))
+        return {}
+      })
+    : Promise.resolve({})
+
   // Products for request form (with images + categories for grid view). A store
   // may ask only for what Офис can send now (free Офис stock): the rest of the
   // catalog is not offered, only named with the reason when searched for.
-  const [catalog, { data: categories }, { data: images }, office] = await Promise.all([
+  const [catalog, { data: categories }, images, office] = await Promise.all([
     fetchAll<any>(() => (admin.from('products') as any).select('id, name, price, category_id').eq('status', 'active').order('name').order('id')),
     (admin.from('categories') as any).select('id, name').order('name'),
-    (admin.from('product_images') as any).select('product_id, url').eq('is_primary', true),
+    // All primary pictures, page by page: past 1000 rows PostgREST would cut the list.
+    fetchAll<any>(() => (admin.from('product_images') as any).select('product_id, url').eq('is_primary', true).order('id'))
+      .catch((e: unknown) => { console.error('requests: images failed:', e); return [] as any[] }),
     getOfficeStock(admin).catch((e: unknown) => {
       console.error('requests: office stock failed:', e instanceof Error ? e.message : JSON.stringify(e))
       return null as OfficeStockMap | null
@@ -57,11 +88,7 @@ export default async function MyRequestsPage({
   // My requests
   let myRequests: any[] = []
   if (activeTab === 'my') {
-    const { data } = await (admin.from('stock_requests') as any)
-      .select('id, product:products(name), requested_qty, status, notes, created_at, accepted_at, in_transit_at, delivered_at')
-      .eq('requested_by', user.id)
-      .order('created_at', { ascending: false })
-      .limit(100)
+    const { data } = await myRequestsRead
     myRequests = (data || []).map((r: any) => ({
       id: r.id,
       product_name: Array.isArray(r.product) ? r.product[0]?.name : r.product?.name,
@@ -109,21 +136,7 @@ export default async function MyRequestsPage({
     }
   }
 
-  // What already comes to this store from Офис (on the way, on a trip, being
-  // prepared), so nobody asks for it again. Read with the service-role client,
-  // only for this store; a failure just leaves the hints out.
-  const incoming: Record<string, string> = {}
-  if (storeId && deliveriesActive() && activeTab !== 'my') {
-    try {
-      const { ships, planned } = await getStoreIncomingAll(admin, storeId)
-      for (const [productId, x] of Object.entries(incomingByProduct(ships, planned))) {
-        const text = incomingText(x)
-        if (text) incoming[productId] = text
-      }
-    } catch (e) {
-      console.error('requests: incoming failed:', e instanceof Error ? e.message : JSON.stringify(e))
-    }
-  }
+  const incoming = await incomingRead
 
   return (
     <MyRequestsClient

@@ -33,31 +33,54 @@ export default async function LowStockPage() {
     )
   }
 
-  // Get products with batches in this store (including zero)
-  const batches = await fetchAll<any>(() => (admin.from('stock_batches') as any)
-    .select('id, product_id, quantity_remaining')
-    .eq('store_id', storeId)
-    .order('id'))
+  // Every read is a round trip to the database. The page used to make them one
+  // after another; now what does not depend on anything else goes out together
+  // (this store's batches, free Офис stock, the primary pictures), and then the
+  // two product lists that need the ids from the first round.
+  const [batches, officeStock, primaryImages] = await Promise.all([
+    // Products with batches in this store (including zero)
+    fetchAll<any>(() => (admin.from('stock_batches') as any)
+      .select('id, product_id, quantity_remaining')
+      .eq('store_id', storeId)
+      .order('id')),
+    // A store asks only for what Офис can send now (free Офис stock).
+    getOfficeStock(admin).catch((e: unknown) => {
+      console.error('low-stock: office stock failed:', e instanceof Error ? e.message : JSON.stringify(e))
+      return {} as OfficeStockMap
+    }),
+    // All primary pictures in one read (about 830 rows), instead of looking
+    // them up by id in chunks after the products are known.
+    fetchAll<{ product_id: string; url: string }>(() => (admin.from('product_images') as any)
+      .select('product_id, url')
+      .eq('is_primary', true)
+      .order('id')),
+  ])
 
   const productQtys: Record<string, number> = {}
   ;(batches || []).forEach((b: any) => {
     productQtys[b.product_id] = (productQtys[b.product_id] || 0) + b.quantity_remaining
   })
 
-  // Get product details
   const productIds = Object.keys(productQtys)
-  const products = (await fetchByIds<any>(
-    ids => (admin.from('products') as any)
-      .select('id, name, price, min_quantity, category:categories(name)')
-      .in('id', ids),
-    productIds,
-  )).sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'bg'))
-
-  // A store asks only for what Офис can send now (free Офис stock).
-  const officeStock: OfficeStockMap = await getOfficeStock(admin).catch((e: unknown) => {
-    console.error('low-stock: office stock failed:', e instanceof Error ? e.message : JSON.stringify(e))
-    return {}
-  })
+  // Products for search: only what Офис can send now.
+  const freeIds = Object.keys(officeStock).filter(id => officeStock[id].free > 0)
+  const [storeProducts, freeProducts] = await Promise.all([
+    // Product details
+    fetchByIds<any>(
+      ids => (admin.from('products') as any)
+        .select('id, name, price, min_quantity, category:categories(name)')
+        .in('id', ids),
+      productIds,
+    ),
+    fetchByIds<any>(
+      ids => (admin.from('products') as any)
+        .select('id, name, price, min_quantity, category:categories(name)')
+        .eq('status', 'active')
+        .in('id', ids),
+      freeIds,
+    ),
+  ])
+  const products = storeProducts.sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'bg'))
 
   const items = (products || []).map((p: any) => ({
     id: p.id,
@@ -71,30 +94,16 @@ export default async function LowStockPage() {
   })).filter((p: any) => p.current_qty <= p.min_quantity)
     .sort((a: any, b: any) => a.current_qty - b.current_qty)
 
-  // Products for search: only what Офис can send now.
-  const freeIds = Object.keys(officeStock).filter(id => officeStock[id].free > 0)
-  const allProducts = (await fetchByIds<any>(
-    ids => (admin.from('products') as any)
-      .select('id, name, price, min_quantity, category:categories(name)')
-      .eq('status', 'active')
-      .in('id', ids),
-    freeIds,
-  ))
+  const allProducts = freeProducts
     .map((p: any) => ({ ...p, office_qty: officeStock[p.id].free }))
     .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'bg'))
 
-  // Fetch product images
-  const allIds = [...new Set([...items.map((i: any) => i.id), ...allProducts.map((p: any) => p.id)])]
-  const images = await fetchByIds<any>(
-    ids => (admin.from('product_images') as any)
-      .select('product_id, url')
-      .in('product_id', ids)
-      .eq('is_primary', true),
-    allIds,
-  )
-
+  // Pictures of the products on the page only.
+  const allIds = new Set([...items.map((i: any) => i.id), ...allProducts.map((p: any) => p.id)])
   const imageMap: Record<string, string> = {}
-  ;(images || []).forEach((img: any) => { if (!imageMap[img.product_id]) imageMap[img.product_id] = img.url })
+  ;(primaryImages || []).forEach((img: any) => {
+    if (allIds.has(img.product_id) && !imageMap[img.product_id]) imageMap[img.product_id] = img.url
+  })
 
   return <LowStockClient items={items} storeId={storeId} allProducts={allProducts} imageMap={imageMap} />
 }
