@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { isUuid } from '@/lib/deliveries/api'
 import { AsAdminLink } from '@/components/admin/as-admin-link'
 import { shipmentPeople, shipmentProducts, upcomingShipments, type ShipmentProductLine } from '@/lib/deliveries/store-people'
+import { Hint, PageHeader } from '@/components/ui/text'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,12 +51,11 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-4 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold">Пратки</h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Стоката от Офис. Тя е във Вашата наличност от момента, в който шофьорът тръгне. Когато кашоните пристигнат, отметнете пратката ред по ред. Всички продавачи на магазина виждат пратките: какво е дошло, кога и кой го е приел.
-        </p>
-      </div>
+      <PageHeader
+        title="Пратки"
+        intro="Стоката от Офис. Тя е във Вашата наличност от момента, в който шофьорът тръгне. Всички продавачи на магазина виждат пратките: какво е дошло, кога и кой го е приел."
+      />
+      <Hint>Когато кашоните пристигнат, отворете пратката и я отметнете ред по ред.</Hint>
 
       {!user.store_id && !adminView && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

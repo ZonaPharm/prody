@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
 import { NextStep } from './step-trail'
 import { OfficeStockButton, type StoreChoice } from './office-stock-dialog'
+import { Empty, Hint, Note } from '@/components/ui/text'
 
 export type StoreReadyView = StoreReady & { name: string; lines?: ReadyLine[] }
 
@@ -80,10 +81,10 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-white">
-        <header className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b px-4 py-3">
+        <header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-4 py-3">
           <Plus className="h-4 w-4" />
-          <h2 className="font-semibold">Нов курс</h2>
-          <span className="w-full text-sm text-muted-foreground sm:w-auto">Отметнете магазините по пътя на машината.</span>
+          <h2 className="text-base font-semibold text-slate-900">Нов курс</h2>
+          <Hint small className="w-full sm:w-auto">Отметнете магазините по пътя на машината.</Hint>
           {stores.length > 0 && (
             <span className="w-full sm:ml-auto sm:w-auto">
               <OfficeStockButton stores={stores} label="Курс със стока от Офис" />
@@ -92,13 +93,13 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
         </header>
         {ready.length === 0 ? (
           <div className="space-y-3 p-4 text-sm">
-            <p className="text-muted-foreground">
+            <Note>
               Още няма стока от доставки, готова за магазините.
               {waitingLabel > 0
                 ? ` За магазините чакат етикет ${waitingLabel} бр. Те стават готови, когато в „Етикетиране“ натиснете „С етикет“ на реда и подпишете.`
                 : ' Стоката става готова, когато е получена в Офис, разпределена към магазин и подписана в „Етикетиране“.'}
               {stores.length > 0 && ' Стока, която вече е в Офис, пратете с „Курс със стока от Офис“.'}
-            </p>
+            </Note>
             {waitingLabel > 0 && <NextStep next={{ label: `Етикетирай ${waitingLabel} бр. за магазините`, href: '/deliveries/labels' }} />}
           </div>
         ) : (
@@ -172,7 +173,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
 
       <section className="space-y-2">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold">Курсове</h2>
+          <h2 className="text-base font-semibold text-slate-900">Курсове</h2>
           <div className="inline-flex rounded-md border bg-white p-0.5 ml-auto">
             {([['active', 'В ход'], ['all', 'Всички']] as const).map(([v, label]) => (
               <Link key={v} href={v === 'active' ? '/deliveries/trips' : '/deliveries/trips?filter=all'}
@@ -183,7 +184,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
           </div>
         </div>
         {trips.length === 0 ? (
-          <p className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">Няма курсове.</p>
+          <div className="rounded-lg border bg-white"><Empty>Няма курсове.</Empty></div>
         ) : (
           <ul className="rounded-lg border bg-white divide-y">
             {trips.map(t => (

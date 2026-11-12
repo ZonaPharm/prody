@@ -32,6 +32,7 @@ import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
+import { Hint, Note, PageHeader } from '@/components/ui/text'
 
 type StoreOption = { id: string; name: string; is_warehouse: boolean }
 type Option = { id: string; name: string }
@@ -337,16 +338,12 @@ export function DeliveryEditor({
 
   return (
     <div className="space-y-4 max-w-7xl pb-36 sm:pb-24">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <div>
-            <h1 className="text-2xl font-bold">{deliveryId ? 'Чернова на доставка' : 'Нова доставка'}</h1>
-            <p className="text-sm text-muted-foreground">Черновата се пази сама и не променя наличностите.</p>
-          </div>
-        </div>
-        <SaveIndicator state={save} />
-      </div>
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={deliveryId ? 'Чернова на доставка' : 'Нова доставка'}
+        intro="Черновата се пази сама и не променя наличностите."
+        actions={<SaveIndicator state={save} />}
+      />
 
       {fatal && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 flex items-center justify-between gap-3">
@@ -423,9 +420,11 @@ export function DeliveryEditor({
                       {dup && <span className="ml-1 text-amber-700">· продуктът е на повече от един ред</span>}
                     </div>
                     {missing.length > 0 && (
-                      <div className="mt-0.5 text-xs font-medium text-amber-700">Попълнете: {missing.join(', ')}</div>
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-amber-700">
+                        <AlertTriangle className="h-3 w-3" aria-hidden />Попълнете: {missing.join(', ')}
+                      </div>
                     )}
-                    <label className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-600">
+                    <label className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
                       <Tag className="h-3.5 w-3.5 text-slate-500" />Етикет
                       <LabelKindSelect compact value={l.label_kind} disabled={fatal} onChange={k => setLabelKind(l.product.id, k)} />
                     </label>
@@ -533,11 +532,11 @@ export function DeliveryEditor({
               <CatalogDialog categories={categories} stores={shopStores.concat(warehouse ? [warehouse] : [])} inDelivery={inDelivery} onAdd={addProducts} disabled={fatal} />
               <NewProductDialog categories={categories} supplierId={defaultSupplier} onCreated={p => addProducts([p])} disabled={fatal} />
             </div>
-            <p className="mt-1.5 ml-1 text-xs text-muted-foreground">
+            <Hint small className="mt-1.5 ml-1">
               {lines.length === 0
                 ? 'Започнете оттук: изберете първия продукт. С „Каталог“ може да отметнете няколко наведнъж: всеки става отделен ред.'
                 : 'Следващ продукт? Изберете го тук. Няма повече: оставете този ред празен.'}
-            </p>
+            </Hint>
           </div>
         </div>
       </section>
@@ -565,10 +564,10 @@ export function DeliveryEditor({
           <DialogHeader><DialogTitle>Запис на доставката</DialogTitle></DialogHeader>
           <div className="space-y-2 text-sm">
             <p>{totals.lines} реда, {totals.units} бр., {formatMoney(totals.value)}.</p>
-            <p className="text-muted-foreground">
+            <Note>
               Доставката получава номер и чака получаване. Редовете вече не се променят; разпределението може да се сменя и след това.
               Наличностите се променят чак при получаването.
-            </p>
+            </Note>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>Назад</Button>
@@ -580,7 +579,7 @@ export function DeliveryEditor({
       <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Изтриване на черновата</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Черновата отива в „Отказани“, с запис в дневника. Наличностите не се променят.</p>
+          <Note>Черновата отива в „Отказани“, с запис в дневника. Наличностите не се променят.</Note>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setDiscardOpen(false)}>Назад</Button>
             <Button variant="destructive" onClick={() => void discard()} disabled={finishing}>Изтрий</Button>
@@ -593,7 +592,7 @@ export function DeliveryEditor({
 
 function Field({ icon: Icon, label, title, children }: { icon: LucideIcon; label: string; title?: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col text-xs text-slate-600" title={title}>
+    <label className="flex flex-col text-xs font-medium text-slate-700" title={title}>
       <span className="inline-flex items-center gap-1"><Icon className="h-3.5 w-3.5 text-slate-500" />{label}</span>
       {children}
     </label>

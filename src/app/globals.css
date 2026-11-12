@@ -71,6 +71,17 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* One look per heading level on every screen (see src/components/ui/text.tsx).
+     A class on the element still wins over these. */
+  h1 {
+    @apply text-2xl font-bold tracking-tight text-slate-900;
+  }
+  h2 {
+    @apply text-base font-semibold text-slate-900;
+  }
+  h3 {
+    @apply text-sm font-semibold text-slate-900;
+  }
 }
 
 @layer utilities {
