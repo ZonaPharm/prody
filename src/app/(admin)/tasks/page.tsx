@@ -13,6 +13,7 @@ export default async function AdminTasksPage() {
     role: 'admin',
     userId: user.id,
     storeId: null,
+    officeOnly: user.role !== 'admin',
   })
   return <TasksView tasks={tasks} notifications={notifications} intro="Какво чака по доставките сега, по ред на стъпките, и известията за теб." />
 }

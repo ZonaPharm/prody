@@ -1,4 +1,5 @@
 import { deliveriesEnabledFor } from './feature'
+import { canWorkDeliveries } from '@/lib/roles'
 import {
   shipmentComingText,
   shipmentIssueText,
@@ -73,13 +74,18 @@ async function storeUsers(admin: Admin, storeIds: string[]): Promise<(Recipient 
     .map((u: any) => ({ id: u.id, role: u.role, store_id: u.store_id }))
 }
 
-/** Active admins who work with deliveries (the feature switch). */
+/**
+ * Active people who work with deliveries: Администратор and Офис (src/lib/roles.ts),
+ * with the feature switch on for them. Офис opens its tasks in the admin area,
+ * so its links go there too (role 'admin' here only picks the link).
+ */
 async function deliveryAdmins(admin: Admin): Promise<Recipient[]> {
-  const { data, error } = await admin.from('users').select('id, role, email, is_active').eq('role', 'admin')
+  // '*': before migration 20261112_user_roles there is no roles column.
+  const { data, error } = await admin.from('users').select('*').limit(1000)
   if (error) throw error
   return (data ?? [])
-    .filter((u: any) => u.is_active !== false && deliveriesEnabledFor(u.email))
-    .map((u: any) => ({ id: u.id, role: u.role }))
+    .filter((u: any) => u.is_active !== false && canWorkDeliveries(u) && deliveriesEnabledFor(u.email))
+    .map((u: any) => ({ id: u.id, role: 'admin' as const }))
 }
 
 type TripRead = TripInfo & {

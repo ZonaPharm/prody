@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic'
  * decision and a signature; a delivery cannot complete while one is open.
  */
 export default async function ProblemsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  const user = await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin({ adminOnly: true })
   const sp = await searchParams
   const filter = sp.filter === 'all' ? 'all' : 'open'
   const supabase = await createServerSupabaseClient()

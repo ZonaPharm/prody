@@ -93,6 +93,21 @@ describe('delivery API routes', () => {
       expect(mocks.adminRpc).not.toHaveBeenCalled()
     })
 
+    it('Офис (not an admin) cannot enter, receive, distribute or cancel a delivery', async () => {
+      mocks.profile = { ...ADMIN, role: 'seller', roles: ['office', 'driver'] }
+      for (const res of [
+        await draftPOST(req(draftBody)),
+        await savePOST(req({}), params({ id: DELIVERY })),
+        await receivePOST(req({ lines: [{ item_id: ITEM, qty: 1 }] }), params({ id: DELIVERY })),
+        await cancelPOST(req({ reason: 'x' }), params({ id: DELIVERY })),
+        await planPATCH(req({ plan: [] }), params({ id: DELIVERY, itemId: ITEM })),
+      ]) {
+        expect(res.status).toBe(403)
+        expect((await res.json()).error).toBe('Само администратор може да прави това')
+      }
+      expect(mocks.adminRpc).not.toHaveBeenCalled()
+    })
+
     it('404 while the feature switch is off for this admin', async () => {
       vi.stubEnv('DELIVERIES_ENABLED', 'someone-else@test.bg')
       expect((await draftPOST(req(draftBody))).status).toBe(404)

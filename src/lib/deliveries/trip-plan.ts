@@ -5,8 +5,6 @@
  * (trips.driver_id), which may be someone else.
  */
 
-import { mayDrive } from '@/lib/roles'
-
 type Admin = any
 
 export type TripPlan = {
@@ -39,7 +37,7 @@ export function hhmm(time: string | null | undefined): string | null {
 
 /**
  * Stores the plan on an open trip. Returns an error in Bulgarian, or null.
- * The driver must be an active account with the Шофьор role.
+ * The driver must be an active account (anyone may drive; see src/lib/roles.ts).
  */
 export async function applyTripPlan(admin: Admin, tripId: string, plan: TripPlan): Promise<{ error: string | null; before: TripPlanBefore | null }> {
   const { data: trip, error: e1 } = await admin
@@ -56,7 +54,6 @@ export async function applyTripPlan(admin: Admin, tripId: string, plan: TripPlan
     const { data: driver, error: e2 } = await admin.from('users').select('*').eq('id', plan.driver_id).maybeSingle()
     if (e2) throw e2
     if (!driver || driver.is_active === false) return { error: 'Шофьорът не е намерен или акаунтът му е спрян', before }
-    if (!mayDrive(driver)) return { error: `${driver.display_name} няма роля Шофьор`, before }
   }
 
   const { error: e3 } = await admin

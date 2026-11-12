@@ -81,6 +81,17 @@ describe('phase 3 delivery routes', () => {
   })
   afterEach(() => vi.unstubAllEnvs())
 
+  describe('Офис works the labelling, trips and packing', () => {
+    it('labels, makes a trip and packs; cannot resolve a problem', async () => {
+      mocks.profile = { ...SELLER, store_id: null, roles: ['office'] }
+      expect((await readyPOST(req({ rows: [{ item_id: LINE, qty: 1 }], signals: [] }))).status).toBe(200)
+      expect((await tripPOST(req({ store_ids: [STORE] }))).status).toBe(200)
+      expect((await packPOST(req({ lines: [{ line_id: LINE, qty: 1 }], box_count: 1 }), params({ id: SHIP }))).status).toBe(200)
+      const res = await resolvePOST(req({ resolution: 'corrected' }), params({ id: SHIP }))
+      expect(res.status).toBe(403)
+    })
+  })
+
   describe('admin routes keep the gate', () => {
     it('403 for a seller, 404 with the switch off, no database call', async () => {
       mocks.profile = { ...SELLER }
@@ -203,13 +214,10 @@ describe('phase 3 delivery routes', () => {
       expect(mocks.adminRpc).not.toHaveBeenCalled()
     })
 
-    it('an account without the Шофьор role cannot sign', async () => {
+    it('anyone active may sign as the driver, with or without the Шофьор role', async () => {
       mocks.driver = { ...DRIVER, roles: ['seller'] }
       const res = await tripSendPOST(req({ driver_id: DRIVER.id, password: 'тайна' }), params({ id: TRIP }))
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toMatch(/няма роля Шофьор/)
-      expect(mocks.verify).not.toHaveBeenCalled()
-      expect(mocks.adminRpc).not.toHaveBeenCalled()
+      expect(res.status).toBe(200)
     })
 
     it('Офис + Шофьор signs', async () => {

@@ -254,7 +254,16 @@ export type AdminState = {
   atStores: number
 }
 
-export function adminTasks(s: AdminState, today: string): Task[] {
+/** Steps only an admin does (Владимир, 2026-11-12): receiving and distributing, problems, the stores' overview. */
+const ADMIN_ONLY_TASKS = new Set(['problems', 'receive', 'stores'])
+
+/** office: Офис without Администратор gets the labelling, trip and packing steps only. */
+export function adminTasks(s: AdminState, today: string, opts: { office?: boolean } = {}): Task[] {
+  const out = adminAllTasks(s, today)
+  return opts.office ? out.filter(t => !ADMIN_ONLY_TASKS.has(t.key)) : out
+}
+
+function adminAllTasks(s: AdminState, today: string): Task[] {
   const out: Task[] = []
   if (s.problems > 0) {
     out.push({

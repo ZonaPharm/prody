@@ -10,7 +10,7 @@ import { cancelSchema } from '@/lib/deliveries/schemas'
  * still there. The log keeps both.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
   const { id } = await params
   if (!isUuid(id)) return NextResponse.json({ error: 'Доставката не е намерена' }, { status: 404 })

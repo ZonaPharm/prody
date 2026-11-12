@@ -6,7 +6,7 @@ import { supplierUpdateSchema } from '@/lib/deliveries/schemas'
 
 /** Rename, add a note, or switch a supplier off. Suppliers are never deleted: lines point at them. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
   const { id } = await params
   if (!isUuid(id)) return NextResponse.json({ error: 'Доставчикът не е намерен' }, { status: 404 })

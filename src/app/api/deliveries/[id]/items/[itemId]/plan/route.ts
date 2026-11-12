@@ -9,7 +9,7 @@ import { planUpdateSchema } from '@/lib/deliveries/schemas'
  * outside the plan only from the unallocated remainder.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; itemId: string }> }) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
   const { id, itemId } = await params
   if (!isUuid(id) || !isUuid(itemId)) return NextResponse.json({ error: 'Редът не е намерен' }, { status: 404 })

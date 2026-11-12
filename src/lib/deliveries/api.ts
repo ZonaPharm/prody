@@ -3,15 +3,17 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { deliveriesEnabledFor } from './feature'
 import { firstIssue } from './schemas'
 import { rpcErrorResponse, type RpcErrorLike } from '@/lib/rpc-error'
+import { canWorkDeliveries, hasRole } from '@/lib/roles'
 import type { z } from 'zod'
 
 /**
  * The gate every delivery API route passes first:
- * 401 without a session, 403 for a seller or a deactivated account,
- * 404 while the feature switch is off for this admin (as if the route did not exist).
+ * 401 without a session, 403 for anyone who is not Администратор or Офис
+ * (src/lib/roles.ts) or a deactivated account, 404 while the feature switch is
+ * off for this person (as if the route did not exist).
  */
 
-export type DeliveriesUser = { id: string; email: string; display_name: string }
+export type DeliveriesUser = { id: string; email: string; display_name: string; isAdmin: boolean }
 
 type Supabase = Awaited<ReturnType<typeof createServerSupabaseClient>>
 
@@ -19,25 +21,32 @@ export type Gate =
   | { ok: true; user: DeliveriesUser; supabase: Supabase }
   | { ok: false; response: NextResponse }
 
-export async function deliveriesGate(): Promise<Gate> {
+/** What only an admin does in Доставки (Владимир, 2026-11-12): entering, receiving and distributing to the stores, suppliers, resolving problems. */
+export const ADMIN_ONLY_TEXT = 'Само администратор може да прави това'
+
+export async function deliveriesGate(opts: { adminOnly?: boolean } = {}): Promise<Gate> {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
 
+  // '*': before migration 20261112_user_roles there is no roles column.
   const { data: profile } = await (supabase.from('users') as any)
-    .select('id, email, role, display_name, is_active')
+    .select('*')
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'admin' || profile.is_active === false) {
+  if (!profile || !canWorkDeliveries(profile) || profile.is_active === false) {
     return { ok: false, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
   if (!deliveriesEnabledFor(profile.email)) {
     return { ok: false, response: NextResponse.json({ error: 'Not found' }, { status: 404 }) }
   }
+  if (opts.adminOnly && !hasRole(profile, 'admin')) {
+    return { ok: false, response: NextResponse.json({ error: ADMIN_ONLY_TEXT }, { status: 403 }) }
+  }
   return {
     ok: true,
-    user: { id: profile.id, email: profile.email, display_name: profile.display_name },
+    user: { id: profile.id, email: profile.email, display_name: profile.display_name, isAdmin: hasRole(profile, 'admin') },
     supabase,
   }
 }

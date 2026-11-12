@@ -11,7 +11,7 @@ import { ChecklistSteps } from '@/components/deliveries/checklist-ui'
 export const dynamic = 'force-dynamic'
 
 export default async function TripsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin()
   const sp = await searchParams
   const filter = sp.filter === 'all' ? 'all' : 'active'
   const supabase = await createServerSupabaseClient()
@@ -36,7 +36,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <DeliveriesTabs active="trips" problems={problems} />
+      <DeliveriesTabs active="trips" problems={problems} office={user.role !== 'admin'} />
       <div>
         <h1 className="text-2xl font-bold">Курсове</h1>
         <p className="text-sm text-muted-foreground">

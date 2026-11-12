@@ -9,7 +9,7 @@ import { resolveSchema } from '@/lib/deliveries/schemas'
  * on a store signal puts the missing units back into that store.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
   const { id } = await params
   if (!isUuid(id)) return NextResponse.json({ error: 'Сигналът не е намерен' }, { status: 404 })

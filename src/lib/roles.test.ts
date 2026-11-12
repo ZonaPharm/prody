@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkRoles, hasRole, legacyRole, mayDrive, needsStore, rolesOf, rolesText, sortRoles } from './roles'
+import { canSell, canWorkDeliveries, checkRoles, hasRole, homePath, legacyRole, mayDrive, driverSort, needsStore, rolesOf, rolesText, sortRoles } from './roles'
 
 const OFFICE = '11111111-1111-1111-1111-111111111111'
 const BOTEV = '22222222-2222-2222-2222-222222222222'
@@ -72,15 +72,41 @@ describe('checkRoles', () => {
   })
 })
 
-describe('mayDrive', () => {
-  it('needs the Шофьор role and an active account', () => {
-    expect(mayDrive({ roles: ['office', 'driver'], is_active: true })).toBe(true)
-    expect(mayDrive({ roles: ['seller'], is_active: true })).toBe(false)
-    expect(mayDrive({ roles: ['driver'], is_active: false })).toBe(false)
+describe('mayDrive / driverSort', () => {
+  it('any active account may drive', () => {
+    expect(mayDrive({ roles: ['office', 'driver'], is_active: true } as any)).toBe(true)
+    expect(mayDrive({ roles: ['seller'], is_active: true } as any)).toBe(true)
+    expect(mayDrive({ is_active: null })).toBe(true)
+    expect(mayDrive({ is_active: false })).toBe(false)
     expect(mayDrive(null)).toBe(false)
   })
-  it('before the migration (no roles on the row) any active account may drive', () => {
-    expect(mayDrive({ is_active: true })).toBe(true)
-    expect(mayDrive({ is_active: null })).toBe(true)
+  it('drivers first, then by name', () => {
+    expect(driverSort([
+      { name: 'Мира', driver: false }, { name: 'Ивайло', driver: true }, { name: 'Деси', driver: false },
+    ]).map(d => d.name)).toEqual(['Ивайло', 'Деси', 'Мира'])
+  })
+})
+
+describe('what a person may do', () => {
+  it('Доставки: admin and Офис only', () => {
+    expect(canWorkDeliveries({ roles: ['admin'] })).toBe(true)
+    expect(canWorkDeliveries({ roles: ['office', 'driver'] })).toBe(true)
+    expect(canWorkDeliveries({ roles: ['seller', 'driver'] })).toBe(false)
+    expect(canWorkDeliveries({ roles: ['accountant'] })).toBe(false)
+    expect(canWorkDeliveries({ role: 'admin' })).toBe(true)
+    expect(canWorkDeliveries({ role: 'seller' })).toBe(false)
+  })
+  it('the till: sellers and admins; Офис alone does not sell', () => {
+    expect(canSell({ roles: ['office'] })).toBe(false)
+    expect(canSell({ roles: ['office', 'seller'] })).toBe(true)
+    expect(canSell({ roles: ['driver'] })).toBe(false)
+    expect(canSell({ role: 'seller' })).toBe(true)
+  })
+  it('start page by roles', () => {
+    expect(homePath({ roles: ['admin', 'accountant'] })).toBe('/dashboard')
+    expect(homePath({ roles: ['office', 'seller', 'driver'] })).toBe('/tasks')
+    expect(homePath({ roles: ['seller', 'driver'] })).toBe('/record-sale')
+    expect(homePath({ roles: ['driver'] })).toBe('/my-tasks')
+    expect(homePath({ role: 'seller' })).toBe('/record-sale')
   })
 })

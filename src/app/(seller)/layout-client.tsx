@@ -23,6 +23,7 @@ export function SellerLayoutClient({
   requestBadge,
   shipmentBadge,
   taskBadge,
+  roleLabel,
 }: {
   navItems: NavItem[]
   displayName: string
@@ -32,6 +33,8 @@ export function SellerLayoutClient({
   shipmentBadge?: number
   /** Set when deliveries are on: the bell in the phone's top bar and the menu count. */
   taskBadge?: number
+  /** The person's roles, e.g. "Продавач, Шофьор". */
+  roleLabel?: string
 }) {
   const items: ShellNavItem[] = navItems.map(item => ({
     ...item,
@@ -46,7 +49,7 @@ export function SellerLayoutClient({
       navItems={items}
       tabHrefs={items.slice(0, 4).map(i => i.href)}
       userName={displayName}
-      roleLabel={isAdminImpersonating ? 'Админ, гледа като продавач' : 'Продавач'}
+      roleLabel={isAdminImpersonating ? 'Админ, гледа като продавач' : (roleLabel || 'Продавач')}
       switchRole={isAdminImpersonating ? 'admin' : undefined}
       bell={taskBadge === undefined ? undefined : { href: '/my-tasks', count: taskBadge }}
     >

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { homePath } from '@/lib/roles'
 
 export type AppUser = {
   id: string
@@ -40,6 +41,8 @@ export async function getEffectiveRole(user: AppUser): Promise<'admin' | 'seller
 
 export async function requireAdmin(): Promise<AppUser> {
   const user = await requireAuth()
+  // Not an admin at all (a seller, Офис, a driver): their own start page.
+  if (user.role !== 'admin') redirect(homePath(user))
   const effectiveRole = await getEffectiveRole(user)
   if (effectiveRole !== 'admin') redirect('/record-sale')
   return user

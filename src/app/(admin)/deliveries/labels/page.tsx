@@ -19,7 +19,7 @@ export default async function LabelsChecklistPage({ searchParams }: { searchPara
 
   return (
     <div className="space-y-4 max-w-7xl">
-      <DeliveriesTabs active="labels" problems={problems} />
+      <DeliveriesTabs active="labels" problems={problems} office={user.role !== 'admin'} />
       <div>
         <h1 className="text-2xl font-bold">Етикетиране</h1>
         <p className="text-sm text-muted-foreground">

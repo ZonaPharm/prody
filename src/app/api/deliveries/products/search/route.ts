@@ -8,7 +8,7 @@ import { PRODUCT_COLUMNS, loadSuggestions, searchPattern, toDeliveryProducts } f
  * supplier and cost to fill in.
  */
 export async function GET(request: Request) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const q = new URL(request.url).searchParams.get('q') ?? ''

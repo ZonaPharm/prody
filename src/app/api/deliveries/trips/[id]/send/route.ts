@@ -4,7 +4,6 @@ import { logAction } from '@/lib/audit'
 import { deliveriesGate, isUuid, parseBody, rpcFailure } from '@/lib/deliveries/api'
 import { tripSendSchema } from '@/lib/deliveries/schemas'
 import { verifyDriverPassword } from '@/lib/deliveries/driver'
-import { mayDrive } from '@/lib/roles'
 import { notifyTripSent } from '@/lib/deliveries/notify'
 
 /**
@@ -30,9 +29,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .maybeSingle()
   if (!driver || driver.is_active === false) {
     return NextResponse.json({ error: 'Шофьорът не е намерен или акаунтът му е спрян' }, { status: 400 })
-  }
-  if (!mayDrive(driver)) {
-    return NextResponse.json({ error: `${driver.display_name} няма роля Шофьор. Сложете я в Настройки → Потребители.` }, { status: 400 })
   }
   if (!(await verifyDriverPassword(driver.id, driver.email, password))) {
     return NextResponse.json({ error: `Грешна парола за ${driver.display_name}` }, { status: 400 })

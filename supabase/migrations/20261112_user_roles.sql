@@ -10,7 +10,8 @@
 -- working too: a change of role alone swaps admin/seller inside roles and leaves
 -- the other roles (driver, office, ...) as they were.
 --
--- Also: a seller may file a stock request only for their own store (see the end).
+-- Also: a seller may file a stock request only for their own store, and Офис
+-- reads the delivery tables (see the end).
 --
 -- Run in staging first, then production, BEFORE the app that reads users.roles.
 -- Safe to run twice.
@@ -106,5 +107,30 @@ CREATE POLICY "Sellers insert own requests" ON public.stock_requests
     requested_by = auth.uid()
     AND store_id = (SELECT u.store_id FROM public.users u WHERE u.id = auth.uid())
   );
+
+-- Офис works with Доставки without being an admin (Владимир, 2026-11-12): it
+-- reads what the delivery screens read. The writes go through the server
+-- (service role, database functions), as for admins. Resolving a problem stays
+-- admin-only (resolve_signal checks it). Офис does not read sales.
+-- label_sheet_profiles and notifications may not exist yet (their migrations
+-- can run later); they are skipped then and get their policy from their own
+-- migration's admin rule, so run this file again after them.
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'deliveries', 'delivery_items', 'delivery_item_plan', 'delivery_events', 'delivery_signals',
+    'shipments', 'shipment_lines', 'trips', 'suppliers', 'label_sheet_profiles',
+    'products', 'product_images', 'users'
+  ] LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Office reads ' || t, t);
+      EXECUTE format(
+        'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.has_role(%L))',
+        'Office reads ' || t, t, 'office');
+    END IF;
+  END LOOP;
+END $$;
 
 COMMIT;

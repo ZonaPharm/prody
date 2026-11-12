@@ -6,7 +6,7 @@ import { formatDeliveryNumber } from '@/lib/deliveries/format'
 
 /** "Запази": the draft becomes "Очаква се" and gets its number (save_delivery). */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
   const { id } = await params
   if (!isUuid(id)) return NextResponse.json({ error: 'Доставката не е намерена' }, { status: 404 })

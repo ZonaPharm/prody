@@ -21,11 +21,11 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 /** One line under each tick in Настройки → Потребители. */
 export const ROLE_HINT: Record<Role, string> = {
-  admin: 'Всичко: потребители, цени, каталог, настройки, бекъп.',
-  office: 'Подготвя стоката в Офис: приема доставки, етикетира, опакова, праща курсове. Не вижда продажби.',
-  seller: 'Продава в избран магазин (може и Офис): продава, прави заявки, приема пратките.',
-  driver: 'Кара курсовете и се подписва за кашоните със своята парола.',
-  accountant: 'Само гледа: отчети, продажби, доставки и цени. Не променя нищо.',
+  admin: 'Всичко: продажби, отчети, каталог, настройки; въвежда, приема и разпределя доставките.',
+  office: 'Етикетира, опакова и праща курсовете. Не вижда продажби и не приема доставки.',
+  seller: 'Продава в избран магазин (може и Офис), прави заявки, приема пратките.',
+  driver: 'Излиза най-отгоре в „Кой кара“ и вижда своите курсове в „Задачи“. Иначе всеки може да кара.',
+  accountant: 'Само гледа продажбите и отчетите, без да променя.',
 }
 
 export function isRole(value: unknown): value is Role {
@@ -96,14 +96,37 @@ export function checkRoles(input: RolesInput): RolesCheck {
 }
 
 /**
- * May this users row sign for a trip as the driver? Only active accounts with
- * the Шофьор role. Before the migration (no roles column on the row) any
- * active account may, as it was.
+ * May this users row sign for a trip as the driver? Any active account
+ * (Владимир, 2026-11-12: „всеки може да кара пратки“). The Шофьор role only
+ * puts the person first in the list and gives them the driver's „Задачи“.
  */
-export function mayDrive(row: { roles?: unknown; is_active?: unknown } | null | undefined): boolean {
-  if (!row || row.is_active === false) return false
-  if (!Array.isArray(row.roles)) return true
-  return row.roles.includes('driver')
+export function mayDrive(row: { is_active?: unknown } | null | undefined): boolean {
+  return !!row && row.is_active !== false
 }
 
-export const NO_DRIVERS_TEXT = 'Няма хора с роля Шофьор. Сложете отметката Шофьор в Настройки → Потребители.'
+/** Driver list order: people with the Шофьор role first, then by name. */
+export function driverSort<T extends { name: string; driver: boolean }>(list: T[]): T[] {
+  return [...list].sort((a, b) => Number(b.driver) - Number(a.driver) || a.name.localeCompare(b.name, 'bg'))
+}
+
+/** Works with Доставки (receiving, labelling, packing, trips, „Задачи“ of Офис): Администратор and Офис. */
+export function canWorkDeliveries(profile: { roles?: unknown; role?: unknown } | null | undefined): boolean {
+  const r = rolesOf(profile)
+  return r.includes('admin') || r.includes('office')
+}
+
+/** Sells at the till: Продавач (and Администратор, who may look as a seller). */
+export function canSell(profile: { roles?: unknown; role?: unknown } | null | undefined): boolean {
+  const r = rolesOf(profile)
+  return r.includes('admin') || r.includes('seller')
+}
+
+/** Where a person starts after signing in. */
+export function homePath(profile: { roles?: unknown; role?: unknown } | null | undefined): string {
+  const r = rolesOf(profile)
+  if (r.includes('admin')) return '/dashboard'
+  if (r.includes('office')) return '/tasks'
+  if (r.includes('seller')) return '/record-sale'
+  if (r.includes('driver')) return '/my-tasks'
+  return '/record-sale'
+}

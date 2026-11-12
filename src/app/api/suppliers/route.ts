@@ -6,7 +6,7 @@ import { supplierCreateSchema } from '@/lib/deliveries/schemas'
 
 /** Suppliers belong to the deliveries feature: same gate (admins, switch on). */
 export async function GET() {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const { data, error } = await (gate.supabase.from('suppliers') as any)
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const gate = await deliveriesGate()
+  const gate = await deliveriesGate({ adminOnly: true })
   if (!gate.ok) return gate.response
 
   const body = await parseBody(request, supplierCreateSchema)

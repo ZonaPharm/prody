@@ -64,6 +64,11 @@ select * from (values
   ('R12 a seller can file a request only for their own store',
    (select with_check from pg_policies where schemaname = 'public' and tablename = 'stock_requests'
       and policyname = 'Sellers insert own requests') like '%store_id%'),
-  ('R13 nothing was left behind',
+  ('R13 Офис reads the delivery tables, and not sales',
+   (select count(*) from pg_policies where schemaname = 'public' and policyname like 'Office reads %'
+      and tablename in ('deliveries', 'delivery_items', 'delivery_item_plan', 'delivery_events', 'delivery_signals',
+                        'shipments', 'shipment_lines', 'trips', 'suppliers', 'products', 'product_images', 'users')) = 12
+   and not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'sales' and policyname like 'Office%')),
+  ('R14 nothing was left behind',
    not exists (select 1 from public.users where email = 'roles-test@example.invalid'))
 ) as t(test, passed);

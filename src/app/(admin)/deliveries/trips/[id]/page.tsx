@@ -12,7 +12,7 @@ import { sofiaToday } from '@/lib/date-utils'
 export const dynamic = 'force-dynamic'
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireDeliveriesAdmin()
+  const user = await requireDeliveriesAdmin()
   const { id } = await params
   if (!isUuid(id)) notFound()
   const supabase = await createServerSupabaseClient()
@@ -33,7 +33,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
     .sort((a, b) => a.name.localeCompare(b.name, 'bg'))
   return (
     <div className="space-y-4 max-w-7xl">
-      <DeliveriesTabs active="trips" problems={problems} />
+      <DeliveriesTabs active="trips" problems={problems} office={user.role !== 'admin'} />
       <TripView trip={trip} drivers={drivers} ready={ready} today={sofiaToday()} />
     </div>
   )

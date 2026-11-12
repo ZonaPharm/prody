@@ -12,7 +12,6 @@ import type { DriverOption, TripListRow } from '@/lib/deliveries/work'
 import { whenText } from '@/lib/deliveries/notify-text'
 import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
-import { NO_DRIVERS_TEXT } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
 import { NextStep } from './step-trail'
@@ -128,9 +127,8 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
                 <span className="font-medium">Кой кара</span>
                 <select className="h-11 w-full rounded-md border border-input bg-white px-2 text-sm" value={driver} onChange={e => setDriver(e.target.value)} aria-label="Шофьор">
                   <option value="">Избери по-късно</option>
-                  {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {drivers.map(d => <option key={d.id} value={d.id}>{d.driver ? `${d.name} (шофьор)` : d.name}</option>)}
                 </select>
-                {drivers.length === 0 && <span className="block text-xs text-amber-800">{NO_DRIVERS_TEXT}</span>}
               </label>
               <div className="space-y-1 text-sm">
                 <span className="block font-medium">Кога тръгва</span>
