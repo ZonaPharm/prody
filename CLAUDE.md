@@ -28,7 +28,9 @@
 
 - Разработката и тестовете вървят **срещу staging**. Продът не се пипа, докато промяната не е минала там.
 - Preview деплоите са зад Vercel логин. Staging е копие на прода, със зачистени SMTP парола и получатели,
-  за да не стигат имейли от него до реални хора. Синхронизира се база към база в Supabase.
+  за да не стигат имейли от него до реални хора. Обновява се от прода с GitHub Action
+  „Обнови staging от продукшън“ (ръчен старт; `scripts/refresh-staging.sh`, тайни `PROD_DB_URL` и
+  `STAGING_DB_URL`). Продът само се чете; staging се подменя в една транзакция.
 - `NEXT_PUBLIC_SITE_URL` е общ за preview и production: „Изход“ от preview праща към входа на прода.
 - Cron на Vercel: `/api/cron/backup` в 03:00 UTC — бекъп към Storage `db-backups` плюс нощна проверка
   за цялост на данните (`src/lib/integrity-*.ts`). Удостоверява се с `Authorization: Bearer CRON_SECRET`.

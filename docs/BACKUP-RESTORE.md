@@ -14,11 +14,11 @@ categories, stores, users, products, product_images, labels, label_sheet_profile
 suppliers, deliveries, delivery_items, delivery_item_plan, trips, shipments,
 shipment_lines, delivery_signals, delivery_events,
 stock_batches, sales, stock_movements, stock_requests, request_events,
-email_settings, audit_logs
+request_notes, stock_corrections, email_settings, audit_logs
 
-Not in the backup today: `request_notes`, `stock_corrections` (and `auth.users`,
-which `users`, `audit_logs`, `stock_requests` and `request_events` reference —
-the auth accounts must exist before those tables are restored).
+Not in the backup: `auth.users`, which `users`, `audit_logs`, `stock_requests`,
+`request_events` and `request_notes` reference — the auth accounts must exist
+before those tables are restored.
 
 The deliveries tables (suppliers … delivery_events) come from
 `20261110_deliveries_schema.sql`, and `label_sheet_profiles` from
