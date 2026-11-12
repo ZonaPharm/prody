@@ -13,6 +13,7 @@ import { TRIP_STATUS_LABEL, TRIP_STATUS_TONE, SHIPMENT_STATUS_LABEL } from '@/li
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { postJson } from './checklist-ui'
+import { NextStep } from './step-trail'
 
 export type StoreReadyView = StoreReady & { name: string }
 
@@ -21,7 +22,9 @@ export type StoreReadyView = StoreReady & { name: string }
  * stores on the driver's way; each gets one shipment with everything ready
  * for it now, from every open delivery. A store with nothing ready is skipped.
  */
-export function TripsBoard({ trips, ready, storeName, filter }: {
+export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0 }: {
+  /** Units planned for stores that still wait for "С етикет" + signature. */
+  waitingLabel?: number
   trips: TripListRow[]
   ready: StoreReadyView[]
   storeName: Record<string, string>
@@ -58,21 +61,27 @@ export function TripsBoard({ trips, ready, storeName, filter }: {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-white">
-        <header className="flex items-center gap-2 border-b px-4 py-3">
+        <header className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b px-4 py-3">
           <Plus className="h-4 w-4" />
           <h2 className="font-semibold">Нов курс</h2>
-          <span className="text-sm text-muted-foreground">Отметнете магазините по пътя на машината.</span>
+          <span className="w-full text-sm text-muted-foreground sm:w-auto">Отметнете магазините по пътя на машината.</span>
         </header>
         {ready.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            Няма готова стока за изпращане. Първо отметнете готовите редове в <Link href="/deliveries/labels" className="underline">„Етикетиране“</Link>.
-          </p>
+          <div className="space-y-3 p-4 text-sm">
+            <p className="text-muted-foreground">
+              Още няма стока, готова за магазините, затова няма от какво да се направи курс.
+              {waitingLabel > 0
+                ? ` За магазините чакат етикет ${waitingLabel} бр. Те стават готови, когато в „Етикетиране“ натиснете „С етикет“ на реда и подпишете.`
+                : ' Стоката става готова, когато е получена в Офис, разпределена към магазин и подписана в „Етикетиране“.'}
+            </p>
+            {waitingLabel > 0 && <NextStep next={{ label: `Етикетирай ${waitingLabel} бр. за магазините`, href: '/deliveries/labels' }} />}
+          </div>
         ) : (
           <div className="p-4 space-y-3">
             <ul className="grid gap-2 sm:grid-cols-2">
               {ready.map(s => (
                 <li key={s.store_id}>
-                  <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', picked.has(s.store_id) && 'border-slate-900 bg-slate-50')}>
+                  <label className={cn('flex items-start gap-3 rounded-md border p-3 cursor-pointer', picked.has(s.store_id) && 'border-primary bg-primary/5')}>
                     <input type="checkbox" className="mt-0.5 h-5 w-5" checked={picked.has(s.store_id)} onChange={e => toggle(s.store_id, e.target.checked)} aria-label={s.name} />
                     <span>
                       <span className="font-medium">{s.name}</span>
