@@ -173,19 +173,19 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         products={(products || []) as { id: string; name: string }[]}
       />
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-white p-4">
+      {/* Summary: on a phone the total across the top, card and cash side by side under it */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="col-span-2 sm:col-span-1 rounded-lg border bg-white p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">Общо продажби</p>
-          <p className="text-2xl font-bold">{total.toFixed(2)} €</p>
+          <p className="text-2xl font-bold tabular-nums">{total.toFixed(2)} €</p>
         </div>
-        <div className="rounded-lg border bg-green-50 p-4">
-          <p className="text-sm text-green-700">Плащания с карта</p>
-          <p className="text-2xl font-bold text-green-700">{cardTotal.toFixed(2)} €</p>
+        <div className="rounded-lg border bg-green-50 p-3 sm:p-4">
+          <p className="text-sm text-green-700">С карта</p>
+          <p className="text-lg sm:text-2xl font-bold text-green-700 tabular-nums">{cardTotal.toFixed(2)} €</p>
         </div>
-        <div className="rounded-lg border bg-blue-50 p-4">
-          <p className="text-sm text-blue-700">Плащания в брой</p>
-          <p className="text-2xl font-bold text-blue-700">{cashTotal.toFixed(2)} €</p>
+        <div className="rounded-lg border bg-blue-50 p-3 sm:p-4">
+          <p className="text-sm text-blue-700">В брой</p>
+          <p className="text-lg sm:text-2xl font-bold text-blue-700 tabular-nums">{cashTotal.toFixed(2)} €</p>
         </div>
       </div>
 
@@ -195,7 +195,22 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
           {groupedProducts.length === 0 ? (
             <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
           ) : (
-            <div className="rounded-lg border bg-white overflow-x-auto">
+            <>
+            {/* Phone: one card per product (name, then pieces and sum), no sideways table */}
+            <div className="sm:hidden rounded-lg border bg-white divide-y">
+              {groupedProducts.map(p => (
+                <div key={p.name} className="px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 font-medium leading-snug">{p.name}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{p.revenue.toFixed(2)} €</span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+                    {p.qty} бр. · {p.sales} {p.sales === 1 ? 'продажба' : 'продажби'} · {p.price.toFixed(2)} € бр.
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block rounded-lg border bg-white overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-slate-50 text-left text-xs text-muted-foreground uppercase tracking-wider">
@@ -219,6 +234,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
@@ -308,7 +324,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
             {hasPrev && (
               <a
                 href={`/sales?${buildPageUrl(sp, page - 1)}`}
-                className="px-4 py-2 rounded border text-sm hover:bg-slate-50 transition-colors"
+                className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50 transition-colors"
               >
                 ← Назад
               </a>
@@ -316,7 +332,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
             {hasMore && (
               <a
                 href={`/sales?${buildPageUrl(sp, page + 1)}`}
-                className="px-4 py-2 rounded border text-sm hover:bg-slate-50 transition-colors"
+                className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50 transition-colors"
               >
                 Напред →
               </a>

@@ -121,8 +121,8 @@ export default async function MySalesPage({ searchParams }: PageProps) {
   let lastGroupId: string | null = null
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-2xl font-bold">Моите продажби</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -134,24 +134,24 @@ export default async function MySalesPage({ searchParams }: PageProps) {
         <MySalesFilters from={fromDate} to={toDate} />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Общо продажби</p>
-          <p className="text-2xl font-bold tabular-nums">{total.toFixed(2)} €</p>
+      {/* KPI: three small boxes in one row, also on a phone */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="rounded-lg border bg-white p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-muted-foreground">Общо</p>
+          <p className="text-lg sm:text-2xl font-bold tabular-nums">{total.toFixed(2)} €</p>
         </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Брой продажби</p>
-          <p className="text-2xl font-bold tabular-nums">{activeCount}</p>
-          <p className="text-xs text-muted-foreground">за {uniqueProducts} продукта</p>
+        <div className="rounded-lg border bg-white p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-muted-foreground">Продажби</p>
+          <p className="text-lg sm:text-2xl font-bold tabular-nums">{activeCount}</p>
+          <p className="text-[11px] sm:text-xs text-muted-foreground">за {uniqueProducts} продукта</p>
         </div>
-        <div className="rounded-lg border bg-white p-4">
-          <p className="text-sm text-muted-foreground">Среден чек</p>
-          <p className="text-2xl font-bold tabular-nums">
+        <div className="rounded-lg border bg-white p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-muted-foreground">Среден чек</p>
+          <p className="text-lg sm:text-2xl font-bold tabular-nums">
             {activeCount > 0 ? (total / activeCount).toFixed(2) : '0.00'} €
           </p>
           {groupSales > 0 && (
-            <p className="text-xs text-muted-foreground">{groupSales} в групови продажби</p>
+            <p className="text-[11px] sm:text-xs text-muted-foreground">{groupSales} в групови</p>
           )}
         </div>
       </div>
@@ -170,19 +170,46 @@ export default async function MySalesPage({ searchParams }: PageProps) {
               </p>
               <div className="flex gap-2">
                 {page > 1 && (
-                  <a href={`/my-sales?${buildMyPageUrl(params, page - 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                  <a href={`/my-sales?${buildMyPageUrl(params, page - 1)}`} className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50">
                     ← Назад
                   </a>
                 )}
                 {page < totalPages && (
-                  <a href={`/my-sales?${buildMyPageUrl(params, page + 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                  <a href={`/my-sales?${buildMyPageUrl(params, page + 1)}`} className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50">
                     Напред →
                   </a>
                 )}
               </div>
             </div>
           )}
-        <div className="rounded-lg border bg-white overflow-hidden">
+        {/* Phone: one card per sale (what and how much; how paid, when, Сторно) */}
+        <div className="sm:hidden space-y-1">
+          {rows.map(row => {
+            const isGroup = !!row.sale_group_id && groupCounts[row.sale_group_id] > 1
+            const meta = isGroup ? groupMeta[row.sale_group_id!] : null
+            return (
+              <div key={row.id} className={`rounded-lg border border-l-4 bg-white px-3 py-2.5 ${row.voided ? 'opacity-60' : ''} ${meta?.color || 'border-l-transparent'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className={`font-medium leading-snug ${row.voided ? 'line-through' : ''}`}>{row.product_name}</span>
+                    <span className="ml-1 whitespace-nowrap text-slate-400">&times;{row.quantity}</span>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums">{(row.quantity * row.sale_price).toFixed(2)} €</span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
+                    {row.payment_method === 'card' ? 'Карта' : row.payment_method === 'transfer' ? 'Превод' : 'В брой'}
+                  </span>
+                  {isGroup && <span className="rounded bg-blue-100 px-1.5 py-0.5 font-medium text-blue-600">група</span>}
+                  {row.voided && <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-600">сторнирана</span>}
+                  <span className="tabular-nums">{sofiaDate(row.sale_date)} {sofiaTime(row.created_at)}</span>
+                  <span className="ml-auto">{!row.voided && <VoidSaleButton saleId={row.id} />}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="hidden sm:block rounded-lg border bg-white overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
@@ -268,12 +295,12 @@ export default async function MySalesPage({ searchParams }: PageProps) {
             </p>
             <div className="flex gap-2">
               {page > 1 && (
-                <a href={`/my-sales?${buildMyPageUrl(params, page - 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                <a href={`/my-sales?${buildMyPageUrl(params, page - 1)}`} className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50">
                   ← Назад
                 </a>
               )}
               {page < totalPages && (
-                <a href={`/my-sales?${buildMyPageUrl(params, page + 1)}`} className="px-3 py-1.5 rounded border text-sm hover:bg-slate-50">
+                <a href={`/my-sales?${buildMyPageUrl(params, page + 1)}`} className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50">
                   Напред →
                 </a>
               )}
