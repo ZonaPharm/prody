@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { clearCover, coverStartStore, needsCoverQuestion, readCover, saveCover } from '@/lib/pos/cover'
 import { sofiaToday } from '@/lib/date-utils'
+import { Note } from '@/components/ui/text'
 
 interface POSClientProps {
   products: Product[]
@@ -250,9 +251,9 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           <DialogHeader>
             <DialogTitle>Замествате ли днес в {storeName(stores, selectedStoreId)}?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Вашият магазин е {storeName(stores, homeStoreId)}. Ако кажете „Да“, продажбите днес се записват в {storeName(stores, selectedStoreId)} и няма да питаме отново до утре.
-          </p>
+          <Note tone="info">
+            Вашият магазин е <b>{storeName(stores, homeStoreId)}</b>. Ако кажете „Да“, продажбите днес се записват в <b>{storeName(stores, selectedStoreId)}</b> и няма да питаме отново до утре.
+          </Note>
           <div className="flex flex-col gap-2 pt-2 sm:flex-row-reverse">
             <Button className="h-11 sm:flex-1" data-testid="cover-yes" onClick={() => {
               const method = coverAsk

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Pencil, Ban, Loader2, Copy } from 'lucide-react'
+import { Hint, Meta, Note } from '@/components/ui/text'
 import { ROLES, ROLE_HINT, ROLE_LABEL, needsStore, rolesOf, sortRoles, type Role } from '@/lib/roles'
 
 interface UserRow {
@@ -140,7 +141,8 @@ export function UsersManager() {
         <CardTitle className="text-lg">Потребители</CardTitle>
         <Button size="sm" onClick={openNew}><Plus className="mr-1.5 h-4 w-4" />Добави</Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        <Hint>Отметнете ролите на всеки човек: един човек може да има няколко и вижда всичко, което му дават те.</Hint>
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
@@ -217,12 +219,12 @@ export function UsersManager() {
                         onChange={e => toggleRole(r, e.target.checked)} />
                       <span>
                         <span className="block text-sm font-medium">{ROLE_LABEL[r]}</span>
-                        <span className="block text-xs text-muted-foreground">{ROLE_HINT[r]}</span>
+                        <Meta as="span" className="block">{ROLE_HINT[r]}</Meta>
                       </span>
                     </label>
                   ))}
                 </div>
-                {formRoles.length === 0 && <p className="text-xs text-red-600">Изберете поне една роля.</p>}
+                {formRoles.length === 0 && <Note tone="danger" small>Изберете поне една роля.</Note>}
               </fieldset>
               {needsStore(formRoles) && (
                 <div className="space-y-1">
@@ -233,6 +235,7 @@ export function UsersManager() {
                       {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <Hint small>Касата се отваря на този магазин. Ако човекът замества другаде, касата пита веднъж на ден.</Hint>
                 </div>
               )}
               <div className="space-y-1">
@@ -256,15 +259,15 @@ export function UsersManager() {
                 </label>
               )}
               {returnedPassword && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs text-amber-700 font-medium mb-1">Парола — копирай преди да затвориш</p>
+                <Note tone="warn">
+                  <p className="font-medium mb-1">Парола: копирайте я, преди да затворите</p>
                   <div className="flex items-center gap-2">
                     <code className="text-sm font-bold bg-white px-2 py-1 rounded border">{returnedPassword}</code>
                     <Button size="sm" variant="outline" onClick={copyPassword}>
                       <Copy className="mr-1 h-3 w-3" />Копирай
                     </Button>
                   </div>
-                </div>
+                </Note>
               )}
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => { setDialogOpen(false); setReturnedPassword('') }}>
