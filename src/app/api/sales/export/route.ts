@@ -16,11 +16,13 @@ export async function GET(request: NextRequest) {
   const product = searchParams.get('product')
   const category = searchParams.get('category')
 
+  // products!inner, so a category filter drops the other categories' sales
+  // instead of returning them with an empty product.
   // Rebuilt per page: fetchAll re-invokes this to walk past PostgREST's
   // 1000-row cap, so the filters have to be reapplied each time.
   const sales = await fetchAll<any>(() => {
     let query = (supabase.from('sales') as any)
-      .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
+      .select('quantity, sale_price, sale_date, sale_group_id, payment_method, product:products!inner(name, category_id), store:stores(name), seller:users!sales_sold_by_fkey(display_name)')
       .gte('sale_date', from)
       .lte('sale_date', to)
       .eq('voided', false)

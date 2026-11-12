@@ -14,12 +14,18 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: profile } = await (supabase.from('users') as any)
-    .select('role, store_id, display_name')
+    .select('role, store_id, display_name, is_active')
     .eq('id', user.id)
     .single()
 
   if (!profile) {
     return NextResponse.json({ error: 'User not found' }, { status: 403 })
+  }
+
+  // A deactivated account keeps a valid session until it expires; it must not
+  // be able to record sales in the meantime.
+  if (profile.is_active === false) {
+    return NextResponse.json({ error: 'Акаунтът е деактивиран' }, { status: 403 })
   }
 
   const body = await request.json()
@@ -37,6 +43,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Липсва магазин' }, { status: 400 })
   }
 
+  for (const item of items) {
+    if (!item?.product_id || !Number.isInteger(item.quantity) || item.quantity <= 0) {
+      return NextResponse.json({ error: 'Невалидно количество' }, { status: 400 })
+    }
+  }
+
+  // Only the two methods the till offers. Anything else used to be stored as
+  // given and then counted as cash by every report.
+  const method = payment_method || 'cash'
+  if (!['cash', 'card'].includes(method)) {
+    return NextResponse.json({ error: 'Невалиден начин на плащане' }, { status: 400 })
+  }
+
   // Verify store exists (RLS will enforce access control)
   const { data: store } = await (supabase.from('stores') as any)
     .select('id')
@@ -49,15 +68,24 @@ export async function POST(request: NextRequest) {
 
   // Verify all products exist and have stock IN THIS SPECIFIC STORE
   // Uses admin client to bypass RLS and get real batch-level inventory
+  //
+  // The price is taken from the product here, not from the request. The till
+  // sends the price it shows, but a request can be edited in the browser, and
+  // trusting it let any seller record a sale at any price.
   const admin = createAdminClient()
+  const priceById: Record<string, number> = {}
   for (const item of items) {
     const { data: prod } = await (admin.from('products') as any)
-      .select('name')
+      .select('name, price')
       .eq('id', item.product_id)
       .single()
     if (!prod) {
       return NextResponse.json({ error: 'Продуктът не съществува' }, { status: 400 })
     }
+    if (prod.price == null) {
+      return NextResponse.json({ error: `Продуктът "${prod.name}" няма цена` }, { status: 400 })
+    }
+    priceById[item.product_id] = Number(prod.price)
     // Check actual FIFO batch stock in the seller's store
     const { total } = await getFIFOBatches(item.product_id, store_id, item.quantity)
     if (total < item.quantity) {
@@ -72,10 +100,10 @@ export async function POST(request: NextRequest) {
     store_id,
     sold_by: user.id,
     quantity: item.quantity,
-    sale_price: item.unit_price,
+    sale_price: priceById[item.product_id],
     sale_date: sofiaToday(),
     sale_group_id: saleGroupId,
-    payment_method: payment_method || 'cash',
+    payment_method: method,
   }))
 
   // The ids come back so each stock movement can point at its own sale row.
@@ -110,7 +138,7 @@ export async function POST(request: NextRequest) {
         item.product_id,
         store_id,
         item.quantity,
-        item.unit_price,
+        priceById[item.product_id],
         saleId,
         user.id,
       )
@@ -129,7 +157,7 @@ export async function POST(request: NextRequest) {
     userName: profile?.display_name || user.email,
     entityType: 'sale',
     entityId: saleGroupId,
-    details: `Продажба: ${items.length} артикула, плащане ${payment_method || 'cash'}`,
+    details: `Продажба: ${items.length} артикула, плащане ${method}`,
   }, admin)
 
   if (fifoFailures.length > 0) {

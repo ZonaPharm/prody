@@ -22,6 +22,9 @@ export async function requireAuth(): Promise<AppUser> {
     .single()
 
   if (!profile) redirect('/login')
+  // A deactivated account is also banned in Supabase Auth, but a session it
+  // already holds stays valid until the token expires. Turn it away here.
+  if ((profile as any).is_active === false) redirect('/auth/signout')
   return profile as AppUser
 }
 
