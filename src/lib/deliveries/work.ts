@@ -1,4 +1,5 @@
 import { fetchAll } from '@/lib/fetch-all'
+import { mayDrive } from '@/lib/roles'
 import { primaryImage } from './products'
 import type { LabelItemRow, QueuePlanRow, UnsentLine } from './queue'
 
@@ -504,10 +505,11 @@ export async function getWaitingAtStores(supabase: any): Promise<WaitingAtStore[
 
 export type DriverOption = { id: string; name: string }
 
-/** Active accounts that can sign as the driver (any role: every person has their own account). */
+/** Active accounts with the Шофьор role (src/lib/roles.ts: mayDrive). */
 export async function getDriverOptions(supabase: any): Promise<DriverOption[]> {
-  const { data } = await supabase.from('users').select('id, display_name, is_active').order('display_name').limit(1000)
+  // '*' and not a column list: before migration 20261112_user_roles there is no roles column.
+  const { data } = await supabase.from('users').select('*').order('display_name').limit(1000)
   return (data ?? [])
-    .filter((u: any) => u.is_active !== false)
+    .filter((u: any) => mayDrive(u))
     .map((u: any) => ({ id: u.id, name: u.display_name }))
 }

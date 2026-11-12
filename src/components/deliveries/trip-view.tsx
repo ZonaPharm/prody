@@ -20,6 +20,7 @@ import type { DriverOption, ShipmentView, TripDetail } from '@/lib/deliveries/wo
 import { storeReadyText } from '@/lib/deliveries/queue'
 import type { StoreReadyView } from './trips-board'
 import { sofiaDateTime } from '@/lib/date-utils'
+import { NO_DRIVERS_TEXT } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { postJson, useNow } from './checklist-ui'
 import { tripJourney } from '@/lib/deliveries/journey'
@@ -260,6 +261,7 @@ function SendDialog({ trip, drivers, boxes, units, onClose }: {
             <option value="">Изберете…</option>
             {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
+          {drivers.length === 0 && <span className="block text-xs text-amber-800">{NO_DRIVERS_TEXT}</span>}
         </label>
         <label className="block text-sm space-y-1">
           <span>Паролата на шофьора (пише я самият той)</span>
@@ -315,6 +317,7 @@ function PlanDialog({ trip, drivers, today, onClose }: { trip: TripDetail; drive
             <option value="">Без шофьор засега</option>
             {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
+          {drivers.length === 0 && <span className="block text-xs text-amber-800">{NO_DRIVERS_TEXT}</span>}
         </label>
         <div className="space-y-1 text-sm">
           <span className="block font-medium">Кога тръгва</span>

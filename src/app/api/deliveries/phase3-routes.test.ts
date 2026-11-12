@@ -202,6 +202,21 @@ describe('phase 3 delivery routes', () => {
       expect(mocks.verify).not.toHaveBeenCalled()
       expect(mocks.adminRpc).not.toHaveBeenCalled()
     })
+
+    it('an account without the Шофьор role cannot sign', async () => {
+      mocks.driver = { ...DRIVER, roles: ['seller'] }
+      const res = await tripSendPOST(req({ driver_id: DRIVER.id, password: 'тайна' }), params({ id: TRIP }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/няма роля Шофьор/)
+      expect(mocks.verify).not.toHaveBeenCalled()
+      expect(mocks.adminRpc).not.toHaveBeenCalled()
+    })
+
+    it('Офис + Шофьор signs', async () => {
+      mocks.driver = { ...DRIVER, roles: ['office', 'driver'] }
+      const res = await tripSendPOST(req({ driver_id: DRIVER.id, password: 'тайна' }), params({ id: TRIP }))
+      expect(res.status).toBe(200)
+    })
   })
 
   it('packing sends lines, boxes and signals', async () => {

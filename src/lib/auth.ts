@@ -6,6 +6,8 @@ export type AppUser = {
   id: string
   email: string
   role: 'admin' | 'seller'
+  /** All roles (src/lib/roles.ts); role above is the derived admin/seller. Absent before migration 20261112_user_roles. */
+  roles?: string[]
   display_name: string
   store_id: string | null
 }
