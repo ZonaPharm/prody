@@ -13,7 +13,7 @@ import {
 } from '@/lib/deliveries/work'
 import { daysWaiting, labelItems, readyByStore, storeReadyText } from '@/lib/deliveries/queue'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
-import { TRIP_STATUS_LABEL } from '@/lib/deliveries/trip-format'
+import { tripReadyToSend } from '@/lib/deliveries/trip-format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 
@@ -43,7 +43,9 @@ export default async function WorkPage() {
   const ready = readyByStore(plan, unsent)
     .filter(s => storeName.has(s.store_id))
     .sort((a, b) => name(a.store_id).localeCompare(name(b.store_id), 'bg'))
-  const openTrips = trips.filter(t => t.status === 'open')
+  const openTrips = trips.filter(t => t.status === 'open' && !tripReadyToSend(t.shipments))
+  // Packed and signed for: only the driver is missing. Shown on its own so everyone sees it.
+  const forDriver = trips.filter(t => t.status === 'open' && tripReadyToSend(t.shipments))
 
   return (
     <div className="space-y-4 max-w-7xl">
@@ -67,8 +69,20 @@ export default async function WorkPage() {
         <Card title="За изпращане" count={ready.length} unit={ready.length === 1 ? 'магазин' : 'магазина'} href="/deliveries/trips" action="Нов курс" empty={ready.length === 0 && openTrips.length === 0}>
           {ready.map(s => <Row key={s.store_id} href="/deliveries/trips" left={name(s.store_id)} right={storeReadyText(s)} />)}
           {openTrips.map(t => (
-            <Row key={t.id} href={`/deliveries/trips/${t.id}`} left={formatTripNumber(t.number)} right={`${TRIP_STATUS_LABEL[t.status]}: ${t.shipments.filter(s => s.status === 'packed').length} от ${t.shipments.length} пратки опаковани`} />
+            <Row key={t.id} href={`/deliveries/trips/${t.id}`} left={formatTripNumber(t.number)}
+              right={`Опакова се: ${t.shipments.filter(s => s.status === 'packed').length} от ${t.shipments.length} пратки опаковани`} />
           ))}
+        </Card>
+
+        <Card title="Чакат шофьор" count={forDriver.length} unit={forDriver.length === 1 ? 'курс' : 'курса'} empty={forDriver.length === 0}>
+          {forDriver.length > 0 && <p className="px-4 pt-2 text-xs text-muted-foreground">Всичко е опаковано. Стоката чака транспорт: шофьорът подписва в курса и тръгва.</p>}
+          {forDriver.map(t => {
+            const live = t.shipments.filter(s => s.status !== 'cancelled')
+            return (
+              <Row key={t.id} href={`/deliveries/trips/${t.id}`} left={formatTripNumber(t.number)}
+                right={`до ${live.map(s => name(s.store_id)).join(', ')} · ${live.reduce((n, s) => n + s.units, 0)} бр.`} />
+            )
+          })}
         </Card>
 
         <Card title="Чакат потвърждение от магазин" count={atStores.length} unit={atStores.length === 1 ? 'пратка' : 'пратки'}>
