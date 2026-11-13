@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronDown, Search, Check, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { PeriodDateInput } from '@/components/ui/period-date-input'
 
 interface SalesFiltersProps {
   fromDate: string
@@ -78,20 +79,20 @@ export function SalesFilters({ fromDate, toDate, store, product, category, group
     <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
       <div className="min-w-0">
         <label className="text-xs text-muted-foreground block mb-1">От</label>
-        <input
-          type="date"
-          defaultValue={fromDate}
-          onChange={e => update('from', e.target.value)}
-          className={`${inputClass} w-full sm:w-[160px]`}
+        <PeriodDateInput
+          value={fromDate}
+          onCommit={v => update('from', v)}
+          aria-label="От"
+          className="h-9 w-full sm:w-[160px]"
         />
       </div>
       <div className="min-w-0">
         <label className="text-xs text-muted-foreground block mb-1">До</label>
-        <input
-          type="date"
-          defaultValue={toDate}
-          onChange={e => update('to', e.target.value)}
-          className={`${inputClass} w-full sm:w-[160px]`}
+        <PeriodDateInput
+          value={toDate}
+          onCommit={v => update('to', v)}
+          aria-label="До"
+          className="h-9 w-full sm:w-[160px]"
         />
       </div>
       {stores.length > 0 && (

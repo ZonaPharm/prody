@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Input } from '@/components/ui/input'
+import { PeriodDateInput } from '@/components/ui/period-date-input'
 import { cn } from '@/lib/utils'
 import { sofiaToday } from '@/lib/date-utils'
 import { activeQuickRange, quickRange, type QuickRange } from '@/lib/date-ranges'
@@ -53,11 +53,11 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
       <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
         <div>
           <label className="text-xs text-muted-foreground">От</label>
-          <Input type="date" key={`f${from}`} defaultValue={from} onChange={e => navigate('from', e.target.value)} className="w-full sm:w-[160px] h-10 sm:h-9 text-sm" />
+          <PeriodDateInput value={from} onCommit={v => navigate('from', v)} aria-label="От" className="w-full sm:w-[160px] h-10 sm:h-9 text-sm" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">До</label>
-          <Input type="date" key={`t${to}`} defaultValue={to} onChange={e => navigate('to', e.target.value)} className="w-full sm:w-[160px] h-10 sm:h-9 text-sm" />
+          <PeriodDateInput value={to} onCommit={v => navigate('to', v)} aria-label="До" className="w-full sm:w-[160px] h-10 sm:h-9 text-sm" />
         </div>
       </div>
     </div>

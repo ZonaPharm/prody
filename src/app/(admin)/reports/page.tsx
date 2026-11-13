@@ -1,22 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Download, Building2, FileSpreadsheet, Loader2, Package, Boxes } from 'lucide-react'
+import { PeriodDateInput } from '@/components/ui/period-date-input'
+import { sofiaToday, sofiaDaysAgo } from '@/lib/date-utils'
 
 function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
 }
 
 export default function ReportsPage() {
-  const today = new Date().toISOString().split('T')[0]
-  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-  const [from, setFrom] = useState(monthAgo)
-  const [to, setTo] = useState(today)
+  // Sofia dates: in UTC "today" was still yesterday until 02:00–03:00.
+  const [from, setFrom] = useState(() => sofiaDaysAgo(30))
+  const [to, setTo] = useState(() => sofiaToday())
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,14 +24,17 @@ export default function ReportsPage() {
   const [exportLoading, setExportLoading] = useState('')
   const [stores, setStores] = useState<{ id: string; name: string }[]>([])
 
+  // Only the latest period's answer is shown, even if an older one comes back later.
+  const latest = useRef(0)
   const fetchData = useCallback(() => {
+    const id = ++latest.current
     setLoading(true)
-    const days = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
+    setError('')
     fetch(`/api/reports?from=${from}&to=${to}`)
       .then(r => r.json())
-      .then(setData)
-      .catch(e => setError(e instanceof Error ? e.message : 'Грешка при зареждане'))
-      .finally(() => setLoading(false))
+      .then(d => { if (id === latest.current) setData(d) })
+      .catch(e => { if (id === latest.current) setError(e instanceof Error ? e.message : 'Грешка при зареждане') })
+      .finally(() => { if (id === latest.current) setLoading(false) })
   }, [from, to])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -91,8 +94,10 @@ export default function ReportsPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-muted-foreground">Зареждане...</div>
-  if (error) return <div className="p-8 text-red-600">{error}</div>
+  // Only the first load replaces the page. A new period keeps the page and its
+  // date fields in place: swapping them out mid-typing lost the date being typed.
+  if (!data && loading) return <div className="p-8 text-muted-foreground">Зареждане...</div>
+  if (!data && error) return <div className="p-8 text-red-600">{error}</div>
   if (!data) return null
 
   return (
@@ -102,15 +107,18 @@ export default function ReportsPage() {
         <form onSubmit={(e) => { e.preventDefault(); fetchData() }} className="flex flex-wrap items-end gap-2">
           <div>
             <label className="text-xs text-muted-foreground">От</label>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[160px] h-9 text-sm" />
+            <PeriodDateInput value={from} onCommit={setFrom} aria-label="От" className="w-[160px] h-9 text-sm" />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">До</label>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[160px] h-9 text-sm" />
+            <PeriodDateInput value={to} onCommit={setTo} aria-label="До" className="w-[160px] h-9 text-sm" />
           </div>
-          <Button type="submit" variant="outline" size="sm" className="h-9">Покажи</Button>
+          <Button type="submit" variant="outline" size="sm" className="h-9" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Покажи'}
+          </Button>
         </form>
       </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -267,11 +275,11 @@ export default function ReportsPage() {
           <div className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
               <label className="text-xs font-medium">От дата</label>
-              <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[160px]" />
+              <PeriodDateInput value={from} onCommit={setFrom} aria-label="От дата" className="w-[160px]" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">До дата</label>
-              <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[160px]" />
+              <PeriodDateInput value={to} onCommit={setTo} aria-label="До дата" className="w-[160px]" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Магазин</label>

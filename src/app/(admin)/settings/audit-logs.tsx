@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { sofiaDateTime } from '@/lib/date-utils'
+import { usableDate, sofiaDayStartIso, sofiaDayEndIso } from '@/lib/date-ranges'
 
 const ACTION_LABELS: Record<string, string> = {
   create_product: '📦 Създаден продукт', update_product: '✏️ Редактиран продукт', delete_product: '🗑️ Изтрит продукт',
@@ -28,8 +29,9 @@ export function AuditLogs() {
     setLoading(true)
     const params = new URLSearchParams({ type, limit: '200' })
     if (action && action !== '__all__') params.set('action', action)
-    if (from) params.set('from', from + 'T00:00:00')
-    if (to) params.set('to', to + 'T23:59:59')
+    // Whole Sofia days; a time with no zone was read as UTC (the day started at 02:00).
+    if (usableDate(from)) params.set('from', sofiaDayStartIso(from))
+    if (usableDate(to)) params.set('to', sofiaDayEndIso(to))
     const res = await fetch(`/api/audit-logs?${params}`)
     const data = await res.json()
     setLogs(Array.isArray(data) ? data : [])
