@@ -32,7 +32,7 @@ const noSubscribe = () => () => {}
 
 const DICTATION_ERRORS: Record<string, string> = {
   // Also what a browser inside another app (a link opened from Viber, Gmail…) says: it never asks.
-  'not-allowed': 'Микрофонът не е разрешен тук. Ако сте отворили Prody от линк в друго приложение, натиснете ⋮ горе вдясно → „Отваряне в Chrome“ и разрешете микрофона. Дотогава диктувайте с микрофона на клавиатурата.',
+  'not-allowed': 'Микрофонът не е разрешен за Prody.',
   'service-not-allowed': 'Браузърът не позволява диктуване тук. Диктувайте с микрофона на клавиатурата или отворете Prody в Chrome.',
   'no-speech': 'Не чух нищо. Натиснете микрофона и говорете.',
   'audio-capture': 'Не намирам микрофон.',
@@ -51,6 +51,10 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
   const supported = useSyncExternalStore(noSubscribe, () => !!recognitionClass(), () => false)
   const [listening, setListening] = useState(false)
   const [error, setError] = useState('')
+  // The microphone is refused for this site: the screen shows how to allow it.
+  const [blocked, setBlocked] = useState(false)
+  // Waiting for the person to answer the browser's "Allow microphone?" window.
+  const [asking, setAsking] = useState(false)
   const rec = useRef<Recognition | null>(null)
   const onTextRef = useRef(onText)
   const onUnavailableRef = useRef(onUnavailable)
@@ -58,7 +62,7 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
 
   const stop = useCallback(() => { rec.current?.stop() }, [])
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     const R = recognitionClass()
     if (!R) {
       setError('Този браузър не може да диктува. Ползвайте микрофона на клавиатурата на телефона.')
@@ -67,6 +71,28 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
     }
     rec.current?.abort()
     setError('')
+    setBlocked(false)
+    // Ask for the microphone first: this is what brings up the browser's
+    // "Allow microphone?" window. Speech recognition alone often fails
+    // silently instead of asking.
+    if (navigator.mediaDevices?.getUserMedia) {
+      setAsking(true)
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(t => t.stop())
+      } catch (err) {
+        const name = (err as { name?: string })?.name
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          setBlocked(true)
+          onUnavailableRef.current?.()
+          return
+        }
+        if (name === 'NotFoundError') { setError(DICTATION_ERRORS['audio-capture']); return }
+        // Anything else: let speech recognition try on its own.
+      } finally {
+        setAsking(false)
+      }
+    }
     const r = new R()
     r.lang = 'bg-BG'
     r.interimResults = true
@@ -80,7 +106,8 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
     }
     r.onerror = e => {
       if (e.error === 'aborted') return
-      setError(DICTATION_ERRORS[e.error] || 'Диктуването спря. Опитайте пак.')
+      if (e.error === 'not-allowed') setBlocked(true)
+      else setError(DICTATION_ERRORS[e.error] || 'Диктуването спря. Опитайте пак.')
       // Some browsers never end after an error: stop listening here, not only in onend.
       if (rec.current === r) rec.current = null
       setListening(false)
@@ -100,7 +127,7 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
 
   useEffect(() => () => rec.current?.abort(), [])
 
-  return { supported, listening, error, start, stop, clearError: () => setError('') }
+  return { supported, listening, asking, blocked, error, start, stop, clearError: () => { setError(''); setBlocked(false) } }
 }
 
 function subscribeVoices(cb: () => void) {

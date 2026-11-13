@@ -284,6 +284,7 @@ export function AssistantChat() {
           <div className="space-y-2 border-t bg-slate-50/60 p-2 sm:p-3">
             {error && <Note tone="danger" small>{error}</Note>}
             {dictation.error && <Note tone="warn" small>{dictation.error}</Note>}
+            {dictation.blocked && <MicHelp onClose={dictation.clearError} />}
             {blocked && <Note tone="warn" small>{blocked}</Note>}
             {speaker.noBulgarian && (
               <Meta>На това устройство няма български глас за четене: отговорите ще се четат с акцент. Може да се добави от настройките за говор на телефона.</Meta>
@@ -322,7 +323,7 @@ export function AssistantChat() {
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(input) }
                 }}
-                placeholder={dictation.listening ? 'Слушам… говорете' : 'Въпрос към асистента…'}
+                placeholder={dictation.asking ? 'Разрешете микрофона в прозореца горе…' : dictation.listening ? 'Слушам… говорете' : 'Въпрос към асистента…'}
                 rows={2}
                 maxLength={4000}
                 disabled={busy || !!blocked}
@@ -341,7 +342,7 @@ export function AssistantChat() {
                 {dictation.listening && <span className="mr-1 hidden animate-pulse text-xs font-medium text-red-600 sm:inline">Слушам…</span>}
                 <Button type="button" variant={dictation.listening ? 'destructive' : 'outline'} size="icon"
                   className={cn('h-10 w-10 rounded-full', dictation.listening && 'animate-pulse')}
-                  disabled={busy || !!blocked} onClick={toggleDictation}
+                  disabled={busy || dictation.asking || !!blocked} onClick={toggleDictation}
                   aria-label={dictation.listening ? 'Спри диктуването' : 'Диктувай с глас'} title={dictation.listening ? 'Спри диктуването' : 'Диктувай с глас (български)'}
                   aria-pressed={dictation.listening}>
                   {dictation.listening ? <Square className="fill-current" /> : <Mic />}
@@ -356,6 +357,28 @@ export function AssistantChat() {
           </div>
         </section>
       </div>
+    </div>
+  )
+}
+
+/** How to allow the microphone once the browser has refused it for this site (it will not ask again). */
+function MicHelp({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold">Микрофонът е забранен за Prody в този браузър</p>
+        <button type="button" onClick={onClose} aria-label="Затвори" className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-amber-100">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1">Браузърът вече не пита. Разрешете го веднъж така:</p>
+      <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+        <li>Натиснете иконата вляво от адреса горе (катинарче или <span aria-hidden>⚙</span>).</li>
+        <li>„Разрешения“ → „Микрофон“ → „Разрешаване“.</li>
+        <li>Презаредете страницата и натиснете микрофона пак.</li>
+      </ol>
+      <p className="mt-1.5 text-xs">Ако иконата я няма: в Chrome ⋮ → Настройки → Настройки на сайта → Микрофон → изберете сайта → Разрешаване. Ако Prody е отворен от линк в друго приложение, първо ⋮ → „Отваряне в Chrome“.</p>
+      <p className="mt-1.5 text-xs">Дотогава може да диктувате с микрофона на клавиатурата.</p>
     </div>
   )
 }
