@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { countOpenProblems } from '@/lib/deliveries/work'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { taskBadge } from '@/lib/deliveries/tasks-data'
+import { isGranted } from '@/lib/assistant/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,7 @@ const navItems = [
 const DELIVERIES_ITEM = { href: '/deliveries', label: 'Доставки' }
 // "Задачи" right after "Табло", with the same switch.
 const TASKS_ITEM = { href: '/tasks', label: 'Задачи' }
+const AI_ITEM = { href: '/assistant', label: 'AI асистент' }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAuth()
@@ -61,12 +63,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     )
   }
 
-  const items = deliveries
+  const base = deliveries
     ? navItems.flatMap(item =>
         item.href === '/requests' ? [{ ...DELIVERIES_ITEM, badge: problems }, item]
         : item.href === '/dashboard' ? [item, { ...TASKS_ITEM, badge: tasks }]
         : [item])
     : navItems
+  // "AI асистент" last, only for admins ticked in Настройки → AI.
+  const items = (await isGranted(user.id).catch(() => false)) ? [...base, AI_ITEM] : base
 
   return (
     <AdminLayoutClient navItems={items} userName={user.display_name || user.email} tasks={deliveries ? tasks : undefined}>

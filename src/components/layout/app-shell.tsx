@@ -20,6 +20,7 @@ import {
   Receipt,
   PackageCheck,
   ListChecks,
+  Sparkles,
 } from 'lucide-react'
 import { SwitchRoleButton } from '@/components/admin/switch-role-button'
 
@@ -49,6 +50,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   '/my-shipments': PackageCheck,
   '/tasks': ListChecks,
   '/my-tasks': ListChecks,
+  '/assistant': Sparkles,
 }
 
 export interface ShellNavItem {
