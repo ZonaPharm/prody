@@ -90,16 +90,22 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   // Grouped-by-product data
   let groupedProducts: { name: string; sales: number; qty: number; revenue: number; price: number }[] = []
   if (grouped === '1') {
-    let gq = supabase
-      .from('sales')
-      .select('quantity, sale_price, product:products!inner(name, price)')
-      .gte('sale_date', fromDate)
-      .lte('sale_date', toDate)
-      .eq('voided', false)
-    if (storeIds.length > 0) gq = gq.in('store_id', storeIds)
-    if (sp.product) gq = gq.eq('product_id', sp.product)
-    if (sp.category) gq = gq.eq('product.category_id', sp.category)
-    const { data: gs } = await gq
+    // Paged like the totals above: a month holds more than PostgREST's 1000-row
+    // cap, and this view summed only the first 1000 sales.
+    const gs = await fetchAll<any>(() => {
+      let gq = supabase
+        .from('sales')
+        .select('quantity, sale_price, product:products!inner(name, price, category_id)')
+        .gte('sale_date', fromDate)
+        .lte('sale_date', toDate)
+        .eq('voided', false)
+        .order('id')
+      if (storeIds.length > 0) gq = gq.in('store_id', storeIds)
+      if (sp.product) gq = gq.eq('product_id', sp.product)
+      if (sp.category === '__none__') gq = gq.is('product.category_id', null)
+      else if (sp.category) gq = gq.eq('product.category_id', sp.category)
+      return gq as any
+    })
     const byName: Record<string, { count: number; qty: number; rev: number; price: number }> = {}
     ;(gs || []).forEach((s: any) => {
       const n = s.product?.name || '?'

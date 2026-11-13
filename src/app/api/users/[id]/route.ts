@@ -62,8 +62,23 @@ export async function DELETE(
   if (!profile || profile.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
+  if (id === user.id) {
+    return NextResponse.json({ error: 'Не можете да деактивирате себе си' }, { status: 400 })
+  }
   const admin = createAdminClient()
-  await (admin.from('users') as any).update({ is_active: false }).eq('id', id)
+
+  // Setting is_active alone left the account able to sign in and sell: nothing
+  // read the flag. Ban the account in Supabase Auth as well, so no new session
+  // can be started and the current one stops at its next refresh.
+  const { error: banError } = await admin.auth.admin.updateUserById(id, { ban_duration: '876000h' })
+  if (banError) {
+    return NextResponse.json({ error: banError.message }, { status: 500 })
+  }
+
+  const { error } = await (admin.from('users') as any).update({ is_active: false }).eq('id', id)
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

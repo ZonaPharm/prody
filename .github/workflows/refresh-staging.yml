@@ -1,0 +1,40 @@
+# Copies the production database into staging, so preview deploys show
+# current data. Started by hand only: Actions > "Обнови staging от продукшън"
+# > Run workflow. Production is only read from; see scripts/refresh-staging.sh.
+#
+# Needs two repository secrets (Settings > Secrets and variables > Actions),
+# each the Session pooler URI from Supabase (project > Connect > Session
+# pooler), with the database password filled in:
+#   PROD_DB_URL     production  (ocvmqlbfkloskabicxuw)
+#   STAGING_DB_URL  staging     (ruhhsixmqusnpiajkbxe)
+name: Обнови staging от продукшън
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-staging
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pg_dump / psql 17
+        run: |
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Refresh staging
+        env:
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: ./scripts/refresh-staging.sh

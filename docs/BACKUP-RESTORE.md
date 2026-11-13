@@ -6,9 +6,41 @@ Daily backup at 3:00 AM UTC via Vercel cron → Supabase Storage `db-backups` bu
 
 ## Backup Contents
 
-Each backup (.json.gz) contains ALL data from all 14 tables:
-products, product_images, categories, labels, stores, stock_batches, stock_movements,
-stock_requests, request_events, request_notes, sales, users, email_settings, audit_logs
+Each backup (.json.gz) holds every row of these tables, listed here — and in
+`TABLES` in `src/lib/backup.ts` — in foreign-key order, so a restore that inserts
+them in this order never meets a missing parent:
+
+categories, stores, users, products, product_images, labels,
+suppliers, deliveries, delivery_items, delivery_item_plan, trips, shipments,
+shipment_lines, delivery_signals, delivery_events,
+stock_batches, sales, stock_movements, stock_requests, request_events,
+request_notes, stock_corrections, email_settings, audit_logs
+
+Not in the backup: `auth.users`, which `users`, `audit_logs`, `stock_requests`,
+`request_events` and `request_notes` reference — the auth accounts must exist
+before those tables are restored.
+
+The deliveries tables (suppliers … delivery_events) come from
+`20261110_deliveries_schema.sql`. Until that migration is applied where the
+backup runs, they are skipped and the email's details say `още няма: …`.
+
+### Restoring the deliveries tables
+
+- **Order matters more than before.** `stock_batches.delivery_item_id` references
+  `delivery_items`, and `stock_movements.delivery_id` / `shipment_id` reference
+  `deliveries` / `shipments`. Restore the deliveries tables before `stock_batches`
+  and `stock_movements`, as listed above.
+- **`delivery_events` is append-only.** A trigger rejects every UPDATE and DELETE
+  on it, for every role. Restore it with plain `INSERT`s into an empty table. A
+  restore that upserts (`INSERT … ON CONFLICT DO UPDATE`, or the Table Editor's
+  upsert) or that clears the table with `DELETE` fails on it. To empty it before a
+  restore, disable its triggers for the duration of the restore and enable them
+  again afterwards (`alter table public.delivery_events disable trigger user;` …
+  `enable trigger user;`). `TRUNCATE` is blocked by a statement trigger too.
+- `trips.number`, `shipments.number` and `deliveries.number` come from sequences.
+  After a restore set each sequence past the highest number restored, e.g.
+  `select setval('public.delivery_number_seq', coalesce((select max(number) from public.deliveries), 0) + 1, false);`
+  (same for `shipment_number_seq` / `shipments` and `trip_number_seq` / `trips`).
 
 ## Where Backups Are Stored
 
@@ -33,6 +65,10 @@ stock_requests, request_events, request_notes, sales, users, email_settings, aud
 cd /path/to/prody
 node scripts/restore.mjs <backup-file.json>
 ```
+
+> `scripts/restore.mjs` is not in the repository (checked 10.11.2026). Whoever
+> writes it: insert table by table in the order of `TABLES`, with plain inserts
+> (no upsert), and see "Restoring the deliveries tables" above.
 
 ### Option C: Restore via Supabase Dashboard (manual per table)
 
