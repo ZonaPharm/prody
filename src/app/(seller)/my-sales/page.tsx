@@ -1,6 +1,7 @@
 import React from 'react'
 import { requireAuth, getEffectiveRole } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { formatDateBg } from '@/lib/date-input'
 import { Package2 } from 'lucide-react'
 import { VoidSaleButton } from '@/components/sales/void-sale-button'
 
@@ -128,7 +129,7 @@ export default async function MySalesPage({ searchParams }: PageProps) {
           <p className="text-muted-foreground text-sm mt-1">
             {fromDate === today && toDate === today
               ? 'Продажби за днес'
-              : `${fromDate} — ${toDate}`}
+              : `${formatDateBg(fromDate)} — ${formatDateBg(toDate)}`}
           </p>
         </div>
         <MySalesFilters from={fromDate} to={toDate} />

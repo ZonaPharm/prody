@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ArrowLeft, CalendarClock, ClipboardCheck, Loader2, PackageCheck, PackageOpen, PackagePlus, PenLine, Printer, Truck, X, XCircle } from 'lucide-react'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
@@ -338,7 +339,7 @@ function PlanDialog({ trip, drivers, today, onClose }: { trip: TripDetail; drive
                 {label}
               </button>
             ))}
-            <Input type="date" className="h-11 w-auto min-w-0 flex-1" value={date} onChange={e => setDate(e.target.value)} aria-label="Ден" />
+            <DateField className="h-11 w-auto min-w-[9.5rem] flex-1" value={date} allowEmpty onChange={setDate} aria-label="Ден" />
             <Input type="time" className="h-11 w-28" value={time} onChange={e => setTime(e.target.value)} disabled={!date} aria-label="Час (по избор)" />
           </div>
         </div>

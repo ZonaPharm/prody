@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getImageSrc } from '@/lib/images'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
@@ -537,8 +538,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
       {/* Row 4b: Date + Source order date */}
       <div className="space-y-2">
         <Label htmlFor="source_order_date">Дата на поръчка</Label>
-        <Input id="source_order_date" type="date" value={sourceOrderDate}
-          onChange={(e) => setSourceOrderDate(e.target.value)} />
+        <DateField id="source_order_date" value={sourceOrderDate} allowEmpty
+          onChange={setSourceOrderDate} />
       </div>
 
       {/* Row 5: Description + AI button */}

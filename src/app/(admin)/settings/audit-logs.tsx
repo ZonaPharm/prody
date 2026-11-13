@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { usableDate, sofiaDayStartIso, sofiaDayEndIso } from '@/lib/date-ranges'
 
@@ -87,8 +87,8 @@ export function AuditLogs() {
               </SelectContent>
             </Select>
           )}
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[140px] h-8 text-xs" />
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[140px] h-8 text-xs" />
+          <DateField value={from} onChange={setFrom} allowEmpty aria-label="От" className="w-[150px] h-8" inputClassName="md:text-xs" />
+          <DateField value={to} onChange={setTo} allowEmpty aria-label="До" className="w-[150px] h-8" inputClassName="md:text-xs" />
         </div>
 
         {loading ? (

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Download, Building2, FileSpreadsheet, Loader2, Package, Boxes } from 'lucide-react'
 import { PeriodDateInput } from '@/components/ui/period-date-input'
+import { formatDateBg } from '@/lib/date-input'
 import { sofiaToday, sofiaDaysAgo } from '@/lib/date-utils'
 
 function truncateName(name: string, max: number = 22): string {
@@ -159,9 +160,9 @@ export default function ReportsPage() {
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.byDay}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="sale_date" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="sale_date" tick={{ fontSize: 12 }} tickFormatter={(d: string) => formatDateBg(d).slice(0, 5)} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
-                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
+                  <Tooltip labelFormatter={(d) => formatDateBg(String(d))} formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
                   <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name="Приходи" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
@@ -216,7 +217,7 @@ export default function ReportsPage() {
                     tick={{ fontSize: 11 }}
                     tickFormatter={(v) => truncateName(v, 24)}
                   />
-                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
+                  <Tooltip labelFormatter={(d) => formatDateBg(String(d))} formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
                   <Bar dataKey="revenue" fill="#8b5cf6" name="Приходи" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
