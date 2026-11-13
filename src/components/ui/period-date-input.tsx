@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { dateFieldAction } from '@/lib/date-ranges'
+import { dateFieldAction, fieldTextAfterPageChange, TYPING_PAUSE_MS } from '@/lib/date-ranges'
 
-type Props = Omit<React.ComponentProps<'input'>, 'type' | 'value' | 'defaultValue' | 'onChange' | 'onBlur'> & {
+type Props = Omit<React.ComponentProps<'input'>, 'type' | 'value' | 'defaultValue' | 'onChange' | 'onBlur' | 'onKeyDown'> & {
   /** The date the page is showing now (YYYY-MM-DD). */
   value: string
-  /** Called with a whole, real date once the person stops typing or leaves the field. */
+  /** Called with a whole, real date once the person stops typing, presses Enter, leaves the field or picks from the calendar. */
   onCommit: (date: string) => void
 }
 
@@ -17,53 +17,58 @@ type Props = Omit<React.ComponentProps<'input'>, 'type' | 'value' | 'defaultValu
  * The old fields searched on every change. Typing a year went through
  * 0002, 0020, 0202 first, and each of those started a search; on "Моите
  * продажби" the field was also rebuilt after each search, so the cursor fell
- * out and the year came out as 0001 or 52026. On "Отчети" the whole page,
- * fields included, was swapped for "Зареждане..." after the first digit.
+ * out and the year came out wrong. On "Отчети" the whole page, fields
+ * included, was swapped for "Зареждане..." after the first digit.
  *
- * This field keeps what is typed, searches only with a whole, real date, and
- * waits a moment so one date is one search. Picking from the calendar works
- * as before. When the page changes the period itself (quick buttons, Back),
- * the field shows the new date.
+ * This field keeps what is typed and searches only with a whole, real date:
+ * after a pause in typing, on Enter or on leaving the field. A date picked
+ * from the calendar searches at once. When the page changes the period itself
+ * (quick buttons, Back), the field shows the new date.
  */
 export function PeriodDateInput({ value, onCommit, ...rest }: Props) {
   const [typed, setTyped] = useState(value)
   const [shown, setShown] = useState(value)
+  // The date this field asked the page for and is waiting to see.
+  const [askedFor, setAskedFor] = useState<string | null>(null)
   if (value !== shown) {
     setShown(value)
-    setTyped(value)
+    setTyped(fieldTextAfterPageChange(value, askedFor, typed))
+    setAskedFor(null)
   }
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // The page takes a moment to show a new date; do not ask twice for the same one.
-  const sent = useRef<string | null>(null)
-  const commit = (v: string) => {
-    if (sent.current === v) return
-    sent.current = v
-    onCommit(v)
-  }
-  // Once the page shows a date, any date may be asked for again.
-  useEffect(() => { sent.current = null }, [value])
+  const lastKey = useRef(0)
   const stop = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null } }
   useEffect(() => stop, [])
+
+  const commit = (v: string) => {
+    stop()
+    if (dateFieldAction(v, value) !== 'search' || v === askedFor) return
+    setAskedFor(v)
+    onCommit(v)
+  }
 
   return (
     <Input
       {...rest}
       type="date"
       value={typed}
+      onKeyDown={e => {
+        lastKey.current = Date.now()
+        if (e.key === 'Enter') commit(typed)
+      }}
       onChange={e => {
         const v = e.target.value
         setTyped(v)
         stop()
-        if (dateFieldAction(v, value) === 'search') {
-          timer.current = setTimeout(() => { timer.current = null; commit(v) }, 400)
-        }
+        if (dateFieldAction(v, value) !== 'search') return
+        const fromKeyboard = Date.now() - lastKey.current < 150
+        if (fromKeyboard) timer.current = setTimeout(() => commit(v), TYPING_PAUSE_MS)
+        else commit(v)
       }}
       onBlur={() => {
-        const action = dateFieldAction(typed, value)
-        if (action === 'search') { stop(); commit(typed) }
-        // Left half-typed or empty: show the date the page is using.
-        else if (action === 'wait') { stop(); setTyped(value) }
+        if (dateFieldAction(typed, value) === 'wait') { stop(); setTyped(value) } // half-typed or empty
+        else commit(typed)
       }}
     />
   )

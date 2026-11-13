@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { quickRange, activeQuickRange, usableDate, dateFieldAction, sofiaDayStartIso, sofiaDayEndIso } from './date-ranges'
+import { quickRange, activeQuickRange, usableDate, dateFieldAction, sofiaDayStartIso, sofiaDayEndIso, fieldTextAfterPageChange } from './date-ranges'
 
 describe('quickRange', () => {
   it('today is the given day', () => {
@@ -76,5 +76,16 @@ describe('sofia day bounds', () => {
     // 25 October 2026: 04:00 -> 03:00; the day is 25 hours long.
     expect(sofiaDayStartIso('2026-10-25')).toBe('2026-10-24T21:00:00.000Z')
     expect(sofiaDayEndIso('2026-10-25')).toBe('2026-10-25T21:59:59.999Z')
+  })
+})
+
+describe('fieldTextAfterPageChange', () => {
+  it('keeps what is being typed when the page shows the date the field asked for', () => {
+    // Asked for 2026-08-01 after the month; the year is now half typed.
+    expect(fieldTextAfterPageChange('2026-08-01', '2026-08-01', '0002-08-11')).toBe('0002-08-11')
+  })
+  it('shows the page date after a quick button or Back', () => {
+    expect(fieldTextAfterPageChange('2026-11-09', null, '2026-11-03')).toBe('2026-11-09')
+    expect(fieldTextAfterPageChange('2026-11-09', '2026-11-03', '2026-11-03')).toBe('2026-11-09')
   })
 })

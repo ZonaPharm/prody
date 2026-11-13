@@ -90,3 +90,16 @@ export function sofiaDayEndIso(ymd: string): string {
   const next = fmt(new Date(Date.UTC(y, m - 1, d + 1)))
   return new Date(new Date(sofiaDayStartIso(next)).getTime() - 1).toISOString()
 }
+
+/**
+ * What a date field shows once the page moves to a new date. If the field
+ * asked for that date itself, keep what is in it: the person may already be
+ * typing the next part (a search after the month must not wipe the year being
+ * typed). Any other change (a quick button, Back) shows the page's date.
+ */
+export function fieldTextAfterPageChange(pageDate: string, askedFor: string | null, typed: string): string {
+  return pageDate === askedFor ? typed : pageDate
+}
+
+/** Typing waits for a pause; a date picked from the calendar searches at once. */
+export const TYPING_PAUSE_MS = 1000
