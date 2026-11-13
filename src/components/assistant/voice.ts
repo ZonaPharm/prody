@@ -31,25 +31,30 @@ function recognitionClass(): (new () => Recognition) | null {
 const noSubscribe = () => () => {}
 
 const DICTATION_ERRORS: Record<string, string> = {
-  'not-allowed': 'Няма разрешение за микрофона. Разрешете го от катинарчето до адреса и опитайте пак.',
-  'service-not-allowed': 'Браузърът не позволява диктуване тук. Ползвайте микрофона на клавиатурата.',
+  // Also what a browser inside another app (a link opened from Viber, Gmail…) says: it never asks.
+  'not-allowed': 'Микрофонът не е разрешен тук. Ако сте отворили Prody от линк в друго приложение, натиснете ⋮ горе вдясно → „Отваряне в Chrome“ и разрешете микрофона. Дотогава диктувайте с микрофона на клавиатурата.',
+  'service-not-allowed': 'Браузърът не позволява диктуване тук. Диктувайте с микрофона на клавиатурата или отворете Prody в Chrome.',
   'no-speech': 'Не чух нищо. Натиснете микрофона и говорете.',
   'audio-capture': 'Не намирам микрофон.',
   network: 'Диктуването иска връзка с интернет. Опитайте пак.',
   'language-not-supported': 'Този браузър не разпознава български. Ползвайте микрофона на клавиатурата.',
 }
 
+/** Errors after which only the keyboard's own dictation is left. */
+const USE_KEYBOARD = new Set(['not-allowed', 'service-not-allowed', 'language-not-supported'])
+
 /**
  * Press to dictate: the words appear as they are recognised. `onText` gets
  * everything said since the button was pressed.
  */
-export function useDictation(onText: (text: string) => void) {
+export function useDictation(onText: (text: string) => void, onUnavailable?: () => void) {
   const supported = useSyncExternalStore(noSubscribe, () => !!recognitionClass(), () => false)
   const [listening, setListening] = useState(false)
   const [error, setError] = useState('')
   const rec = useRef<Recognition | null>(null)
   const onTextRef = useRef(onText)
-  useEffect(() => { onTextRef.current = onText })
+  const onUnavailableRef = useRef(onUnavailable)
+  useEffect(() => { onTextRef.current = onText; onUnavailableRef.current = onUnavailable })
 
   const stop = useCallback(() => { rec.current?.stop() }, [])
 
@@ -57,6 +62,7 @@ export function useDictation(onText: (text: string) => void) {
     const R = recognitionClass()
     if (!R) {
       setError('Този браузър не може да диктува. Ползвайте микрофона на клавиатурата на телефона.')
+      onUnavailableRef.current?.()
       return
     }
     rec.current?.abort()
@@ -72,7 +78,15 @@ export function useDictation(onText: (text: string) => void) {
       for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript
       onTextRef.current(text.replace(/\s+/g, ' ').trim())
     }
-    r.onerror = e => { if (e.error !== 'aborted') setError(DICTATION_ERRORS[e.error] || 'Диктуването спря. Опитайте пак.') }
+    r.onerror = e => {
+      if (e.error === 'aborted') return
+      setError(DICTATION_ERRORS[e.error] || 'Диктуването спря. Опитайте пак.')
+      // Some browsers never end after an error: stop listening here, not only in onend.
+      if (rec.current === r) rec.current = null
+      setListening(false)
+      try { r.abort() } catch { /* already stopped */ }
+      if (USE_KEYBOARD.has(e.error)) onUnavailableRef.current?.()
+    }
     r.onend = () => { if (rec.current === r) rec.current = null; setListening(false) }
     rec.current = r
     try {

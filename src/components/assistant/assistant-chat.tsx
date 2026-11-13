@@ -41,10 +41,15 @@ export function AssistantChat() {
   const typedRef = useRef('')
   const dictatedRef = useRef(false)
   const speaker = useSpeaker()
-  const dictation = useDictation(text => {
-    dictatedRef.current = true
-    setInput(typedRef.current ? `${typedRef.current} ${text}` : text)
-  })
+  const textRef = useRef<HTMLTextAreaElement>(null)
+  const dictation = useDictation(
+    text => {
+      dictatedRef.current = true
+      setInput(typedRef.current ? `${typedRef.current} ${text}` : text)
+    },
+    // No dictation here: open the keyboard, which has its own microphone.
+    () => textRef.current?.focus(),
+  )
   const [error, setError] = useState('')
   const [info, setInfo] = useState<{ configured: boolean; blocked: string | null; spent: string; cap: string } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -311,6 +316,7 @@ export function AssistantChat() {
                 </div>
               )}
               <Textarea
+                ref={textRef}
                 value={input}
                 onChange={e => { setInput(e.target.value); if (!e.target.value) dictatedRef.current = false }}
                 onKeyDown={e => {
