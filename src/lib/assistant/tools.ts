@@ -27,6 +27,21 @@ export type ToolContext = {
   db: Db
   /** Names of stores and people, loaded once per question. */
   names: () => Promise<Names>
+  /** Present when the assistant may propose changes and make files (actions.ts). */
+  act?: ActContext
+}
+
+/** Who is asking and where proposals go; see actions.ts. */
+export type ActContext = {
+  userId: string
+  userName: string
+  conversationId: string
+  /** The question these proposals answer, so the screen shows them after its answer. */
+  questionSeq: number
+  /** Deliveries and orders to suppliers are switched on for this person. */
+  deliveries: boolean
+  /** Shows a card on the screen as soon as it is ready. */
+  emit: (card: unknown) => void
 }
 
 type Names = { store: (id: string | null | undefined) => string | null; person: (id: string | null | undefined) => string | null }
@@ -63,13 +78,13 @@ const uuid = z.string().uuid()
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const limit = (max: number, def: number) => z.number().int().min(1).max(max).default(def)
 
-function fail(err: unknown): { error: string } {
+export function fail(err: unknown): { error: string } {
   if (isMissingTableError(err)) return { error: 'Тази част още я няма в базата (миграцията не е пусната тук).' }
   const msg = (err as any)?.message
   return { error: `Четенето не успя${msg ? ': ' + clip(msg, 200) : ''}.` }
 }
 
-async function rows<T = any>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+export async function rows<T = any>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const { data, error } = await q
   if (error) throw error
   return data || []
@@ -692,7 +707,8 @@ const integrity: AssistantTool = {
   },
 }
 
-export const ASSISTANT_TOOLS: AssistantTool[] = [
+/** The tools that only read. The ones that propose changes or make files are in actions.ts. */
+export const READ_TOOLS: AssistantTool[] = [
   peopleAndStores, findProducts, productStock, storeStock, salesSummary, listSales, stockHistory,
   listDeliveries, deliveryDetails, tripsAndShipments, stockRequests, problems, supplierOrders,
   activityLog, integrity,
@@ -705,24 +721,29 @@ function jsonSchema(schema: z.ZodObject<any>): any {
 }
 
 /** Tool definitions in the chat-completions format, in a fixed order so the prompt cache holds. */
-export function toolDefinitions() {
-  return ASSISTANT_TOOLS.map(t => ({
+export function definitionsOf(tools: AssistantTool[]) {
+  return tools.map(t => ({
     type: 'function' as const,
     function: { name: t.name, description: t.description, parameters: jsonSchema(t.schema) },
   }))
+}
+
+/** Checks the input against the tool's schema; the parsed input or a message for the model. */
+export function parseToolInput(tool: AssistantTool, input: unknown): { ok: true; data: any } | { ok: false; error: string } {
+  const parsed = tool.schema.safeParse(input ?? {})
+  if (parsed.success) return { ok: true, data: parsed.data }
+  return { ok: false, error: 'Грешни параметри: ' + clip(parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '), 400) }
 }
 
 /**
  * Runs one tool call from the model. The input is checked against the tool's
  * schema first; anything unknown or malformed comes back as an error result.
  */
-export async function runTool(ctx: ToolContext, name: string, input: unknown): Promise<{ text: string; isError: boolean }> {
-  const tool = ASSISTANT_TOOLS.find(t => t.name === name)
+export async function runToolIn(tools: AssistantTool[], ctx: ToolContext, name: string, input: unknown): Promise<{ text: string; isError: boolean }> {
+  const tool = tools.find(t => t.name === name)
   if (!tool) return { text: toolJson({ error: `Няма инструмент ${name}.` }), isError: true }
-  const parsed = tool.schema.safeParse(input ?? {})
-  if (!parsed.success) {
-    return { text: toolJson({ error: 'Грешни параметри: ' + clip(parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '), 400) }), isError: true }
-  }
+  const parsed = parseToolInput(tool, input)
+  if (!parsed.ok) return { text: toolJson({ error: parsed.error }), isError: true }
   try {
     const out = await tool.run(ctx, parsed.data)
     const isError = !!out && typeof out === 'object' && 'error' in (out as any) && Object.keys(out as any).length === 1
@@ -732,6 +753,6 @@ export async function runTool(ctx: ToolContext, name: string, input: unknown): P
   }
 }
 
-export function toolStatus(name: string): string {
-  return ASSISTANT_TOOLS.find(t => t.name === name)?.status ?? 'Проверявам…'
+export function statusIn(tools: AssistantTool[], name: string): string {
+  return tools.find(t => t.name === name)?.status ?? 'Проверявам…'
 }

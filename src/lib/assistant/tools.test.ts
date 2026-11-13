@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ASSISTANT_TOOLS, namesLoader, parseNumber, runTool, toolDefinitions } from './tools'
+import { READ_TOOLS, namesLoader, parseNumber } from './tools'
+import { runTool, toolDefinitions } from './registry'
 import { fakeDb } from './fake-db'
 
 const STORES = [{ id: '11111111-1111-4111-8111-111111111111', name: 'Ботев' }]
@@ -23,7 +24,7 @@ describe('tool definitions', () => {
   })
   it('no tool reads the mail settings, the auth schema or writes anything', () => {
     // The tools only call select-style methods; a write would show up here.
-    const src = ASSISTANT_TOOLS.map(t => t.run.toString()).join('\n')
+    const src = READ_TOOLS.map(t => t.run.toString()).join('\n')
     expect(src).not.toMatch(/email_settings|auth\.|\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/)
   })
 })

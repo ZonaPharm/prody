@@ -9,6 +9,13 @@ export type Query = { table: string; calls: Call[] }
 export function fakeDb(handler: (q: Query) => unknown[] | { error: unknown }) {
   const queries: Query[] = []
   const db = {
+    /** rpc('fn', args) is seen by the handler as table "rpc:fn"; its first row is the answer. */
+    rpc(name: string, args: unknown) {
+      const q: Query = { table: `rpc:${name}`, calls: [['rpc', args]] }
+      queries.push(q)
+      const r = handler(q)
+      return Promise.resolve(Array.isArray(r) ? { data: r[0] ?? null, error: null } : { data: null, error: r.error })
+    },
     from(table: string) {
       const q: Query = { table, calls: [] }
       queries.push(q)

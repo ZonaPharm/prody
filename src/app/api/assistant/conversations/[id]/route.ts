@@ -12,5 +12,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const db = createAdminClient()
   const own = await ownConversation(db, access.user.id, id)
   if (!own) return NextResponse.json({ error: 'Няма такъв разговор.' }, { status: 404 })
-  return NextResponse.json({ id: own.id, title: own.title, messages: await loadTranscript(db, own.id) })
+  return NextResponse.json({ id: own.id, title: own.title, items: await loadTranscript(db, own.id) })
 }

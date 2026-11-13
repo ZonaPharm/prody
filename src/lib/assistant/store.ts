@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAll } from '@/lib/fetch-all'
 import { costUsd, monthStartIso, splitUsage, type TokenUsage } from './pricing'
 import type { ChatMessage } from './deepseek'
+import type { ActionCard } from './actions'
 import type { StoredMessage } from './agent'
 
 type Db = SupabaseClient<any, any, any>
@@ -87,11 +88,48 @@ export async function loadHistory(db: Db, conversationId: string): Promise<{ his
   return { history, nextSeq, questions }
 }
 
-/** Only what the screen shows: the questions and the answers. */
-export async function loadTranscript(db: Db, conversationId: string) {
-  const rows = await fetchAll<any>(() => (db.from('ai_messages') as any)
-    .select('seq, role, display, created_at').eq('conversation_id', conversationId).not('display', 'is', null).order('seq'))
-  return rows.map(r => ({ role: r.role as 'user' | 'assistant', text: r.display as string, at: r.created_at as string }))
+const CARD_COLUMNS = 'id, kind, title, status, payload, result, question_seq'
+
+/** A card of this person's own (a proposal or a file). */
+export async function ownAction(db: Db, userId: string, id: string): Promise<(ActionCard & { conversation_id: string | null }) | null> {
+  const { data, error } = await (db.from('ai_actions') as any)
+    .select(CARD_COLUMNS + ', user_id, conversation_id').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data && data.user_id === userId ? data : null
+}
+
+export type TranscriptItem =
+  | { type: 'message'; role: 'user' | 'assistant'; text: string; at: string }
+  | { type: 'card'; card: ActionCard }
+
+/** Only what the screen shows: the questions, the answers and, after each answer, its cards. */
+export async function loadTranscript(db: Db, conversationId: string): Promise<TranscriptItem[]> {
+  const [rows, cards] = await Promise.all([
+    fetchAll<any>(() => (db.from('ai_messages') as any)
+      .select('seq, role, display, created_at').eq('conversation_id', conversationId).not('display', 'is', null).order('seq')),
+    fetchAll<any>(() => (db.from('ai_actions') as any)
+      .select(CARD_COLUMNS).eq('conversation_id', conversationId).order('created_at')).catch(() => [] as any[]),
+  ])
+  return transcriptItems(rows, cards)
+}
+
+/** Cards go right after the answer to the question they came from. */
+export function transcriptItems(rows: any[], cards: any[]): TranscriptItem[] {
+  const out: TranscriptItem[] = []
+  let question: number | null = null
+  const flush = (seq: number | null) => {
+    for (const c of cards) if (c.question_seq === seq) out.push({ type: 'card', card: cardOf(c) })
+  }
+  for (const r of rows) {
+    if (r.role === 'user') question = r.seq
+    out.push({ type: 'message', role: r.role, text: r.display, at: r.created_at })
+    if (r.role === 'assistant') { flush(question); question = null }
+  }
+  return out
+}
+
+export function cardOf(c: any): ActionCard {
+  return { id: c.id, kind: c.kind, title: c.title, status: c.status, payload: c.payload, result: c.result }
 }
 
 export async function saveMessages(db: Db, conversationId: string, firstSeq: number, messages: StoredMessage[]) {

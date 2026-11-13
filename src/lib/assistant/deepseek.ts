@@ -9,10 +9,13 @@ import type { TokenUsage } from './pricing'
 
 export type ToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
 
+/** A question with an attached picture is a list of parts (DeepSeek Flash reads images). */
+export type UserPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+
 /** One message in the chat-completions format, stored and sent back unchanged. */
 export type ChatMessage =
   | { role: 'system'; content: string }
-  | { role: 'user'; content: string }
+  | { role: 'user'; content: string | UserPart[] }
   | { role: 'assistant'; content: string | null; reasoning_content?: string | null; tool_calls?: ToolCall[] }
   | { role: 'tool'; tool_call_id: string; content: string }
 

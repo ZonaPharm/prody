@@ -8,9 +8,10 @@
  * next call, and the next question in the conversation sends them all again.
  */
 import { ASSISTANT_MODEL, type TokenUsage } from './pricing'
-import { runTool, toolDefinitions, toolStatus, type ToolContext } from './tools'
+import { runTool, toolDefinitions, toolStatus } from './registry'
+import type { ToolContext } from './tools'
 import { systemPrompt } from './prompt'
-import type { ChatMessage, ChatRequest, ChatResponse } from './deepseek'
+import type { ChatMessage, ChatRequest, ChatResponse, UserPart } from './deepseek'
 
 /** At most this many calls to the model per question; the last one must answer. */
 export const MAX_ROUNDS = 10
@@ -51,7 +52,14 @@ function parseArgs(raw: string): unknown {
 export async function askAssistant(opts: {
   /** Earlier messages of the conversation, unchanged. */
   history: ChatMessage[]
+  /** What the person typed (shown on the screen). */
   question: string
+  /**
+   * What goes to the model for this question when it differs from the typed
+   * text (an attached document). `stored` is what is kept for later questions:
+   * a picture is not kept, only a note that there was one.
+   */
+  content?: { now: string | UserPart[]; stored: string }
   ctx: ToolContext
   today: string
   userName: string
@@ -63,8 +71,10 @@ export async function askAssistant(opts: {
   const tools = toolDefinitions()
   // The instructions go first and stay the same, so DeepSeek's prefix cache holds.
   const system: ChatMessage = { role: 'system', content: systemPrompt(opts.today, opts.userName) }
-  const added: StoredMessage[] = [{ role: 'user', content: [{ role: 'user', content: opts.question }], display: opts.question }]
-  const messages = (): ChatMessage[] => [system, ...opts.history, ...added.flatMap(m => m.content)]
+  const added: StoredMessage[] = [{ role: 'user', content: [{ role: 'user', content: opts.content?.stored ?? opts.question }], display: opts.question }]
+  // This question goes as it came (with the picture); the stored copy has only the note.
+  const asked: ChatMessage = { role: 'user', content: opts.content?.now ?? opts.question }
+  const messages = (): ChatMessage[] => [system, ...opts.history, asked, ...added.slice(1).flatMap(m => m.content)]
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const last = round === MAX_ROUNDS - 1

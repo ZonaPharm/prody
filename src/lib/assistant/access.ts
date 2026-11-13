@@ -11,7 +11,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { hasRole } from '@/lib/roles'
 import { isMissingTableError } from '@/lib/missing-table'
 
-export type AssistantUser = { id: string; name: string }
+export type AssistantUser = { id: string; name: string; email: string }
 
 export type AccessResult =
   | { ok: true; user: AssistantUser }
@@ -42,7 +42,7 @@ export async function assistantAccess(): Promise<AccessResult> {
     .select('*').eq('id', user.id).maybeSingle()
   const granted = profile ? await isGranted(user.id) : false
   if (!mayUseAssistant(profile, granted)) return { ok: false, status: 403, error: 'Нямате достъп до AI асистента.' }
-  return { ok: true, user: { id: user.id, name: profile.display_name || profile.email } }
+  return { ok: true, user: { id: user.id, name: profile.display_name || profile.email, email: profile.email || '' } }
 }
 
 export function assistantConfigured(): boolean {
