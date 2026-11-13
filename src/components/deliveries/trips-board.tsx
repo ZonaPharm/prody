@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateField } from '@/components/ui/date-field'
 import { Loader2, Plus, Truck } from 'lucide-react'
 import { formatDeliveryNumber, formatShipmentNumber, formatTripNumber } from '@/lib/deliveries/format'
 import { storeReadyText, type ReadyLine, type StoreReady } from '@/lib/deliveries/queue'
@@ -149,7 +150,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
                       {label}
                     </button>
                   ))}
-                  <Input type="date" className="h-11 w-auto min-w-0 flex-1 bg-white" value={date} min={today} onChange={e => setDate(e.target.value)} aria-label="Ден" />
+                  <DateField className="h-11 w-auto min-w-[9.5rem] flex-1" inputClassName="bg-white" value={date} min={today} allowEmpty onChange={setDate} aria-label="Ден" />
                   <Input type="time" className="h-11 w-28 bg-white" value={time} onChange={e => setTime(e.target.value)} disabled={!date} aria-label="Час (по избор)" />
                 </div>
               </div>
