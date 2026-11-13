@@ -13,11 +13,12 @@ function ctxWith(tables: Record<string, unknown[]>) {
 describe('tool definitions', () => {
   it('every tool has a unique name, a description and an object schema without $schema', () => {
     const defs = toolDefinitions()
-    expect(new Set(defs.map(d => d.name)).size).toBe(defs.length)
+    expect(new Set(defs.map(d => d.function.name)).size).toBe(defs.length)
     for (const d of defs) {
-      expect(d.description.length).toBeGreaterThan(20)
-      expect(d.input_schema.type).toBe('object')
-      expect(d.input_schema.$schema).toBeUndefined()
+      expect(d.type).toBe('function')
+      expect(d.function.description.length).toBeGreaterThan(20)
+      expect((d.function.parameters as any).type).toBe('object')
+      expect((d.function.parameters as any).$schema).toBeUndefined()
     }
   })
   it('no tool reads the mail settings, the auth schema or writes anything', () => {

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sofiaToday } from '@/lib/date-utils'
 import { assistantAccess, assistantConfigured } from '@/lib/assistant/access'
 import { askAssistant, type AgentEvent } from '@/lib/assistant/agent'
 import { namesLoader } from '@/lib/assistant/tools'
+import { callDeepSeek, deepseekErrorText } from '@/lib/assistant/deepseek'
 import { checkCap, formatUsd } from '@/lib/assistant/pricing'
 import {
   MAX_QUESTIONS_PER_CONVERSATION, createConversation, listConversations, loadHistory,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   const access = await assistantAccess()
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
   if (!assistantConfigured()) {
-    return NextResponse.json({ error: 'AI асистентът още не е настроен (липсва ключ ANTHROPIC_API_KEY във Vercel).' }, { status: 503 })
+    return NextResponse.json({ error: 'AI асистентът още не е настроен (липсва ключ DEEPSEEK_API_KEY във Vercel).' }, { status: 503 })
   }
   const parsed = Body.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Грешна заявка' }, { status: 400 })
@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
     conversation = await createConversation(db, user.id, question)
   }
 
-  const client = new Anthropic()
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -87,7 +86,7 @@ export async function POST(request: NextRequest) {
           ctx: { db, names: namesLoader(db) },
           today: sofiaToday(),
           userName: user.name,
-          call: params => client.beta.messages.create(params as any) as any,
+          call: callDeepSeek,
           onEvent: (e: AgentEvent) => send(e),
           onUsage: (model, usage) => recordUsage(db, { userId: user.id, conversationId: conversation.id, model, usage }),
         })
@@ -95,7 +94,7 @@ export async function POST(request: NextRequest) {
         send({ type: 'done' })
       } catch (err) {
         console.error('assistant failed:', err)
-        send({ type: 'error', text: errorText(err) })
+        send({ type: 'error', text: deepseekErrorText(err) })
       } finally {
         controller.close()
       }
@@ -104,11 +103,4 @@ export async function POST(request: NextRequest) {
   return new Response(stream, {
     headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' },
   })
-}
-
-function errorText(err: unknown): string {
-  if (err instanceof Anthropic.RateLimitError) return 'Твърде много въпроси наведнъж. Опитайте пак след минута.'
-  if (err instanceof Anthropic.AuthenticationError) return 'Ключът за AI не е валиден. Администратор трябва да го смени във Vercel.'
-  if (err instanceof Anthropic.APIError) return `AI услугата върна грешка (${err.status ?? '?'}). Опитайте пак.`
-  return 'Нещо се обърка. Опитайте пак.'
 }

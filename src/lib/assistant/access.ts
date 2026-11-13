@@ -46,5 +46,5 @@ export async function assistantAccess(): Promise<AccessResult> {
 }
 
 export function assistantConfigured(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY
+  return !!process.env.DEEPSEEK_API_KEY
 }

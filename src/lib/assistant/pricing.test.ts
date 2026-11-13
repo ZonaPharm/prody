@@ -1,22 +1,45 @@
 import { describe, expect, it } from 'vitest'
-import { checkCap, costUsd, monthStartIso, priceOf } from './pricing'
+import { checkCap, costUsd, isPeak, monthStartIso, priceOf, splitUsage } from './pricing'
+
+// Friday 13 Nov 2026: 12:00 UTC is off-peak, 08:00 UTC is peak.
+const OFF = new Date('2026-11-13T12:00:00Z')
+const PEAK = new Date('2026-11-13T08:00:00Z')
 
 describe('costUsd', () => {
-  it('prices Opus 5.5: input, cache write 1.25×, cache read, output', () => {
-    // 10k in × 4 + 2k write × 5 + 50k read × 0.2 + 1k out × 20 = 40000+10000+10000+20000 = 80000 / 1e6
-    expect(costUsd('claude-opus-5-5', {
-      input_tokens: 10_000, cache_creation_input_tokens: 2_000, cache_read_input_tokens: 50_000, output_tokens: 1_000,
-    })).toBeCloseTo(0.08, 6)
+  it('prices DeepSeek Flash off-peak: cache hit, cache miss, output', () => {
+    // 100k hit × 0.003 + 20k miss × 0.15 + 2k out × 0.6 = 300 + 3000 + 1200 = 4500 / 1e6
+    expect(costUsd('deepseek-flash', {
+      prompt_cache_hit_tokens: 100_000, prompt_cache_miss_tokens: 20_000, completion_tokens: 2_000,
+    }, OFF)).toBeCloseTo(0.0045, 6)
+  })
+  it('doubles in peak hours', () => {
+    expect(costUsd('deepseek-flash', { prompt_cache_miss_tokens: 1_000_000 }, PEAK)).toBeCloseTo(0.3, 6)
+  })
+  it('prices V4 Pro', () => {
+    expect(costUsd('deepseek-v4-pro', { completion_tokens: 1_000_000 }, OFF)).toBeCloseTo(1.98, 6)
   })
   it('treats missing or null counts as zero', () => {
-    expect(costUsd('claude-opus-5-5', { input_tokens: 1_000_000, output_tokens: null })).toBe(4)
+    expect(costUsd('deepseek-flash', { prompt_cache_miss_tokens: 1_000_000, completion_tokens: null }, OFF)).toBeCloseTo(0.15, 6)
+  })
+  it('without a hit/miss split, counts the whole prompt as a miss', () => {
+    expect(splitUsage({ prompt_tokens: 500, prompt_cache_hit_tokens: 200, completion_tokens: 7 })).toEqual({ hit: 200, miss: 300, output: 7 })
   })
   it('prices an unknown model as the dearest known, never as free', () => {
-    expect(priceOf('claude-something-new').input).toBe(5)
-    expect(costUsd('claude-something-new', { output_tokens: 1_000_000 })).toBe(25)
+    expect(priceOf('deepseek-something-new').miss).toBe(0.66)
   })
-  it('matches a suffixed model id on its prefix', () => {
-    expect(priceOf('claude-sonnet-5-5-20261101').input).toBe(2)
+})
+
+describe('isPeak', () => {
+  it('follows DeepSeek peak hours in UTC on weekdays', () => {
+    expect(isPeak(new Date('2026-11-13T01:00:00Z'))).toBe(true)
+    expect(isPeak(new Date('2026-11-13T04:00:00Z'))).toBe(false)
+    expect(isPeak(new Date('2026-11-13T05:59:00Z'))).toBe(false)
+    expect(isPeak(new Date('2026-11-13T09:59:00Z'))).toBe(true)
+    expect(isPeak(new Date('2026-11-13T10:00:00Z'))).toBe(false)
+  })
+  it('weekends are off-peak', () => {
+    expect(isPeak(new Date('2026-11-14T08:00:00Z'))).toBe(false)
+    expect(isPeak(new Date('2026-11-15T02:00:00Z'))).toBe(false)
   })
 })
 

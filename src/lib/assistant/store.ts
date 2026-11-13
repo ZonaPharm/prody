@@ -3,9 +3,9 @@
  * through the service-role client: the browser never reads these tables.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages'
 import { fetchAll } from '@/lib/fetch-all'
-import { costUsd, monthStartIso, type TokenUsage } from './pricing'
+import { costUsd, monthStartIso, splitUsage, type TokenUsage } from './pricing'
+import type { ChatMessage } from './deepseek'
 import type { StoredMessage } from './agent'
 
 type Db = SupabaseClient<any, any, any>
@@ -32,17 +32,19 @@ export async function monthlyCap(db: Db): Promise<number> {
   return data ? Number(data.monthly_cap_usd) : 50
 }
 
-export async function recordUsage(db: Db, row: { userId: string; conversationId: string | null; model: string; usage: TokenUsage }) {
-  const u = row.usage
+export async function recordUsage(db: Db, row: { userId: string; conversationId: string | null; model: string; usage: TokenUsage; at?: Date }) {
+  const at = row.at || new Date()
+  const { hit, miss, output } = splitUsage(row.usage)
   const { error } = await (db.from('ai_usage') as any).insert({
     user_id: row.userId,
     conversation_id: row.conversationId,
     model: row.model,
-    input_tokens: u.input_tokens || 0,
-    output_tokens: u.output_tokens || 0,
-    cache_read_tokens: u.cache_read_input_tokens || 0,
-    cache_write_tokens: u.cache_creation_input_tokens || 0,
-    cost_usd: costUsd(row.model, u),
+    // DeepSeek has no cache writes: input is what missed the cache, cache_read what hit it.
+    input_tokens: miss,
+    output_tokens: output,
+    cache_read_tokens: hit,
+    cache_write_tokens: 0,
+    cost_usd: costUsd(row.model, row.usage, at),
   })
   if (error) console.error('ai_usage insert failed:', JSON.stringify(error))
 }
@@ -75,10 +77,11 @@ export async function createConversation(db: Db, userId: string, question: strin
 }
 
 /** Every message, for sending the conversation back to the model. */
-export async function loadHistory(db: Db, conversationId: string): Promise<{ history: BetaMessageParam[]; nextSeq: number; questions: number }> {
+export async function loadHistory(db: Db, conversationId: string): Promise<{ history: ChatMessage[]; nextSeq: number; questions: number }> {
   const rows = await fetchAll<any>(() => (db.from('ai_messages') as any)
     .select('seq, role, content, display').eq('conversation_id', conversationId).order('seq'))
-  const history = rows.map(r => ({ role: r.role, content: r.content }) as BetaMessageParam)
+  // Each row holds one or more chat messages (a tool step holds all its results).
+  const history = rows.flatMap(r => (Array.isArray(r.content) ? r.content : []) as ChatMessage[])
   const questions = rows.filter(r => r.role === 'user' && r.display != null).length
   const nextSeq = rows.length ? rows[rows.length - 1].seq + 1 : 1
   return { history, nextSeq, questions }

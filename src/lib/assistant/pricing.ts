@@ -2,47 +2,62 @@
  * What one call to the model costs, and whether the month's cap is reached.
  * Pure: no database, no network (tested in pricing.test.ts).
  *
- * Prices are US dollars per million tokens (Anthropic list prices, Nov 2026).
- * A cache write costs 1.25 × input (5-minute cache), a cache read is listed.
+ * DeepSeek list prices, US dollars per million tokens (api-docs.deepseek.com,
+ * read 2026-11-13). Peak hours cost double: 01:00-04:00 and 06:00-10:00 UTC,
+ * Monday to Friday. Chinese public holidays are off-peak there, but we price
+ * them as peak: the record may show a little more than was charged, never less.
  */
 
-export const ASSISTANT_MODEL = 'claude-opus-5-5'
+/** deepseek-flash is DeepSeek-V4.1-Flash (Владимир's choice, 2026-11-13). */
+export const ASSISTANT_MODEL = process.env.DEEPSEEK_ASSISTANT_MODEL || 'deepseek-flash'
 
-type Price = { input: number; output: number; cacheRead: number }
+type Price = { hit: number; miss: number; output: number }
 
+/** Off-peak prices. */
 const PRICES: Record<string, Price> = {
-  'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2 },
-  'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5 },
-  'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5 },
-  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1 },
-  'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2 },
+  'deepseek-v4-pro': { hit: 0.022, miss: 0.66, output: 1.98 },
+  'deepseek-flash': { hit: 0.003, miss: 0.15, output: 0.6 },
 }
 
-/** An unknown model (a server-side fallback we did not list) is priced as the dearest we know. */
-const UNKNOWN: Price = { input: 5, output: 25, cacheRead: 0.5 }
+/** A model we did not list is priced as the dearest we know. */
+const UNKNOWN = PRICES['deepseek-v4-pro']
 
 export type TokenUsage = {
-  input_tokens?: number | null
-  output_tokens?: number | null
-  cache_read_input_tokens?: number | null
-  cache_creation_input_tokens?: number | null
+  prompt_tokens?: number | null
+  completion_tokens?: number | null
+  prompt_cache_hit_tokens?: number | null
+  prompt_cache_miss_tokens?: number | null
 }
 
 export function priceOf(model: string): Price {
-  // A response may name a dated or suffixed id; match on the prefix.
   const key = Object.keys(PRICES).find(k => model === k || model.startsWith(k + '-'))
   return key ? PRICES[key] : UNKNOWN
 }
 
-/** Cost in dollars of one model call. */
-export function costUsd(model: string, usage: TokenUsage): number {
+/** DeepSeek's peak window, in UTC. */
+export function isPeak(at: Date): boolean {
+  const day = at.getUTCDay()
+  if (day === 0 || day === 6) return false
+  const h = at.getUTCHours()
+  return (h >= 1 && h < 4) || (h >= 6 && h < 10)
+}
+
+const n = (v: number | null | undefined) => (typeof v === 'number' && v > 0 ? v : 0)
+
+/** The usage split the way the cost record stores it. */
+export function splitUsage(u: TokenUsage) {
+  const hit = n(u.prompt_cache_hit_tokens)
+  // Older responses may give only prompt_tokens: count all of it as a miss.
+  const miss = u.prompt_cache_miss_tokens != null ? n(u.prompt_cache_miss_tokens) : Math.max(0, n(u.prompt_tokens) - hit)
+  return { hit, miss, output: n(u.completion_tokens) }
+}
+
+/** Cost in dollars of one model call made at `at`. */
+export function costUsd(model: string, usage: TokenUsage, at: Date = new Date()): number {
   const p = priceOf(model)
-  const n = (v: number | null | undefined) => (typeof v === 'number' && v > 0 ? v : 0)
-  const dollars =
-    (n(usage.input_tokens) * p.input +
-      n(usage.cache_creation_input_tokens) * p.input * 1.25 +
-      n(usage.cache_read_input_tokens) * p.cacheRead +
-      n(usage.output_tokens) * p.output) / 1_000_000
+  const k = isPeak(at) ? 2 : 1
+  const { hit, miss, output } = splitUsage(usage)
+  const dollars = (k * (hit * p.hit + miss * p.miss + output * p.output)) / 1_000_000
   return Math.round(dollars * 1_000_000) / 1_000_000
 }
 

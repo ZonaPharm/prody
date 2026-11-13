@@ -109,7 +109,7 @@ export function AssistantChat() {
   }
 
   const blocked = info && (!info.configured
-    ? 'AI асистентът още не е настроен: липсва ключът ANTHROPIC_API_KEY във Vercel.'
+    ? 'AI асистентът още не е настроен: липсва ключът DEEPSEEK_API_KEY във Vercel.'
     : info.blocked)
 
   return (

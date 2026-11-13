@@ -65,7 +65,7 @@ export function AssistantAccess() {
       {error && <Note tone="danger">{error}</Note>}
       {saved && <Note tone="success">{saved}</Note>}
       {state && !state.configured && (
-        <Note tone="warn">Липсва ключът ANTHROPIC_API_KEY във Vercel. Без него асистентът не може да отговаря.</Note>
+        <Note tone="warn">Липсва ключът DEEPSEEK_API_KEY във Vercel. Без него асистентът не може да отговаря.</Note>
       )}
       {!state && !error && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
       {state && (

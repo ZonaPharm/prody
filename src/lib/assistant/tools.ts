@@ -704,12 +704,11 @@ function jsonSchema(schema: z.ZodObject<any>): any {
   return out
 }
 
-/** Tool definitions for the API, in a fixed order so the prompt cache holds. */
+/** Tool definitions in the chat-completions format, in a fixed order so the prompt cache holds. */
 export function toolDefinitions() {
   return ASSISTANT_TOOLS.map(t => ({
-    name: t.name,
-    description: t.description,
-    input_schema: jsonSchema(t.schema),
+    type: 'function' as const,
+    function: { name: t.name, description: t.description, parameters: jsonSchema(t.schema) },
   }))
 }
 

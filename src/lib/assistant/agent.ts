@@ -1,16 +1,16 @@
 /**
- * One question to the assistant: the loop between Claude and the read-only tools.
+ * One question to the assistant: the loop between the model and the read-only tools.
  *
- * Claude answers or asks for tools; we run the tools (all at once when it asks
- * for several), hand back the results and ask again, until it answers. The
- * messages are kept exactly as the API returned them, because the next question
- * in the conversation sends them back unchanged.
+ * The model answers or asks for tools; we run the tools (all at once when it
+ * asks for several), hand back the results and ask again, until it answers.
+ * The messages are kept exactly as the API returned them, including the
+ * model's reasoning, because DeepSeek's thinking mode must get it back on the
+ * next call, and the next question in the conversation sends them all again.
  */
-import Anthropic from '@anthropic-ai/sdk'
-import type { BetaMessage, BetaMessageParam, BetaContentBlockParam, BetaToolResultBlockParam } from '@anthropic-ai/sdk/resources/beta/messages/messages'
-import { ASSISTANT_MODEL } from './pricing'
+import { ASSISTANT_MODEL, type TokenUsage } from './pricing'
 import { runTool, toolDefinitions, toolStatus, type ToolContext } from './tools'
 import { systemPrompt } from './prompt'
+import type { ChatMessage, ChatRequest, ChatResponse } from './deepseek'
 
 /** At most this many calls to the model per question; the last one must answer. */
 export const MAX_ROUNDS = 10
@@ -19,7 +19,8 @@ export type AgentEvent =
   | { type: 'status'; text: string }
   | { type: 'answer'; text: string }
 
-export type StoredMessage = { role: 'user' | 'assistant'; content: BetaContentBlockParam[]; display: string | null }
+/** One stored row: the chat messages it holds, and what the screen shows (null for steps). */
+export type StoredMessage = { role: 'user' | 'assistant'; content: ChatMessage[]; display: string | null }
 
 export type AgentResult = {
   answer: string
@@ -27,83 +28,89 @@ export type AgentResult = {
   messages: StoredMessage[]
 }
 
-type ModelCall = (params: Parameters<Anthropic['beta']['messages']['create']>[0]) => Promise<BetaMessage>
+type AssistantMessage = Extract<ChatMessage, { role: 'assistant' }>
 
-export function textOf(content: ReadonlyArray<{ type: string }>): string {
-  return content
-    .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-    .map(b => b.text)
-    .join('\n\n')
-    .trim()
+/** Only the fields DeepSeek reads back; anything else it returned is dropped. */
+function keep(m: AssistantMessage): AssistantMessage {
+  return {
+    role: 'assistant',
+    content: m.content ?? null,
+    ...(m.reasoning_content ? { reasoning_content: m.reasoning_content } : {}),
+    ...(m.tool_calls?.length ? { tool_calls: m.tool_calls.map(c => ({ id: c.id, type: 'function' as const, function: { name: c.function.name, arguments: c.function.arguments } })) } : {}),
+  }
+}
+
+function parseArgs(raw: string): unknown {
+  try {
+    return raw?.trim() ? JSON.parse(raw) : {}
+  } catch {
+    return undefined
+  }
 }
 
 export async function askAssistant(opts: {
   /** Earlier messages of the conversation, unchanged. */
-  history: BetaMessageParam[]
+  history: ChatMessage[]
   question: string
   ctx: ToolContext
   today: string
   userName: string
-  call: ModelCall
+  call: (req: ChatRequest) => Promise<ChatResponse>
   onEvent: (e: AgentEvent) => void
   /** Called after every model call, with what it used (for the cost record). */
-  onUsage: (model: string, usage: BetaMessage['usage']) => Promise<void>
+  onUsage: (model: string, usage: TokenUsage) => Promise<void>
 }): Promise<AgentResult> {
   const tools = toolDefinitions()
-  const system = systemPrompt(opts.today, opts.userName)
-  const added: StoredMessage[] = [{ role: 'user', content: [{ type: 'text', text: opts.question }], display: opts.question }]
-  const messages = (): BetaMessageParam[] => [...opts.history, ...added.map(m => ({ role: m.role, content: m.content }))]
+  // The instructions go first and stay the same, so DeepSeek's prefix cache holds.
+  const system: ChatMessage = { role: 'system', content: systemPrompt(opts.today, opts.userName) }
+  const added: StoredMessage[] = [{ role: 'user', content: [{ role: 'user', content: opts.question }], display: opts.question }]
+  const messages = (): ChatMessage[] => [system, ...opts.history, ...added.flatMap(m => m.content)]
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const last = round === MAX_ROUNDS - 1
     const res = await opts.call({
       model: ASSISTANT_MODEL,
-      max_tokens: 16000,
-      system,
+      messages: messages(),
       tools,
       // On the last round the model may not call tools any more: it answers with what it has.
-      ...(last ? { tool_choice: { type: 'none' as const } } : {}),
-      messages: messages(),
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
-      // Caches the stable start (instructions, tools, earlier turns) between calls.
-      cache_control: { type: 'ephemeral' },
-      // If the model declines for a safety reason, the API retries on another model in the same call.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-    } as any)
-    await opts.onUsage(res.model || ASSISTANT_MODEL, res.usage)
+      tool_choice: last ? 'none' : 'auto',
+      max_tokens: 32000,
+    })
+    await opts.onUsage(res.model || ASSISTANT_MODEL, res.usage || {})
 
-    const content = res.content as unknown as BetaContentBlockParam[]
+    const choice = res.choices?.[0]
+    if (!choice) throw new Error('DeepSeek returned no answer')
+    const message = keep(choice.message)
+    const calls = message.tool_calls || []
 
-    if (res.stop_reason === 'tool_use') {
-      added.push({ role: 'assistant', content, display: null })
-      const calls = res.content.filter((b): b is Extract<typeof b, { type: 'tool_use' }> => b.type === 'tool_use')
-      for (const c of calls) opts.onEvent({ type: 'status', text: toolStatus(c.name) })
-      const results: BetaToolResultBlockParam[] = await Promise.all(calls.map(async c => {
-        const r = await runTool(opts.ctx, c.name, c.input)
-        return { type: 'tool_result' as const, tool_use_id: c.id, content: r.text, ...(r.isError ? { is_error: true } : {}) }
+    if (calls.length && !last) {
+      added.push({ role: 'assistant', content: [message], display: null })
+      for (const c of calls) opts.onEvent({ type: 'status', text: toolStatus(c.function.name) })
+      const results: ChatMessage[] = await Promise.all(calls.map(async c => {
+        const input = parseArgs(c.function.arguments)
+        const r = input === undefined
+          ? { text: JSON.stringify({ error: 'Аргументите не са валиден JSON. Опитай пак.' }) }
+          : await runTool(opts.ctx, c.function.name, input)
+        return { role: 'tool' as const, tool_call_id: c.id, content: r.text }
       }))
       added.push({ role: 'user', content: results, display: null })
       continue
     }
 
-    if (res.stop_reason === 'pause_turn') {
-      added.push({ role: 'assistant', content, display: null })
-      continue
-    }
-
-    let answer = textOf(res.content)
-    if (res.stop_reason === 'refusal') answer = answer || 'На този въпрос не мога да отговоря.'
-    if (res.stop_reason === 'max_tokens') answer = (answer ? answer + '\n\n' : '') + '(Отговорът стана твърде дълъг и е прекъснат. Задайте по-тесен въпрос.)'
+    let answer = (message.content || '').trim()
+    if (choice.finish_reason === 'content_filter') answer = answer || 'На този въпрос не мога да отговоря.'
+    if (choice.finish_reason === 'length') answer = (answer ? answer + '\n\n' : '') + '(Отговорът стана твърде дълъг и е прекъснат. Задайте по-тесен въпрос.)'
     if (!answer) answer = 'Нямам отговор на това.'
-    added.push({ role: 'assistant', content, display: answer })
+    // A stored answer never carries tool calls: nothing would answer them.
+    const stored: AssistantMessage = { role: 'assistant', content: answer }
+    if (message.reasoning_content) stored.reasoning_content = message.reasoning_content
+    added.push({ role: 'assistant', content: [stored], display: answer })
     opts.onEvent({ type: 'answer', text: answer })
     return { answer, messages: added }
   }
 
-  // Not reached: the last round cannot call tools. Kept so the type is complete.
+  // Not reached: the last round always answers. Kept so the type is complete.
   const answer = 'Не успях да стигна до отговор. Опитайте с по-конкретен въпрос.'
-  added.push({ role: 'assistant', content: [{ type: 'text', text: answer }], display: answer })
+  added.push({ role: 'assistant', content: [{ role: 'assistant', content: answer }], display: answer })
   return { answer, messages: added }
 }
