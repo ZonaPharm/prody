@@ -30,10 +30,16 @@ function recognitionClass(): (new () => Recognition) | null {
 
 const noSubscribe = () => () => {}
 
+/** Safari, and every browser on iPhone (they all run on Safari's engine). */
+function isSafari(): boolean {
+  const ua = navigator.userAgent
+  return /iPhone|iPad|iPod/.test(ua) || (/Safari/.test(ua) && !/Chrome|Chromium|Edg|Android|Firefox/.test(ua))
+}
+
 const DICTATION_ERRORS: Record<string, string> = {
   // Also what a browser inside another app (a link opened from Viber, Gmail…) says: it never asks.
   'not-allowed': 'Микрофонът не е разрешен за Prody.',
-  'service-not-allowed': 'Браузърът не позволява диктуване тук. Диктувайте с микрофона на клавиатурата или отворете Prody в Chrome.',
+  'service-not-allowed': 'Браузърът не позволява диктуване тук. На iPhone и Mac разпознаването минава през Siri: включете „Siri“ и „Диктовка“ (Настройки → Общи → Клавиатура → Диктовка) и опитайте пак. Дотогава диктувайте с микрофона на клавиатурата.',
   'no-speech': 'Не чух нищо. Натиснете микрофона и говорете.',
   'audio-capture': 'Не намирам микрофон.',
   network: 'Диктуването иска връзка с интернет. Опитайте пак.',
@@ -75,7 +81,9 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
     // Ask for the microphone first: this is what brings up the browser's
     // "Allow microphone?" window. Speech recognition alone often fails
     // silently instead of asking.
-    if (navigator.mediaDevices?.getUserMedia) {
+    // Safari asks by itself when recognition starts, and must start it right
+    // on the tap: waiting for the microphone first makes it refuse.
+    if (navigator.mediaDevices?.getUserMedia && !isSafari()) {
       setAsking(true)
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
