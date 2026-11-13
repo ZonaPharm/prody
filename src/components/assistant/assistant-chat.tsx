@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { Answer } from './answer'
 import { ActionCardView } from './action-card'
 import type { ActionCard } from '@/lib/assistant/cards'
-import { shrinkImage, useDictation, useSpeaker } from './voice'
+import { shrinkImage, useDictation, useRecorder, useSpeaker } from './voice'
 
 type Msg = { role: 'user' | 'assistant'; text: string; card?: undefined } | { role: 'card'; card: ActionCard; text?: undefined }
 
@@ -42,16 +42,18 @@ export function AssistantChat() {
   const dictatedRef = useRef(false)
   const speaker = useSpeaker()
   const textRef = useRef<HTMLTextAreaElement>(null)
-  const dictation = useDictation(
-    text => {
-      dictatedRef.current = true
-      setInput(typedRef.current ? `${typedRef.current} ${text}` : text)
-    },
-    // No dictation here: open the keyboard, which has its own microphone.
-    () => textRef.current?.focus(),
-  )
+  const heard = (text: string) => {
+    dictatedRef.current = true
+    setInput(typedRef.current ? `${typedRef.current} ${text}` : text)
+  }
+  // No dictation here: open the keyboard, which has its own microphone.
+  const openKeyboard = () => textRef.current?.focus()
+  const browserDictation = useDictation(heard, openKeyboard)
+  const recorder = useRecorder(heard, openKeyboard)
   const [error, setError] = useState('')
-  const [info, setInfo] = useState<{ configured: boolean; blocked: string | null; spent: string; cap: string } | null>(null)
+  const [info, setInfo] = useState<{ configured: boolean; voice: boolean; blocked: string | null; spent: string; cap: string } | null>(null)
+  // Recorded and turned into text on the server when that is set up; else the browser listens.
+  const dictation = info?.voice && recorder.supported ? recorder : browserDictation
   const bottomRef = useRef<HTMLDivElement>(null)
   // Where the next message lands, so the answer read aloud is the one marked as read.
   const countRef = useRef(0)
@@ -62,7 +64,7 @@ export function AssistantChat() {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) { setError(data.error || 'Не успях да заредя разговорите.'); return }
     setConversations(data.conversations || [])
-    setInfo({ configured: data.configured, blocked: data.blocked, spent: data.spent, cap: data.cap })
+    setInfo({ configured: data.configured, voice: !!data.voice, blocked: data.blocked, spent: data.spent, cap: data.cap })
   }, [])
 
   useEffect(() => { loadList() }, [loadList])
@@ -323,7 +325,7 @@ export function AssistantChat() {
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(input) }
                 }}
-                placeholder={dictation.asking ? 'Разрешете микрофона в прозореца горе…' : dictation.listening ? 'Слушам… говорете' : 'Въпрос към асистента…'}
+                placeholder={dictation.asking ? 'Разрешете микрофона в прозореца горе…' : dictation.working ? 'Превръщам гласа в текст…' : dictation.listening ? 'Слушам… говорете, после натиснете ■' : 'Въпрос към асистента…'}
                 rows={2}
                 maxLength={4000}
                 disabled={busy || !!blocked}
@@ -342,13 +344,13 @@ export function AssistantChat() {
                 {dictation.listening && <span className="mr-1 hidden animate-pulse text-xs font-medium text-red-600 sm:inline">Слушам…</span>}
                 <Button type="button" variant={dictation.listening ? 'destructive' : 'outline'} size="icon"
                   className={cn('h-10 w-10 rounded-full', dictation.listening && 'animate-pulse')}
-                  disabled={busy || dictation.asking || !!blocked} onClick={toggleDictation}
+                  disabled={busy || dictation.asking || dictation.working || !!blocked} onClick={toggleDictation}
                   aria-label={dictation.listening ? 'Спри диктуването' : 'Диктувай с глас'} title={dictation.listening ? 'Спри диктуването' : 'Диктувай с глас (български)'}
                   aria-pressed={dictation.listening}>
-                  {dictation.listening ? <Square className="fill-current" /> : <Mic />}
+                  {dictation.working ? <Loader2 className="animate-spin" /> : dictation.listening ? <Square className="fill-current" /> : <Mic />}
                 </Button>
                 <Button type="submit" size="icon" className="h-10 w-10 rounded-full"
-                  disabled={busy || preparing || (!input.trim() && !file) || !!blocked} aria-label="Изпрати" title="Изпрати">
+                  disabled={busy || preparing || dictation.working || (!input.trim() && !file) || !!blocked} aria-label="Изпрати" title="Изпрати">
                   {busy ? <Loader2 className="animate-spin" /> : <ArrowUp />}
                 </Button>
               </div>

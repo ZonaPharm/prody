@@ -1,10 +1,12 @@
 'use client'
 
 /**
- * Voice in the assistant chat, with the browser's own speech services:
- * dictation (SpeechRecognition, Bulgarian) and reading answers aloud
- * (speechSynthesis with a Bulgarian voice when the device has one).
- * Nothing extra goes to DeepSeek: only the typed or dictated text is sent.
+ * Voice in the assistant chat:
+ * - dictation, either recorded and turned into text on the server
+ *   (useRecorder, ElevenLabs, the same in every browser) or with the
+ *   browser's own SpeechRecognition (useDictation) when that is not set up;
+ * - reading answers aloud (speechSynthesis, Bulgarian voice when the device has one).
+ * Nothing extra goes to DeepSeek: only the text in the box, once sent.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { bulgarianVoice, speakableText, speechChunks } from '@/lib/assistant/speech'
@@ -53,7 +55,7 @@ const USE_KEYBOARD = new Set(['not-allowed', 'service-not-allowed', 'language-no
  * Press to dictate: the words appear as they are recognised. `onText` gets
  * everything said since the button was pressed.
  */
-export function useDictation(onText: (text: string) => void, onUnavailable?: () => void) {
+export function useDictation(onText: (text: string) => void, onUnavailable?: () => void): Dictation {
   const supported = useSyncExternalStore(noSubscribe, () => !!recognitionClass(), () => false)
   const [listening, setListening] = useState(false)
   const [error, setError] = useState('')
@@ -141,7 +143,7 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
 
   useEffect(() => () => rec.current?.abort(), [])
 
-  return { supported, listening, asking, blocked, code, error, start, stop, clearError: () => { setError(''); setBlocked(false) } }
+  return { supported, listening, asking, working: false, blocked, code, error, start, stop, clearError: () => { setError(''); setBlocked(false) } }
 }
 
 function subscribeVoices(cb: () => void) {
@@ -227,4 +229,129 @@ export async function shrinkImage(file: File, max = 2000, quality = 0.85): Promi
   } catch {
     return file
   }
+}
+
+/** What the microphone button needs from either way of dictating. */
+export type Dictation = {
+  supported: boolean
+  listening: boolean
+  asking: boolean
+  /** Turning the recording into text (server only). */
+  working: boolean
+  blocked: boolean
+  code: string
+  error: string
+  start: () => void
+  stop: () => void
+  clearError: () => void
+}
+
+type MicResult = { ok: true; stream: MediaStream } | { ok: false; blocked: boolean; code: string; error: string }
+
+/** Asks for the microphone; this is what brings up the browser's permission window. */
+async function askMicrophone(): Promise<MicResult> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return { ok: false, blocked: false, code: 'getUserMedia: missing', error: 'Този браузър не дава достъп до микрофона. Ползвайте микрофона на клавиатурата.' }
+  }
+  try {
+    return { ok: true, stream: await navigator.mediaDevices.getUserMedia({ audio: true }) }
+  } catch (err) {
+    const name = (err as { name?: string })?.name || 'Error'
+    const code = `getUserMedia: ${name}`
+    if (name === 'NotAllowedError' || name === 'SecurityError') return { ok: false, blocked: true, code, error: '' }
+    if (name === 'NotFoundError') return { ok: false, blocked: false, code, error: DICTATION_ERRORS['audio-capture'] }
+    if (name === 'NotReadableError') return { ok: false, blocked: false, code, error: 'Микрофонът е зает от друго приложение (запис на екрана, разговор, друг асистент). Затворете го и опитайте пак.' }
+    return { ok: false, blocked: false, code, error: 'Микрофонът не тръгна. Опитайте пак.' }
+  }
+}
+
+/** A recording format this browser makes and ElevenLabs reads. */
+function recordingType(): string {
+  const R = (window as any).MediaRecorder
+  if (!R?.isTypeSupported) return ''
+  return ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find(t => R.isTypeSupported(t)) ?? ''
+}
+
+/**
+ * Press to record, press again to stop: the recording goes to
+ * /api/assistant/transcribe and the text comes back to the box.
+ * Stops by itself after two minutes.
+ */
+export function useRecorder(onText: (text: string) => void, onUnavailable?: () => void): Dictation {
+  const supported = useSyncExternalStore(noSubscribe, () => typeof (window as any).MediaRecorder !== 'undefined', () => false)
+  const [listening, setListening] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const [working, setWorking] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const recorder = useRef<MediaRecorder | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onTextRef = useRef(onText)
+  const onUnavailableRef = useRef(onUnavailable)
+  useEffect(() => { onTextRef.current = onText; onUnavailableRef.current = onUnavailable })
+
+  const stop = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current)
+    if (recorder.current?.state === 'recording') recorder.current.stop()
+  }, [])
+
+  const send = useCallback(async (blob: Blob) => {
+    if (blob.size < 1000) { setError('Записът е твърде кратък. Натиснете, говорете и натиснете пак.'); return }
+    setWorking(true)
+    try {
+      const form = new FormData()
+      form.set('audio', blob, 'glas')
+      const res = await fetch('/api/assistant/transcribe', { method: 'POST', body: form })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data.error || 'Не успях да превърна записа в текст.'); setCode(`transcribe: ${res.status}`); return }
+      if (data.text) onTextRef.current(data.text)
+    } catch {
+      setError('Няма връзка. Опитайте пак.')
+    } finally {
+      setWorking(false)
+    }
+  }, [])
+
+  const start = useCallback(async () => {
+    setError(''); setBlocked(false); setCode('')
+    setAsking(true)
+    const mic = await askMicrophone()
+    setAsking(false)
+    if (!mic.ok) {
+      setBlocked(mic.blocked); setCode(mic.code); setError(mic.error)
+      onUnavailableRef.current?.()
+      return
+    }
+    const type = recordingType()
+    let r: MediaRecorder
+    try {
+      r = type ? new MediaRecorder(mic.stream, { mimeType: type }) : new MediaRecorder(mic.stream)
+    } catch {
+      mic.stream.getTracks().forEach(t => t.stop())
+      setError('Този браузър не може да записва. Ползвайте микрофона на клавиатурата.')
+      onUnavailableRef.current?.()
+      return
+    }
+    const chunks: Blob[] = []
+    r.ondataavailable = e => { if (e.data.size) chunks.push(e.data) }
+    r.onstop = () => {
+      mic.stream.getTracks().forEach(t => t.stop())
+      if (recorder.current === r) recorder.current = null
+      setListening(false)
+      void send(new Blob(chunks, { type: r.mimeType || type || 'audio/webm' }))
+    }
+    recorder.current = r
+    r.start()
+    setListening(true)
+    timer.current = setTimeout(() => stop(), 120_000)
+  }, [send, stop])
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+    const r = recorder.current
+    if (r) { r.onstop = null; if (r.state === 'recording') r.stop(); r.stream.getTracks().forEach(t => t.stop()) }
+  }, [])
+
+  return { supported, listening, asking, working, blocked, code, error, start, stop, clearError: () => { setError(''); setBlocked(false) } }
 }

@@ -1,3 +1,4 @@
+import { transcriptionConfigured } from '@/lib/assistant/transcribe'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -31,6 +32,8 @@ export async function GET() {
   return NextResponse.json({
     conversations,
     configured: assistantConfigured(),
+    // Speech to text on the server (ElevenLabs); otherwise the browser's own recognition.
+    voice: transcriptionConfigured(),
     blocked: capState.ok ? null : capState.message,
     spent: formatUsd(spend.total),
     cap: formatUsd(cap),
