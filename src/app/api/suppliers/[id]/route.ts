@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { data, error } = await (admin.from('suppliers') as any)
     .update(patch)
     .eq('id', id)
-    .select('id, name, is_active, notes, created_at')
+    .select('*')
     .maybeSingle()
   if (error) {
     if (error.code === '23505') return NextResponse.json({ error: 'Вече има доставчик с това име' }, { status: 400 })

@@ -14,6 +14,7 @@ import type { ShipmentLineView } from '@/lib/deliveries/work'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
 import { ProblemButton, ProblemDialog, ProblemText, RowTick, SignBar, postJson, rowTone } from './checklist-ui'
+import { Empty, Note } from '@/components/ui/text'
 
 /**
  * One shipment, line by line. Two uses:
@@ -141,12 +142,12 @@ export function ShipmentChecklist({ mode, shipmentId, number, storeName, lines, 
         />
       )}
       {lines.length === 0 && (
-        <p className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">Пратката няма редове.</p>
+        <div className="rounded-lg border bg-white"><Empty>Пратката няма редове.</Empty></div>
       )}
       {mode === 'store' && (
-        <p className="text-xs text-muted-foreground">
+        <Note small>
           Стоката вече е в наличността на обекта и се продава. С отметките потвърждавате, че е пристигнала. Ако нещо липсва, натиснете „Не е наред“: липсващите бройки излизат от наличността, докато админ не реши.
-        </p>
+        </Note>
       )}
     </div>
   )

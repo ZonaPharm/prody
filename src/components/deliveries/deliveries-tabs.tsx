@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-export type DeliveriesTab = 'list' | 'work' | 'labels' | 'trips' | 'low' | 'problems'
+export type DeliveriesTab = 'orders' | 'list' | 'work' | 'labels' | 'trips' | 'low' | 'problems'
 
 const TABS: { key: DeliveriesTab; href: string; label: string }[] = [
+  // First: an order to a supplier comes before its delivery.
+  { key: 'orders', href: '/deliveries/orders', label: 'Поръчки' },
   { key: 'list', href: '/deliveries', label: 'Доставки' },
   { key: 'work', href: '/deliveries/work', label: 'За работа' },
   { key: 'labels', href: '/deliveries/labels', label: 'Етикетиране' },

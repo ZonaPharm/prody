@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { cartCounts } from '@/lib/pos/grid'
 import { clearCover, coverStartStore, needsCoverQuestion, readCover, saveCover } from '@/lib/pos/cover'
 import { sofiaToday } from '@/lib/date-utils'
 
@@ -67,6 +68,8 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
     if (to && to !== selectedStoreId) handleStoreChange(to)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const inCart = cartCounts(cart.items)
 
   const handleAddToCart = (product: Product) => {
     dispatch({ type: 'ADD', product })
@@ -162,6 +165,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             frequentlySold={frequentlySold}
             onAddToCart={handleAddToCart}
             outOfStock={outOfStock}
+            inCart={inCart}
           />
         </div>
         <div className="hidden lg:block fixed right-6 top-6 bottom-6 w-[380px]">
@@ -179,7 +183,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
       </div>
 
       {/* Mobile/Tablet: stacked layout */}
-      <div className="lg:hidden pb-16">
+      <div className="lg:hidden pb-20">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-bold">Запиши продажба</h1>
           {stores.length > 1 && (
@@ -201,6 +205,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
           frequentlySold={frequentlySold}
           onAddToCart={handleAddToCart}
           outOfStock={outOfStock}
+          inCart={inCart}
         />
         <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 z-30">
           <CartBottomBar
@@ -208,7 +213,7 @@ export function POSClient({ products, categories, frequentlySold, stores, defaul
             onAdd={handleAdd}
             onRemove={handleRemove}
             onSetQty={handleSetQty}
-            onSubmit={handleSubmit}
+            onSubmit={method => handleSubmit(method)}
             submitting={submitting}
           />
         </div>

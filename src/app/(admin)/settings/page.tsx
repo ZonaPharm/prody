@@ -35,7 +35,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <div className="max-w-5xl">
       <h1 className="text-2xl font-bold mb-6">Настройки</h1>
       <Tabs defaultValue={initialTab}>
-        <TabsList>
+        {/* Nine sections: on a phone they wrap into rows, all visible, instead of a strip that hides half of them off-screen. */}
+        <TabsList className="h-auto flex-wrap gap-1 overflow-visible mb-2">
           <TabsTrigger value="categories">Категории</TabsTrigger>
           <TabsTrigger value="stores">Магазини</TabsTrigger>
           {deliveries && <TabsTrigger value="suppliers">Доставчици</TabsTrigger>}

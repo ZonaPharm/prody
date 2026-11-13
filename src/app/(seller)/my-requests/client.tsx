@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package, Truck } from 'lucide-react'
+import { Search, Plus, X, Send, CheckCircle2, Loader2, Package, Truck } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
 import { NOT_REQUESTABLE_TEXT, type NotRequestable } from '@/lib/requests/office-stock'
+import { Empty, Hint, Note, PageHeader } from '@/components/ui/text'
 
 interface Product {
   id: string; name: string; price: number | null; category_id?: string | null
@@ -62,10 +63,11 @@ const STATUS_COLOR: Record<string, string> = {
   partial: 'bg-orange-100 text-orange-800', rejected: 'bg-red-100 text-red-800',
 }
 
+// short: what fits three tabs side by side on a phone.
 const TABS = [
-  { key: 'request', label: 'Заяви' },
-  { key: 'my', label: 'Моите заявки' },
-  { key: 'low', label: 'Ниски наличности' },
+  { key: 'request', label: 'Заяви', short: 'Заяви' },
+  { key: 'my', label: 'Моите заявки', short: 'Моите' },
+  { key: 'low', label: 'Ниски наличности', short: 'Ниски' },
 ]
 
 export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockImageMap, initialProductId, incoming = {}, unavailable = [], officeFailed = false }: Props) {
@@ -234,16 +236,17 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Заявки</h1>
+      <PageHeader title="Заявки" intro="Поискайте от Офис стока за вашия магазин и следете заявките си." />
 
       {/* Tabs — button style */}
       <div className="no-scrollbar flex gap-1 bg-slate-100 rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
         {TABS.map(t => (
           <button key={t.key} onClick={() => switchTab(t.key)}
-            className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-4 py-2 sm:py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-2 sm:px-4 py-2.5 sm:py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               tab === t.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}>
-            {t.label}
+            <span className="sm:hidden">{t.short}</span>
+            <span className="hidden sm:inline">{t.label}</span>
             {t.key === 'my' && myRequests.length > 0 && (
               <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
             )}
@@ -260,29 +263,22 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           {/* Left: product grid with right margin for basket */}
           <div className="pb-16 lg:pb-0 lg:mr-[382px]">
             {!storeId && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
-                Нямате зададен магазин. Свържете се с администратор.
-              </div>
+              <Note tone="warn" className="mb-4">Нямате зададен магазин. Свържете се с администратор.</Note>
             )}
 
-            <p className="mb-3 text-sm text-muted-foreground">
-              Тук са само продуктите, които Офис може да изпрати сега. Броят е колко има свободни в Офис.
-            </p>
+            <Hint className="mb-3">
+              Изберете продукти и натиснете „Изпрати“. Тук са само продуктите, които Офис може да изпрати сега; „в Офис N“ е колко има свободни.
+            </Hint>
 
             {officeFailed && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 mb-4">
-                Не успяхме да прочетем наличността в Офис. Опитайте пак след малко.
-              </div>
+              <Note tone="danger" className="mb-4">Не успяхме да прочетем наличността в Офис. Опитайте пак след малко.</Note>
             )}
 
             {presetBlocked && (
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>
-                  <b>{presetBlocked.name}</b> не може да се заяви: {NOT_REQUESTABLE_TEXT[presetBlocked.why].toLowerCase()}.
-                  {incoming[presetBlocked.id] ? ` ${incoming[presetBlocked.id]}` : ''}
-                </span>
-              </div>
+              <Note tone="warn" className="mb-4">
+                <b>{presetBlocked.name}</b> не може да се заяви: {NOT_REQUESTABLE_TEXT[presetBlocked.why].toLowerCase()}.
+                {incoming[presetBlocked.id] ? ` ${incoming[presetBlocked.id]}` : ''}
+              </Note>
             )}
 
             {/* Category pills */}
@@ -314,8 +310,8 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
 
             {/* Not requestable: named with the reason, so nobody hunts for it. */}
             {blocked.length > 0 && (
-              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Не може да се заяви сега</p>
+              <Note tone="info" className="mb-4">
+                <p className="mb-1 font-semibold text-slate-900">Не може да се заяви сега</p>
                 <ul className="space-y-1">
                   {blocked.map(p => (
                     <li key={p.id} className="text-sm">
@@ -329,16 +325,16 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Note>
             )}
 
             {/* Product grid */}
             {filteredProducts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-12">
+              <Empty className="py-12">
                 {search
                   ? (blocked.length > 0 ? 'Няма други съвпадения, които Офис може да изпрати.' : `Няма съвпадения за "${search}"`)
                   : products.length === 0 ? 'В момента Офис няма стока, която може да се заяви.' : 'Няма продукти в тази категория'}
-              </p>
+              </Empty>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {filteredProducts.map(p => {
@@ -458,7 +454,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       {tab === 'my' && (
         <div className="space-y-2">
           {myRequests.length === 0 ? (
-            <div className="text-muted-foreground text-center py-12">Нямате заявки</div>
+            <Empty className="py-12">Нямате заявки</Empty>
           ) : (
             myRequests.map(r => (
               <div key={r.id}
@@ -494,29 +490,30 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           ) : (
             <div className="border rounded-xl divide-y">
               {lowStockItems.map((p: LowStockItem) => (
-                <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {lowStockImageMap[p.id] && (
-                      <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                <div key={p.id} className="p-3 flex items-center gap-3 hover:bg-slate-50">
+                  {lowStockImageMap[p.id] ? (
+                    <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-11 w-11 rounded object-cover shrink-0" />
+                  ) : (
+                    <div className="h-11 w-11 rounded bg-slate-100 shrink-0 flex items-center justify-center"><Package className="h-5 w-5 text-slate-300" /></div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-snug line-clamp-2">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                    </p>
+                    {incoming[p.id] && (
+                      <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                        <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
                       </p>
-                      {incoming[p.id] && (
-                        <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
-                          <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm' : 'text-amber-600 font-bold text-sm'}>
+                  {/* Right: what is left here, and under it either "Заяви" or why it can't be asked for */}
+                  <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm tabular-nums' : 'text-amber-600 font-bold text-sm tabular-nums'}>
                       {p.current_qty} бр.
                     </span>
                     {p.office_qty > 0 ? (
-                      <Button size="sm" variant="outline" onClick={() => {
+                      <Button size="sm" variant="outline" className="h-9" onClick={() => {
                         const product = products.find(x => x.id === p.id)
                           ?? { id: p.id, name: p.name, price: p.price, office_qty: p.office_qty }
                         setBasket(prev => [
@@ -528,7 +525,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                         Заяви
                       </Button>
                     ) : (
-                      <span className="max-w-[9rem] text-right text-[11px] leading-tight text-muted-foreground">
+                      <span className="max-w-[7.5rem] rounded bg-slate-100 px-1.5 py-0.5 text-[11px] leading-tight text-slate-500">
                         {p.office_reason ?? 'Няма го в Офис'}
                       </span>
                     )}

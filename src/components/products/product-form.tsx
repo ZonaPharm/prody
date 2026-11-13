@@ -19,7 +19,11 @@ import { STATUS_LABELS } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RestockForm } from '@/components/inventory/restock-form'
-import { Loader2, Upload, Star } from 'lucide-react'
+import { Loader2, Upload, Star, ScanBarcode } from 'lucide-react'
+import { factoryBarcodeProblem, normalizeCode } from '@/lib/barcodes'
+import { labelKindOf, type LabelKind } from '@/lib/label-kind'
+import { LabelKindSelect } from '@/components/deliveries/label-kind-select'
+import { Hint, Meta, Note, SectionTitle } from '@/components/ui/text'
 
 type CategoryOption = { id: string; name: string }
 
@@ -32,6 +36,10 @@ interface ProductFormProps {
     cost_price?: number | null
     sku?: string | null
     barcode?: string | null
+    internal_barcode?: string | null
+    small_item?: boolean | null
+    label_kind?: string | null
+    needs_label?: boolean | null
     category_id?: string | null
     source?: string | null
     source_url?: string | null
@@ -75,6 +83,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [minQuantity, setMinQuantity] = useState(
     initialData?.min_quantity?.toString() || '5'
   )
+  const [barcode, setBarcode] = useState(initialData?.barcode || '')
+  const [smallItem, setSmallItem] = useState(Boolean(initialData?.small_item))
+  const [labelKind, setLabelKind] = useState<LabelKind>(initialData ? labelKindOf(initialData) : 'full')
+  const barcodeProblem = factoryBarcodeProblem(barcode)
 
   const [files, setFiles] = useState<File[]>([])
   const [existingImages, setExistingImages] = useState<
@@ -158,6 +170,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (barcodeProblem) {
+      setSubmitError(`Фабричен баркод: ${barcodeProblem}`)
+      return
+    }
     setSubmitLoading(true)
     setSubmitError('')
 
@@ -174,6 +190,13 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         source_order_date: sourceOrderDate || null,
         status,
         min_quantity: minQuantity ? parseInt(minQuantity, 10) : 5,
+        // The internal code is the database's; only the factory barcode is ours to set.
+        barcode: normalizeCode(barcode) || null,
+        small_item: smallItem,
+        // The database derives needs_label from label_kind (migration
+        // 20261112_product_label_kind); needs_label is sent too for a database without it.
+        label_kind: labelKind,
+        needs_label: labelKind === 'full',
         wp_title: wpTitle.trim() || null,
         wp_short_description: wpShortDescription.trim() || null,
         wp_description: wpDescription.trim() || null,
@@ -191,22 +214,29 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
       let productId: string
 
+      // Until migration 20261112_product_label_kind runs, the database has no
+      // label_kind: save without it rather than not at all.
+      const withoutMissingLabelKind = (error: { code?: string; message?: string } | null) => {
+        if (error?.code === 'PGRST204' && /label_kind/.test(error.message ?? '') && 'label_kind' in payload) {
+          delete payload.label_kind
+          return true
+        }
+        return false
+      }
+
       if (initialData?.id) {
-        const { error } = await (supabase
-          .from('products') as any)
-          .update(payload)
-          .eq('id', initialData.id)
+        const update = () => (supabase.from('products') as any).update(payload).eq('id', initialData.id)
+        let { error } = await update()
+        if (withoutMissingLabelKind(error)) ({ error } = await update())
 
         if (error) throw error
         productId = initialData.id
         // Audit: update product
         supabase.from('audit_logs').insert({ type: 'action', action: 'update_product', details: payload.name, entity_id: productId } as any).then(() => {})
       } else {
-        const { data, error } = await (supabase
-          .from('products') as any)
-          .insert(payload)
-          .select('id')
-          .single()
+        const insert = () => (supabase.from('products') as any).insert(payload).select('id').single()
+        let { data, error } = await insert()
+        if (withoutMissingLabelKind(error)) ({ data, error } = await insert())
 
         if (error) throw error
         productId = data.id
@@ -330,7 +360,12 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         router.refresh()
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Грешка при запазване')
+      const e = err as { code?: string; message?: string } | null
+      if (e?.code === '23505' && /баркод|barcode/i.test(e.message ?? '')) {
+        setSubmitError(`Баркодът ${normalizeCode(barcode)} вече е на друг продукт. Потърсете го в каталога.`)
+      } else {
+        setSubmitError(e?.message || 'Грешка при запазване')
+      }
     } finally {
       setSubmitLoading(false)
     }
@@ -424,6 +459,62 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
           <Input id="min_quantity" type="number" min="0" value={minQuantity}
             onChange={(e) => setMinQuantity(e.target.value)} placeholder="5" />
           <p className="text-[10px] text-muted-foreground">Предупреждение при падане под този брой</p>
+        </div>
+      </div>
+
+      {/* Row 3b: barcodes */}
+      <div className="rounded-lg border p-4 space-y-4">
+        <SectionTitle>
+          <span className="inline-flex items-center gap-2"><ScanBarcode className="h-4 w-4" /> Баркод и етикет</span>
+        </SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="barcode">Фабричен баркод</Label>
+            <Input id="barcode" value={barcode} inputMode="numeric" autoComplete="off"
+              onChange={(e) => setBarcode(e.target.value)}
+              // A scanner types the code and presses Enter: keep that from saving the form.
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+              placeholder="Сканирайте баркода от опаковката"
+              aria-invalid={Boolean(barcodeProblem)} />
+            {barcodeProblem ? (
+              <Note tone="danger" small>{barcodeProblem}</Note>
+            ) : (
+              <Hint small>Ако продуктът няма баркод, оставете празно: етикетът ще е с вътрешния код.</Hint>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Вътрешен код</Label>
+            <div className="h-10 rounded-md border bg-slate-50 px-3 flex items-center font-mono text-sm">
+              {initialData?.internal_barcode || <span className="font-sans text-muted-foreground">Ще се даде автоматично при запазване</span>}
+            </div>
+            <Meta>Дава се от системата и не се променя. Касата намира продукта и по него.</Meta>
+          </div>
+        </div>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <Checkbox
+            checked={smallItem}
+            onCheckedChange={(v) => {
+              setSmallItem(v === true)
+              // No room for a label: it goes on the barcode card instead of "Етикетиране".
+              if (v === true) setLabelKind('none')
+            }}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="text-sm font-medium">Малък продукт, няма място за етикет</span>
+            <Meta as="span" className="block">
+              Излиза на „Карта на касата“, от която продавачът го сканира, и не чака етикетиране.
+            </Meta>
+          </span>
+        </label>
+        <div className="space-y-2">
+          <Label>Етикет</Label>
+          <LabelKindSelect id="label_kind" value={labelKind} onChange={setLabelKind} />
+          {smallItem && labelKind === 'full' && (
+            <Note tone="warn" small>
+              Малък продукт обикновено е „Готов“: няма място за етикет и се сканира от картата на касата.
+            </Note>
+          )}
         </div>
       </div>
 
@@ -667,13 +758,14 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         )}
       </div>
 
-      {/* Submit */}
-      <div className="flex items-center gap-3 pt-4 border-t">
-        <Button type="submit" disabled={submitLoading}>
+      {/* Submit: stays at the bottom of the screen (above the phone's tab bar)
+          while the long form scrolls, so saving never means scrolling to the end. */}
+      <div className="sticky bottom-[var(--bottom-nav-h)] z-20 -mx-4 lg:-mx-6 flex items-center gap-3 border-t bg-white/95 px-4 lg:px-6 py-3 backdrop-blur">
+        <Button type="submit" disabled={submitLoading} className="h-11 flex-1 sm:flex-none">
           {submitLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {submitLoading ? 'Запазва...' : isEdit ? 'Запази промените' : 'Добави продукт'}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => router.push('/catalog')}>Отказ</Button>
+        <Button type="button" variant="outline" className="h-11" onClick={() => router.push('/catalog')}>Отказ</Button>
       </div>
     </form>
 

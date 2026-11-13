@@ -1,3 +1,5 @@
+import type { LabelKind } from '@/lib/label-kind'
+
 /**
  * The entry screen's state and how it becomes the body of an autosave.
  * Numbers are kept as the typed text until a save, so a half-typed "12," is
@@ -21,7 +23,9 @@ export type DraftLineState = {
   pack_size: string
   unit_cost: string
   needs_label: boolean
-  /** Set when the person changed "Без етикет" on this screen; only then is it written to the product. */
+  /** "Етикет" of the product: Пълен етикет / Само цена / Готов. */
+  label_kind: LabelKind
+  /** Set when the person changed "Етикет" on this screen; only then is it written to the product. */
   label_changed?: boolean
   plan: Record<string, string>
 }
@@ -54,6 +58,21 @@ export function lineProblem(line: DraftLineState): string | null {
   return null
 }
 
+/**
+ * Everything a line still needs, in the order it is filled in on screen, so the
+ * row can say "Попълнете: бройки, цена" instead of one thing at a time.
+ */
+export function lineMissing(line: DraftLineState): string[] {
+  const out: string[] = []
+  const qty = parseQty(line.quantity)
+  if (qty == null || qty < 1) out.push('бройки')
+  const pack = line.pack_size.trim() === '' ? 1 : parseQty(line.pack_size)
+  if (pack == null || pack < 1) out.push('бройки в кутия')
+  if (parseMoney(line.unit_cost) == null) out.push('цена')
+  if (Object.values(line.plan).some(v => v.trim() !== '' && parseQty(v) == null)) out.push('разпределение')
+  return out
+}
+
 export function planOf(line: DraftLineState): { store_id: string; planned_qty: number }[] {
   return Object.entries(line.plan)
     .map(([store_id, v]) => ({ store_id, planned_qty: parseQty(v) ?? 0 }))
@@ -84,6 +103,7 @@ export function toDraftPayload(header: DraftHeaderState, lines: DraftLineState[]
       // Sent only when changed here, so an autosave never overwrites a value
       // someone else set on the product meanwhile.
       needs_label: l.label_changed ? l.needs_label : null,
+      label_kind: l.label_changed ? l.label_kind : null,
       plan: planOf(l),
     })),
   }

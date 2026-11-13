@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +29,13 @@ interface ProductCardProps {
 export default function ProductCard({ product, href }: ProductCardProps) {
   const images = Array.isArray(product.images) ? product.images : []
   const primaryImage = images.find(img => img.is_primary) || images[0]
+  // A picture that does not load (missing in Storage, moved, offline) shows the
+  // "no picture" box, not the browser's broken image with the name in big letters.
+  const [imageFailed, setImageFailed] = useState(false)
+  const stores = product.store_stock ?? []
+  // Stores in two columns, top to bottom then the next column
+  // (Ботев, Бургас, Варна | Заимов, Офис, Пловдив), so the card is half as tall.
+  const storeRows = Math.ceil(stores.length / 2)
 
   const categoryName = product.category?.name
   const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
@@ -43,10 +51,12 @@ export default function ProductCard({ product, href }: ProductCardProps) {
       <Card className={`flex h-full hover:shadow-md transition-shadow cursor-pointer group relative sm:block ${hasLowStock ? 'border-amber-300' : ''}`}>
         <div className="aspect-square w-28 shrink-0 self-start bg-slate-100 rounded-l-xl sm:w-auto sm:rounded-l-none sm:rounded-t-xl flex items-center justify-center overflow-hidden relative">
           <ToggleStatusButton productId={product.id} currentStatus={product.status} />
-          {primaryImage ? (
+          {primaryImage && !imageFailed ? (
             <img
               src={getImageSrc(primaryImage.url)}
-              alt={product.name}
+              alt=""
+              loading="lazy"
+              onError={() => setImageFailed(true)}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
             />
           ) : (
@@ -80,12 +90,15 @@ export default function ProductCard({ product, href }: ProductCardProps) {
             {product.price != null ? `${Number(product.price).toFixed(2)} €` : '—'}
           </p>
 
-          {/* Store stock — vertical list */}
-          {product.store_stock && product.store_stock.length > 0 && (
-            <div className="border-t pt-1.5 mt-1 space-y-0.5">
-              {product.store_stock.map((s, i) => (
-                <div key={i} className="flex items-center justify-between text-[11px]">
-                  <span className="text-muted-foreground truncate mr-2">{s.store_name}</span>
+          {/* Store stock — two columns */}
+          {stores.length > 0 && (
+            <div
+              className="border-t pt-1.5 mt-1 grid grid-flow-col grid-cols-2 gap-x-3 gap-y-0.5"
+              style={{ gridTemplateRows: `repeat(${storeRows}, auto)` }}
+            >
+              {stores.map((s, i) => (
+                <div key={i} className="flex min-w-0 items-center justify-between gap-1 text-[11px]">
+                  <span className="text-muted-foreground truncate">{s.store_name}</span>
                   <span className={`font-medium tabular-nums shrink-0 ${
                     s.qty === 0 ? 'text-red-600' :
                     product.min_quantity && s.qty <= product.min_quantity ? 'text-amber-600' :

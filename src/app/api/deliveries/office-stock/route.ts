@@ -29,6 +29,14 @@ export async function GET(request: Request) {
 
   // service_role only, like the other delivery functions; the gate above let an admin in.
   const { data: free, error: e2 } = await (createAdminClient() as any).rpc('office_free_stock', { p_product_ids: ids })
-  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 })
+  if (e2) {
+    // PGRST202 / 42883: the function is not in this database yet (migration not run).
+    const missing = e2.code === 'PGRST202' || e2.code === '42883'
+    if (!missing) console.error('office_free_stock failed:', JSON.stringify(e2))
+    return NextResponse.json(
+      { error: missing ? '„Добави от Офис“ още не е включено в базата (миграцията 20261112_deliveries_office_stock.sql).' : 'Наличността в Офис не можа да се зареди' },
+      { status: missing ? 503 : 500 },
+    )
+  }
   return NextResponse.json(officeRows(products ?? [], free ?? []))
 }

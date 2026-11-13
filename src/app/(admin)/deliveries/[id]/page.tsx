@@ -9,6 +9,7 @@ import { DeliveryView } from '@/components/deliveries/delivery-view'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { countOpenProblems } from '@/lib/deliveries/work'
 import type { DeliveryDetail } from '@/lib/deliveries/queries'
+import { getOrderForDelivery } from '@/lib/supplier-orders/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,7 @@ function toDraft(d: DeliveryDetail): DraftInitial {
       pack_size: i.pack_size > 1 ? String(i.pack_size) : '',
       unit_cost: String(i.unit_cost).replace('.', ','),
       needs_label: i.needs_label,
+      label_kind: i.label_kind,
       plan: Object.fromEntries(i.plan.map(p => [p.store_id, String(p.planned_qty)])),
     })),
   }
@@ -46,13 +48,14 @@ export default async function DeliveryPage({ params }: { params: Promise<{ id: s
   if (!delivery) notFound()
 
   if (delivery.status === 'draft') {
-    const categories = await getCategories()
+    const [categories, fromOrder] = await Promise.all([getCategories(), getOrderForDelivery(supabase, id)])
     return (
       <DeliveryEditor
         initial={toDraft(delivery)}
         stores={stores}
         suppliers={suppliers}
         categories={(categories as any[]).map(c => ({ id: c.id, name: c.name }))}
+        fromOrder={fromOrder}
       />
     )
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { LABEL_KIND_LABEL, type LabelKind } from '@/lib/label-kind'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { ProductThumb } from './product-picker'
 import { RowTick } from './checklist-ui'
+import { Hint, Meta, Note, PageHeader } from '@/components/ui/text'
 
 export type ReceiveRowView = {
   item_id: string
@@ -34,6 +36,7 @@ export type ReceiveRowView = {
   received_qty: number
   remaining: number
   needs_label: boolean
+  label_kind?: LabelKind
 }
 
 const KINDS: ReceiveProblem['kind'][] = ['partial', 'short', 'damaged', 'wrong_product', 'missing', 'other']
@@ -116,18 +119,15 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
 
   return (
     <div className="space-y-4 max-w-5xl pb-28">
-      <div className="flex items-start gap-3">
-        <Button asChild variant="ghost" size="icon"><Link href={`/deliveries/${deliveryId}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>
-        <div>
-          <h1 className="text-2xl font-bold">Получаване · {formatDeliveryNumber(number)}</h1>
-          <p className="text-sm text-muted-foreground">
-            Отметнете какво дойде. Неотметнатото остава да се чака. Число се пише само при „Не е наред“.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        back={<Button asChild variant="ghost" size="icon"><Link href={`/deliveries/${deliveryId}`} aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
+        title={<>Получаване · {formatDeliveryNumber(number)}</>}
+        intro="Какво дойде от доставчика."
+      />
+      <Hint>Отметнете какво дойде. Неотметнатото остава да се чака. Число се пише само при „Не е наред“.</Hint>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border bg-white p-6 text-sm text-muted-foreground">Всичко по доставката вече е получено.</div>
+        <Note tone="success">Всичко по доставката вече е получено.</Note>
       ) : (
         <>
           <div className="flex flex-wrap gap-2">
@@ -156,7 +156,7 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium leading-tight">{r.product_name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {r.supplier_name ?? '—'}{r.doc_number ? ` · ф-ра ${r.doc_number}` : ''}{!r.needs_label ? ' · без етикет' : ''}
+                      {r.supplier_name ?? '—'}{r.doc_number ? ` · ф-ра ${r.doc_number}` : ''}{!r.needs_label ? ` · ${LABEL_KIND_LABEL[r.label_kind ?? 'none'].toLowerCase()}, без етикетиране` : ''}
                     </div>
                     <div className="text-sm">
                       Очакват се <span className="font-semibold">{formatQtyWithPacks(r.remaining, r.pack_size)}</span>
@@ -207,8 +207,8 @@ export function ReceiveChecklist({ deliveryId, number, rows, userName }: {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Подпис</DialogTitle></DialogHeader>
           <p className="text-sm">С подписа си казвате: „Получих това от доставчика.“</p>
-          <p className="text-sm text-muted-foreground">{userName} · {sofiaDateTime(now)} · {receiveSummary(body)}</p>
-          {body.lines.length > 0 && <p className="text-sm text-muted-foreground">Получените бройки влизат в Офис сега.</p>}
+          <Meta>{userName} · {sofiaDateTime(now)} · {receiveSummary(body)}</Meta>
+          {body.lines.length > 0 && <Note>Получените бройки влизат в Офис сега.</Note>}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>Назад</Button>
             <Button onClick={sign} disabled={signing}>{signing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Подписвам</Button>
@@ -252,7 +252,7 @@ function ProblemDialog({ row, onClose, onSave }: {
     <Dialog open onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Не е наред: {row.product_name}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Очакват се {formatQtyWithPacks(row.remaining, row.pack_size)}.</p>
+        <p className="text-sm text-slate-700">Очакват се {formatQtyWithPacks(row.remaining, row.pack_size)}.</p>
         <div className="grid grid-cols-2 gap-2">
           {KINDS.map(k => (
             <button key={k} type="button" onClick={() => { setKind(k); setError('') }}
@@ -274,10 +274,10 @@ function ProblemDialog({ row, onClose, onSave }: {
           </label>
         )}
         {kind === 'partial' && (
-          <p className="text-xs text-muted-foreground">Останалото остава „очаква се“ за следващия колет. Не се праща сигнал.</p>
+          <Note small>Останалото остава „очаква се“ за следващия колет. Не се праща сигнал.</Note>
         )}
         {kind && kind !== 'partial' && (
-          <p className="text-xs text-muted-foreground">Админите получават сигнал. Доставката не става „Завършена“, докато не го решат.</p>
+          <Note small tone="warn">Админите получават сигнал. Доставката не става „Завършена“, докато не го решат.</Note>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">

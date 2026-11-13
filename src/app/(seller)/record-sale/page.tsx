@@ -37,6 +37,16 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
   // known first: it comes from the URL or the seller's own store, and only
   // without both does it wait for the list of stores (the first active one).
 
+  type TillProduct = {
+    id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null
+    barcode?: string | null; internal_barcode?: string | null
+  }
+  const readActive = (cols: string) => fetchAll<TillProduct>(() => (admin.from('products') as any)
+    .select(cols)
+    .eq('status', 'active')
+    .order('name')
+    .order('id'))
+
   const storesRead: Promise<Store[] | null> = (admin.from('stores') as any)
     .select('id, name')
     .eq('is_active', true)
@@ -66,12 +76,15 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
         .gt('quantity_remaining', 0)
         .order('id'))
       : []),
-    // ALL active products (filter stock in JS to avoid PostgREST URI limit)
-    fetchAll<{ id: string; name: string; price: number | null; quantity_on_hand: number; category_id: string | null }>(() => (admin.from('products') as any)
-      .select('id, name, price, quantity_on_hand, category_id')
-      .eq('status', 'active')
-      .order('name')
-      .order('id')),
+    // ALL active products (filter stock in JS to avoid PostgREST URI limit).
+    // With the barcodes, so the till can scan. Until migration
+    // 20261112_product_internal_barcode runs the internal code is missing: the
+    // till then loads without the codes rather than not at all.
+    readActive('id, name, price, quantity_on_hand, category_id, barcode, internal_barcode')
+      .catch((err: unknown) => {
+        console.error('record-sale: products with barcodes', err)
+        return readActive('id, name, price, quantity_on_hand, category_id')
+      }),
     // Sales frequency for this store (most sold first, unsold alphabetical).
     // Only the order depends on it, so a failure leaves the till alphabetical
     // rather than taking it down.
@@ -144,6 +157,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     quantity_on_hand: 0,
     category_id: p.category_id,
     image_url: null,
+    barcode: p.barcode ?? null,
+    internal_barcode: p.internal_barcode ?? null,
   }))
 
   const imageMap: Record<string, string> = {}
@@ -164,6 +179,8 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     quantity_on_hand: perStoreQty[p.id] || p.quantity_on_hand,
     category_id: p.category_id,
     image_url: imageMap[p.id] || null,
+    barcode: p.barcode ?? null,
+    internal_barcode: p.internal_barcode ?? null,
   }))
 
   // Frequently sold: seller's last unique products + fill from store products

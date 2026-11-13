@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle, Check, Loader2, PenLine, X } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, PenLine, X, Lightbulb } from 'lucide-react'
 import {
   KIND_LABEL,
   STEP_KINDS,
@@ -19,6 +19,7 @@ import {
 } from '@/lib/deliveries/checklist'
 import { sofiaDateTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
+import { Meta, Note } from '@/components/ui/text'
 
 /**
  * Shared pieces of the phase 3 checklists: the row's tick and "Не е наред"
@@ -84,14 +85,19 @@ export function RowTick({ state, label, text, blockedText, onChange }: {
 /** How a checklist screen works, in three short steps, above the list. */
 export function ChecklistSteps({ steps }: { steps: React.ReactNode[] }) {
   return (
-    <ol className="grid gap-x-4 gap-y-2 rounded-lg border bg-white p-3 text-sm sm:grid-cols-3">
-      {steps.map((step, i) => (
-        <li key={i} className="flex gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">{i + 1}</span>
-          <span className="text-slate-700 leading-snug">{step}</span>
-        </li>
-      ))}
-    </ol>
+    <section className="rounded-lg border border-sky-200 bg-sky-50/60 p-3" aria-label="Как става">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700">
+        <Lightbulb className="h-3.5 w-3.5" aria-hidden />Как става
+      </p>
+      <ol className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+        {steps.map((step, i) => (
+          <li key={i} className="flex gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-[11px] font-semibold text-white">{i + 1}</span>
+            <span className="leading-snug text-sky-950">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 
@@ -143,7 +149,7 @@ export function ProblemDialog({ step, title, expected, hint, onClose, onSave }: 
     <Dialog open onOpenChange={o => { if (!o) onClose() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Не е наред: {title}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">{hint ?? `Очакват се ${expected} бр.`}</p>
+        <p className="text-sm text-slate-700">{hint ?? `Очакват се ${expected} бр.`}</p>
         <div className="grid grid-cols-2 gap-2">
           {STEP_KINDS[step].map(k => (
             <button key={k} type="button" onClick={() => { setKind(k); setError('') }}
@@ -165,16 +171,16 @@ export function ProblemDialog({ step, title, expected, hint, onClose, onSave }: 
           </label>
         )}
         {kind && !signalReason(kind) && (
-          <p className="text-xs text-muted-foreground">
+          <Note small>
             {step === 'label' ? 'Останалото остава в „Етикетиране“ за по-късно.' : 'Останалото остава готово в Офис за следващ курс.'} Не се праща сигнал.
-          </p>
+          </Note>
         )}
         {kind && signalReason(kind) && (
-          <p className="text-xs text-muted-foreground">
+          <Note small tone="warn">
             Админите получават сигнал с Вашето име.
             {step === 'store' && ' Липсващите бройки излизат от наличността на обекта, докато админ не реши.'}
             {step === 'pack' && ' Липсващите бройки вече не се броят за готови и се връщат в „Етикетиране“.'}
-          </p>
+          </Note>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
@@ -219,7 +225,7 @@ export function SignBar({ userName, summary, statement, disabled, disabledReason
         <div className="max-w-7xl flex items-center gap-3">
           <div className="min-w-0 flex-1 text-sm">
             <div className="truncate font-medium" suppressHydrationWarning>{userName}<span className="hidden sm:inline"> · {sofiaDateTime(now)}</span></div>
-            <div className="truncate text-muted-foreground">{summary}</div>
+            <div className="truncate text-slate-600">{summary}</div>
           </div>
           {children}
           <Button className="shrink-0" disabled={disabled || signing} onClick={() => setOpen(true)}>
@@ -232,7 +238,7 @@ export function SignBar({ userName, summary, statement, disabled, disabledReason
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Подпис</DialogTitle></DialogHeader>
           <p className="text-sm">С подписа си казвате: „{statement}“</p>
-          <p className="text-sm text-muted-foreground">{userName} · {sofiaDateTime(now)} · {summary}</p>
+          <Meta>{userName} · {sofiaDateTime(now)} · {summary}</Meta>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>Назад</Button>
             <Button onClick={confirm} disabled={signing}>
