@@ -283,8 +283,8 @@ export function AssistantChat() {
 
           <div className="space-y-2 border-t bg-slate-50/60 p-2 sm:p-3">
             {error && <Note tone="danger" small>{error}</Note>}
-            {dictation.error && <Note tone="warn" small>{dictation.error}</Note>}
-            {dictation.blocked && <MicHelp onClose={dictation.clearError} />}
+            {dictation.error && <Note tone="warn" small>{dictation.error}{dictation.code && <span className="mt-0.5 block font-mono text-[11px] opacity-70">{dictation.code}</span>}</Note>}
+            {dictation.blocked && <MicHelp code={dictation.code} onClose={dictation.clearError} />}
             {blocked && <Note tone="warn" small>{blocked}</Note>}
             {speaker.noBulgarian && (
               <Meta>На това устройство няма български глас за четене: отговорите ще се четат с акцент. Може да се добави от настройките за говор на телефона.</Meta>
@@ -361,24 +361,28 @@ export function AssistantChat() {
   )
 }
 
-/** How to allow the microphone once the browser has refused it for this site (it will not ask again). */
-function MicHelp({ onClose }: { onClose: () => void }) {
+/**
+ * How to allow the microphone once the browser has refused it. When the site
+ * has no "Разрешения" row at all, the refusal is not the site's: the
+ * microphone is off for Chrome on the phone, or for all sites in Chrome.
+ */
+function MicHelp({ code, onClose }: { code: string; onClose: () => void }) {
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+    <div className="max-h-[45dvh] overflow-y-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold">Микрофонът е забранен за Prody в този браузър</p>
+        <p className="font-semibold">Браузърът не дава микрофона</p>
         <button type="button" onClick={onClose} aria-label="Затвори" className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-amber-100">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-1">Браузърът вече не пита. Разрешете го веднъж така:</p>
-      <ol className="mt-1 list-decimal space-y-0.5 pl-5">
-        <li>Натиснете иконата вляво от адреса горе (катинарче или <span aria-hidden>⚙</span>).</li>
-        <li>„Разрешения“ → „Микрофон“ → „Разрешаване“.</li>
-        <li>Презаредете страницата и натиснете микрофона пак.</li>
+      <p className="mt-1">Проверете тези три места, после презаредете страницата и натиснете микрофона пак:</p>
+      <ol className="mt-1 list-decimal space-y-1 pl-5">
+        <li><b>Телефонът:</b> Настройки → Приложения → Chrome → Разрешения → Микрофон → „Разрешаване само докато приложението се използва“.</li>
+        <li><b>Chrome:</b> ⋮ → Настройки → Настройки на сайта → Микрофон → включете горния ключ и проверете, че сайтът не е в „Блокирани“.</li>
+        <li><b>Сайтът:</b> катинарчето вляво от адреса → „Разрешения“ → „Микрофон“ → „Разрешаване“ (редът се появява, след като сайтът е поискал микрофона).</li>
       </ol>
-      <p className="mt-1.5 text-xs">Ако иконата я няма: в Chrome ⋮ → Настройки → Настройки на сайта → Микрофон → изберете сайта → Разрешаване. Ако Prody е отворен от линк в друго приложение, първо ⋮ → „Отваряне в Chrome“.</p>
-      <p className="mt-1.5 text-xs">Дотогава може да диктувате с микрофона на клавиатурата.</p>
+      <p className="mt-1.5 text-xs">Ако Prody е отворен от линк в друго приложение, първо ⋮ → „Отваряне в Chrome“. Дотогава може да диктувате с микрофона на клавиатурата.</p>
+      {code && <p className="mt-1 font-mono text-[11px] opacity-70">{code}</p>}
     </div>
   )
 }

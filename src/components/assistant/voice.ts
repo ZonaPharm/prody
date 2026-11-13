@@ -59,6 +59,8 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
   const [error, setError] = useState('')
   // The microphone is refused for this site: the screen shows how to allow it.
   const [blocked, setBlocked] = useState(false)
+  // The browser's own name for what went wrong (NotAllowedError…), shown small for support.
+  const [code, setCode] = useState('')
   // Waiting for the person to answer the browser's "Allow microphone?" window.
   const [asking, setAsking] = useState(false)
   const rec = useRef<Recognition | null>(null)
@@ -78,6 +80,7 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
     rec.current?.abort()
     setError('')
     setBlocked(false)
+    setCode('')
     // Ask for the microphone first: this is what brings up the browser's
     // "Allow microphone?" window. Speech recognition alone often fails
     // silently instead of asking.
@@ -89,13 +92,15 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         stream.getTracks().forEach(t => t.stop())
       } catch (err) {
-        const name = (err as { name?: string })?.name
+        const name = (err as { name?: string })?.name || 'Error'
+        setCode(`getUserMedia: ${name}`)
         if (name === 'NotAllowedError' || name === 'SecurityError') {
           setBlocked(true)
           onUnavailableRef.current?.()
           return
         }
         if (name === 'NotFoundError') { setError(DICTATION_ERRORS['audio-capture']); return }
+        if (name === 'NotReadableError') { setError('Микрофонът е зает от друго приложение (запис на екрана, разговор, друг асистент). Затворете го и опитайте пак.'); return }
         // Anything else: let speech recognition try on its own.
       } finally {
         setAsking(false)
@@ -114,6 +119,7 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
     }
     r.onerror = e => {
       if (e.error === 'aborted') return
+      setCode(`recognition: ${e.error}`)
       if (e.error === 'not-allowed') setBlocked(true)
       else setError(DICTATION_ERRORS[e.error] || 'Диктуването спря. Опитайте пак.')
       // Some browsers never end after an error: stop listening here, not only in onend.
@@ -135,7 +141,7 @@ export function useDictation(onText: (text: string) => void, onUnavailable?: () 
 
   useEffect(() => () => rec.current?.abort(), [])
 
-  return { supported, listening, asking, blocked, error, start, stop, clearError: () => { setError(''); setBlocked(false) } }
+  return { supported, listening, asking, blocked, code, error, start, stop, clearError: () => { setError(''); setBlocked(false) } }
 }
 
 function subscribeVoices(cb: () => void) {
