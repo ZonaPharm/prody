@@ -5,13 +5,17 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Search, Plus, X, Send, CheckCircle2, Loader2, AlertTriangle, Package } from 'lucide-react'
+import { Search, Plus, X, Send, CheckCircle2, Loader2, Package, Truck } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { sofiaTime, sofiaDate } from '@/lib/date-utils'
 import { getImageSrc } from '@/lib/images'
+import { NOT_REQUESTABLE_TEXT, type NotRequestable } from '@/lib/requests/office-stock'
+import { Empty, Hint, Note, PageHeader } from '@/components/ui/text'
 
 interface Product {
-  id: string; name: string; price: number | null; quantity_on_hand: number; category_id?: string | null
+  id: string; name: string; price: number | null; category_id?: string | null
+  /** Free in Офис: the most this store can ask for now. */
+  office_qty: number
 }
 
 interface MyRequest {
@@ -23,20 +27,27 @@ interface MyRequest {
 interface LowStockItem {
   id: string; name: string; price: number | null
   category: string | null; min_quantity: number; current_qty: number
+  office_qty: number; office_reason: string | null
 }
 
 interface Props {
+  /** Only what Офис can send now. */
   products: Product[]
+  /** The rest of the active catalog: named with the reason when searched for. */
+  unavailable?: { id: string; name: string; why: NotRequestable }[]
+  /** Офис stock could not be read: nothing can be asked for right now. */
+  officeFailed?: boolean
   categories: { id: string; name: string }[]
   imageMap: Record<string, string>
   myRequests: MyRequest[]
   activeTab: string
   storeId: string | null | undefined
   lowStockItems: LowStockItem[]
-  lowStockAllProducts: any[]
   lowStockImageMap: Record<string, string>
   /** Opens the request form with this product already in the basket. */
   initialProductId?: string
+  /** Per product: "Вече идва към вас: …" when Офис already sends it to this store. */
+  incoming?: Record<string, string>
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -52,13 +63,14 @@ const STATUS_COLOR: Record<string, string> = {
   partial: 'bg-orange-100 text-orange-800', rejected: 'bg-red-100 text-red-800',
 }
 
+// short: what fits three tabs side by side on a phone.
 const TABS = [
-  { key: 'request', label: 'Заяви' },
-  { key: 'my', label: 'Моите заявки' },
-  { key: 'low', label: 'Ниски наличности' },
+  { key: 'request', label: 'Заяви', short: 'Заяви' },
+  { key: 'my', label: 'Моите заявки', short: 'Моите' },
+  { key: 'low', label: 'Ниски наличности', short: 'Ниски' },
 ]
 
-export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockAllProducts, lowStockImageMap, initialProductId }: Props) {
+export function MyRequestsClient({ products, categories, imageMap, myRequests, activeTab, storeId, lowStockItems, lowStockImageMap, initialProductId, incoming = {}, unavailable = [], officeFailed = false }: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const [tab, setTab] = useState(activeTab)
@@ -71,6 +83,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     return preset ? [{ product: preset, qty: 1 }] : []
   })
   const [sending, setSending] = useState(false)
+  const [basketOpen, setBasketOpen] = useState(false)
   const [detail, setDetail] = useState<MyRequest | null>(null)
   const [events, setEvents] = useState<any[]>([])
   const [notes, setNotes] = useState<any[]>([])
@@ -114,18 +127,32 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     if (selectedCategory && p.category_id !== selectedCategory) return false
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false
     return true
-  }).sort((a, b) => (a.quantity_on_hand || 0) - (b.quantity_on_hand || 0)).slice(0, 100)
+  }).slice(0, 100)
+
+  // Searched for something Офис cannot send: say so and why, instead of nothing.
+  const q = search.trim().toLowerCase()
+  const blocked = q.length >= 2 ? unavailable.filter(p => p.name.toLowerCase().includes(q)).slice(0, 6) : []
+  const presetBlocked = initialProductId && !products.some(p => p.id === initialProductId)
+    ? unavailable.find(p => p.id === initialProductId)
+    : undefined
+
+  const tooMany = (p: Product) =>
+    toast({ title: `В Офис има ${p.office_qty} бр. от „${p.name}“`, description: 'Толкова е най-много, което може да се заяви сега.' })
 
   const addToBasket = (product: Product) => {
+    const existing = basket.find(i => i.product.id === product.id)
+    if (existing && existing.qty >= product.office_qty) { tooMany(product); return }
     setBasket(prev => {
       const existing = prev.find(i => i.product.id === product.id)
-      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
+      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: Math.min(i.qty + 1, product.office_qty) } : i)
       return [...prev, { product, qty: 1 }]
     })
   }
 
   const updateQty = (productId: string, qty: number) => {
     if (qty <= 0) { setBasket(prev => prev.filter(i => i.product.id !== productId)); return }
+    const item = basket.find(i => i.product.id === productId)
+    if (item && qty > item.product.office_qty) { tooMany(item.product); return }
     setBasket(prev => prev.map(i => i.product.id === productId ? { ...i, qty } : i))
   }
 
@@ -178,18 +205,48 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
     } catch { toast({ title: 'Грешка при потвърждаване', variant: 'destructive' }) }
   }
 
+  const basketQty = basket.reduce((s, i) => s + i.qty, 0)
+  const basketRows = basket.map(item => (
+                      <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border border-blue-100 bg-blue-50/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'} · в Офис {item.product.office_qty} бр.
+                          </p>
+                          {incoming[item.product.id] && (
+                            <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                              <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[item.product.id]}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="icon" className="h-9 w-9 lg:h-7 lg:w-7"
+                            onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
+                          <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
+                          <Button variant="outline" size="icon" className="h-9 w-9 lg:h-7 lg:w-7"
+                            disabled={item.qty >= item.product.office_qty}
+                            onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 lg:h-7 lg:w-7 text-red-400 hover:text-red-600"
+                          onClick={() => removeFromBasket(item.product.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Заявки</h1>
+      <PageHeader title="Заявки" intro="Поискайте от Офис стока за вашия магазин и следете заявките си." />
 
       {/* Tabs — button style */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="no-scrollbar flex gap-1 bg-slate-100 rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
         {TABS.map(t => (
           <button key={t.key} onClick={() => switchTab(t.key)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-2 sm:px-4 py-2.5 sm:py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               tab === t.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}>
-            {t.label}
+            <span className="sm:hidden">{t.short}</span>
+            <span className="hidden sm:inline">{t.label}</span>
             {t.key === 'my' && myRequests.length > 0 && (
               <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">{myRequests.length}</span>
             )}
@@ -204,11 +261,24 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       {tab === 'request' && (
         <div className="block">
           {/* Left: product grid with right margin for basket */}
-          <div className="mr-[382px]">
+          <div className="pb-16 lg:pb-0 lg:mr-[382px]">
             {!storeId && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 mb-4">
-                Нямате зададен магазин. Свържете се с администратор.
-              </div>
+              <Note tone="warn" className="mb-4">Нямате зададен магазин. Свържете се с администратор.</Note>
+            )}
+
+            <Hint className="mb-3">
+              Изберете продукти и натиснете „Изпрати“. Тук са само продуктите, които Офис може да изпрати сега; „в Офис N“ е колко има свободни.
+            </Hint>
+
+            {officeFailed && (
+              <Note tone="danger" className="mb-4">Не успяхме да прочетем наличността в Офис. Опитайте пак след малко.</Note>
+            )}
+
+            {presetBlocked && (
+              <Note tone="warn" className="mb-4">
+                <b>{presetBlocked.name}</b> не може да се заяви: {NOT_REQUESTABLE_TEXT[presetBlocked.why].toLowerCase()}.
+                {incoming[presetBlocked.id] ? ` ${incoming[presetBlocked.id]}` : ''}
+              </Note>
             )}
 
             {/* Category pills */}
@@ -238,13 +308,35 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                 onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
 
+            {/* Not requestable: named with the reason, so nobody hunts for it. */}
+            {blocked.length > 0 && (
+              <Note tone="info" className="mb-4">
+                <p className="mb-1 font-semibold text-slate-900">Не може да се заяви сега</p>
+                <ul className="space-y-1">
+                  {blocked.map(p => (
+                    <li key={p.id} className="text-sm">
+                      <span className="font-medium">{p.name}</span>
+                      <span className="text-muted-foreground"> · {NOT_REQUESTABLE_TEXT[p.why]}</span>
+                      {incoming[p.id] && (
+                        <span className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                          <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Note>
+            )}
+
             {/* Product grid */}
             {filteredProducts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-12">
-                {search ? `Няма съвпадения за "${search}"` : 'Няма продукти'}
-              </p>
+              <Empty className="py-12">
+                {search
+                  ? (blocked.length > 0 ? 'Няма други съвпадения, които Офис може да изпрати.' : `Няма съвпадения за "${search}"`)
+                  : products.length === 0 ? 'В момента Офис няма стока, която може да се заяви.' : 'Няма продукти в тази категория'}
+              </Empty>
             ) : (
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {filteredProducts.map(p => {
                   const inBasket = basket.find(i => i.product.id === p.id)
                   return (
@@ -271,9 +363,14 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
                           {p.price != null ? `${p.price.toFixed(2)} €` : '—'}
                         </span>
                         <span className="text-xs text-muted-foreground tabular-nums">
-                          {p.quantity_on_hand} бр.
+                          в Офис {p.office_qty}
                         </span>
                       </div>
+                      {incoming[p.id] && (
+                        <p className="mt-1.5 flex items-start gap-1 rounded bg-amber-50 px-1.5 py-1 text-[11px] font-medium leading-tight text-amber-800">
+                          <Truck className="h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
+                        </p>
+                      )}
                       {inBasket && (
                         <div className="mt-2 text-xs font-medium text-blue-600 bg-blue-100 -mx-3 -mb-3 px-3 py-1.5 rounded-b-lg text-center">
                           В заявката: {inBasket.qty} бр.
@@ -287,7 +384,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           </div>
 
           {/* Right: Request basket — same positioning as POS cart */}
-          <div className="hidden lg:block fixed right-8 top-16 bottom-4 w-[350px]">
+          <div className="hidden lg:block fixed right-6 top-6 bottom-6 w-[350px]">
             <div className="border-2 border-blue-200 rounded-xl bg-white shadow-sm flex flex-col h-full">
               <div className="p-4 border-b border-blue-100 bg-blue-50/50 rounded-t-xl shrink-0">
                 <h2 className="font-semibold text-blue-800 flex items-center gap-2">
@@ -311,27 +408,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
               ) : (
                 <>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    {basket.map(item => (
-                      <div key={item.product.id} className="flex items-center gap-2 p-2 rounded-md border border-blue-100 bg-blue-50/30">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.product.price != null ? `${item.product.price.toFixed(2)} €` : '—'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="outline" size="icon" className="h-7 w-7"
-                            onClick={() => updateQty(item.product.id, item.qty - 1)}>−</Button>
-                          <span className="w-7 text-center text-sm tabular-nums">{item.qty}</span>
-                          <Button variant="outline" size="icon" className="h-7 w-7"
-                            onClick={() => updateQty(item.product.id, item.qty + 1)}>+</Button>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600"
-                          onClick={() => removeFromBasket(item.product.id)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
+                    {basketRows}
                   </div>
                   <div className="p-4 border-t border-blue-100 shrink-0 space-y-3">
                     <div className="flex items-center justify-between text-sm">
@@ -348,6 +425,28 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
               )}
             </div>
           </div>
+
+          {/* Phone: the basket is a bar above the tab bar; tap it to see and change the list. */}
+          <div className="lg:hidden fixed inset-x-0 bottom-[var(--bottom-nav-h)] z-30 border-t bg-white/95 backdrop-blur shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+            {basketOpen && basket.length > 0 && (
+              <div className="max-h-[50vh] overflow-y-auto p-3 space-y-2 border-b">{basketRows}</div>
+            )}
+            <div className="flex items-center gap-3 px-4 py-2.5">
+              <button type="button" onClick={() => setBasketOpen(o => !o)} className="flex flex-1 items-center gap-2 min-w-0 text-left" disabled={basket.length === 0}>
+                <Send className="h-5 w-5 text-blue-700 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">Заявка</span>
+                  <span className="block text-xs text-muted-foreground truncate">
+                    {basket.length === 0 ? 'празна' : `${basket.length} продукта · ${basketQty} бр. · ${basketOpen ? 'скрий' : 'виж'}`}
+                  </span>
+                </span>
+              </button>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={sendRequest} disabled={sending || !storeId || basket.length === 0}>
+                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Изпрати
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -355,7 +454,7 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
       {tab === 'my' && (
         <div className="space-y-2">
           {myRequests.length === 0 ? (
-            <div className="text-muted-foreground text-center py-12">Нямате заявки</div>
+            <Empty className="py-12">Нямате заявки</Empty>
           ) : (
             myRequests.map(r => (
               <div key={r.id}
@@ -391,28 +490,45 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
           ) : (
             <div className="border rounded-xl divide-y">
               {lowStockItems.map((p: LowStockItem) => (
-                <div key={p.id} className="p-3 flex items-center justify-between hover:bg-slate-50">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {lowStockImageMap[p.id] && (
-                      <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                <div key={p.id} className="p-3 flex items-center gap-3 hover:bg-slate-50">
+                  {lowStockImageMap[p.id] ? (
+                    <img src={getImageSrc(lowStockImageMap[p.id])} alt="" className="h-11 w-11 rounded object-cover shrink-0" />
+                  ) : (
+                    <div className="h-11 w-11 rounded bg-slate-100 shrink-0 flex items-center justify-center"><Package className="h-5 w-5 text-slate-300" /></div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-snug line-clamp-2">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.category ? `${p.category} · ` : ''}мин. {p.min_quantity} бр.
+                    </p>
+                    {incoming[p.id] && (
+                      <p className="mt-0.5 flex items-start gap-1 text-xs font-medium text-amber-800">
+                        <Truck className="mt-px h-3.5 w-3.5 shrink-0" />{incoming[p.id]}
                       </p>
-                    </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm' : 'text-amber-600 font-bold text-sm'}>
+                  {/* Right: what is left here, and under it either "Заяви" or why it can't be asked for */}
+                  <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+                    <span className={p.current_qty === 0 ? 'text-red-600 font-bold text-sm tabular-nums' : 'text-amber-600 font-bold text-sm tabular-nums'}>
                       {p.current_qty} бр.
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setBasket([{ product: { id: p.id, name: p.name, price: p.price, quantity_on_hand: p.current_qty }, qty: p.min_quantity || 5 }])
-                      switchTab('request')
-                    }}>
-                      Заяви
-                    </Button>
+                    {p.office_qty > 0 ? (
+                      <Button size="sm" variant="outline" className="h-9" onClick={() => {
+                        const product = products.find(x => x.id === p.id)
+                          ?? { id: p.id, name: p.name, price: p.price, office_qty: p.office_qty }
+                        setBasket(prev => [
+                          ...prev.filter(i => i.product.id !== p.id),
+                          { product, qty: Math.max(1, Math.min(p.min_quantity || 5, product.office_qty)) },
+                        ])
+                        switchTab('request')
+                      }}>
+                        Заяви
+                      </Button>
+                    ) : (
+                      <span className="max-w-[7.5rem] rounded bg-slate-100 px-1.5 py-0.5 text-[11px] leading-tight text-slate-500">
+                        {p.office_reason ?? 'Няма го в Офис'}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

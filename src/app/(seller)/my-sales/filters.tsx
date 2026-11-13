@@ -2,16 +2,26 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { sofiaToday } from '@/lib/date-utils'
+import { activeQuickRange, quickRange, type QuickRange } from '@/lib/date-ranges'
 
 interface MySalesFiltersProps {
   from: string
   to: string
 }
 
+const QUICK: { key: QuickRange; label: string }[] = [
+  { key: 'today', label: 'Днес' },
+  { key: 'week', label: 'Седмица' },
+  { key: 'month', label: 'Месец' },
+]
+
 export function MySalesFilters({ from, to }: MySalesFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const today = sofiaToday()
+  const active = activeQuickRange(from, to, today)
 
   const navigate = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -21,42 +31,34 @@ export function MySalesFilters({ from, to }: MySalesFiltersProps) {
     router.replace(`/my-sales?${params.toString()}`)
   }
 
-  const setToday = () => {
-    const today = new Date().toISOString().split('T')[0]
-    router.replace(`/my-sales?from=${today}&to=${today}`)
-  }
-
-  const setThisWeek = () => {
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-    router.replace(`/my-sales?from=${monday.toISOString().split('T')[0]}&to=${sunday.toISOString().split('T')[0]}`)
-  }
-
-  const setThisMonth = () => {
-    const now = new Date()
-    const first = new Date(now.getFullYear(), now.getMonth(), 1)
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    router.replace(`/my-sales?from=${first.toISOString().split('T')[0]}&to=${last.toISOString().split('T')[0]}`)
+  const pick = (kind: QuickRange) => {
+    const r = quickRange(kind, today)
+    router.replace(`/my-sales?from=${r.from}&to=${r.to}`)
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div>
-        <label className="text-xs text-muted-foreground">От</label>
-        <Input type="date" defaultValue={from} onChange={e => navigate('from', e.target.value)} className="w-[140px] h-9 text-sm" />
+    <div className="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:items-end sm:gap-2">
+      {/* Quick ranges first: one tap covers what a seller looks at most */}
+      <div className="flex gap-1 rounded-lg bg-slate-100 p-1 sm:order-last">
+        {QUICK.map(q => (
+          <button key={q.key} type="button" onClick={() => pick(q.key)}
+            className={cn(
+              'flex-1 sm:flex-none rounded-md px-3 py-2 sm:py-1.5 text-sm font-medium transition-colors',
+              active === q.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}>
+            {q.label}
+          </button>
+        ))}
       </div>
-      <div>
-        <label className="text-xs text-muted-foreground">До</label>
-        <Input type="date" defaultValue={to} onChange={e => navigate('to', e.target.value)} className="w-[140px] h-9 text-sm" />
-      </div>
-      <div className="flex gap-1 ml-1">
-        <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setToday}>Днес</Button>
-        <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setThisWeek}>Седмица</Button>
-        <Button type="button" variant="ghost" size="sm" className="h-9 text-xs" onClick={setThisMonth}>Месец</Button>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+        <div>
+          <label className="text-xs text-muted-foreground">От</label>
+          <Input type="date" key={`f${from}`} defaultValue={from} onChange={e => navigate('from', e.target.value)} className="w-full sm:w-[160px] h-10 sm:h-9 text-sm" />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">До</label>
+          <Input type="date" key={`t${to}`} defaultValue={to} onChange={e => navigate('to', e.target.value)} className="w-full sm:w-[160px] h-10 sm:h-9 text-sm" />
+        </div>
       </div>
     </div>
   )

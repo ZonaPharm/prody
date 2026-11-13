@@ -30,17 +30,22 @@ export async function fetchAll<T>(
  * Look up rows by a list of ids. The ids travel in the query string, so a long
  * list has to be split or the URL exceeds what the server will accept — which
  * surfaces as an opaque "fetch failed" rather than a PostgREST error.
+ *
+ * The chunks go out together, not one after another: each is a round trip to
+ * the database, and a page waiting for them in turn waited for their sum. The
+ * rows still come back in chunk order, and any failed chunk fails the whole.
  */
 export async function fetchByIds<T>(
   buildQuery: (ids: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>,
   ids: string[],
   chunkSize = 200,
 ): Promise<T[]> {
-  const out: T[] = []
-  for (let i = 0; i < ids.length; i += chunkSize) {
-    const { data, error } = await buildQuery(ids.slice(i, i + chunkSize))
+  const chunks: string[][] = []
+  for (let i = 0; i < ids.length; i += chunkSize) chunks.push(ids.slice(i, i + chunkSize))
+  const pages = await Promise.all(chunks.map(async chunk => {
+    const { data, error } = await buildQuery(chunk)
     if (error) throw error
-    out.push(...(data || []))
-  }
-  return out
+    return data || []
+  }))
+  return pages.flat()
 }

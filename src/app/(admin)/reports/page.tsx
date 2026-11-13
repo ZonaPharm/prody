@@ -102,18 +102,18 @@ export default function ReportsPage() {
         <form onSubmit={(e) => { e.preventDefault(); fetchData() }} className="flex flex-wrap items-end gap-2">
           <div>
             <label className="text-xs text-muted-foreground">От</label>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[140px] h-9 text-sm" />
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-[160px] h-9 text-sm" />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">До</label>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[140px] h-9 text-sm" />
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-[160px] h-9 text-sm" />
           </div>
           <Button type="submit" variant="outline" size="sm" className="h-9">Покажи</Button>
         </form>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Общо продажби</CardTitle></CardHeader>
           <CardContent>

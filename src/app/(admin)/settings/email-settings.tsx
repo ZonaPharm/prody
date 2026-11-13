@@ -20,6 +20,8 @@ const SECTIONS = [
 export function EmailSettings() {
   const [settings, setSettings] = useState<any>(null)
   const [newRecipient, setNewRecipient] = useState('')
+  // The saved password never comes back from the server; this is only a new one being typed.
+  const [newPass, setNewPass] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [toast, setToast] = useState('')
@@ -30,13 +32,22 @@ export function EmailSettings() {
 
   const save = async () => {
     setSaving(true)
-    await fetch('/api/email-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings),
-    })
+    try {
+      const res = await fetch('/api/email-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // smtp_pass is sent only when a new password was typed; empty keeps the saved one.
+        body: JSON.stringify({ ...settings, smtp_pass: newPass }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSettings(data)
+      setNewPass('')
+      setToast('Запазено')
+    } catch (e: any) {
+      setToast('Грешка: ' + (e.message || 'неуспешно'))
+    }
     setSaving(false)
-    setToast('Запазено')
     setTimeout(() => setToast(''), 2000)
   }
 
@@ -95,7 +106,8 @@ export function EmailSettings() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Парола (App Password)</Label>
-              <Input type="password" value={settings.smtp_pass || ''} onChange={e => setSettings({ ...settings, smtp_pass: e.target.value })} className="h-9" />
+              <Input type="password" autoComplete="new-password" value={newPass} onChange={e => setNewPass(e.target.value)}
+                placeholder={settings.smtp_pass_set ? 'Запазена (празно = без промяна)' : 'Няма запазена'} className="h-9" />
             </div>
           </div>
           <div className="mt-3 max-w-xs">
@@ -154,7 +166,7 @@ export function EmailSettings() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 pt-3 border-t">
+        <div className="flex flex-wrap items-center gap-3 pt-3 border-t">
           <Button onClick={save} disabled={saving} size="sm">
             {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
             Запази

@@ -34,12 +34,15 @@ export function ToggleStatusButton({ productId, currentStatus }: ToggleStatusBut
 
   const isActive = currentStatus === 'active'
 
+  // Not on a phone: there the catalogue is a scrolling list and one stray tap on
+  // this small button took the product off the till at once. The status is
+  // changed in the product's edit form (Статус) instead.
   return (
     <button
       type="button"
       onClick={toggle}
       disabled={loading}
-      className={`absolute top-2 right-2 z-10 rounded-full w-7 h-7 flex items-center justify-center text-xs shadow transition-all ${
+      className={`absolute top-2 right-2 z-10 rounded-full w-7 h-7 hidden sm:flex items-center justify-center text-xs shadow transition-all ${
         isActive
           ? 'bg-green-500 text-white hover:bg-red-500'
           : 'bg-slate-400 text-white hover:bg-green-500'

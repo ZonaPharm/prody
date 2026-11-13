@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function LoginForm() {
@@ -41,10 +42,11 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Prody</CardTitle>
+        <CardHeader className="items-center text-center">
+          <Image src="/logo-trim.png" alt="" width={150} height={51} className="mb-2 h-12 w-auto" priority />
+          <CardTitle className="sr-only">Prody</CardTitle>
           <CardDescription>Влез в акаунта си</CardDescription>
         </CardHeader>
         <CardContent>

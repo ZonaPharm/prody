@@ -57,7 +57,7 @@ export function PushToWpButton({ productId, wpTitle, wpProductId, wpSyncedAt }: 
         {wpProductId ? 'Обнови в сайта' : 'Изпрати към сайта'}
       </Button>
       {!hasTitle && (
-        <p className="text-xs text-muted-foreground">
+        <p className="max-w-[15rem] text-xs text-muted-foreground">
           Липсва заглавие за сайта — попълнете го в таб „За уебсайта“
         </p>
       )}
