@@ -402,12 +402,13 @@ const cell = z.union([z.string().max(2000), z.number(), z.boolean(), z.null()])
 const makeFile: AssistantTool = {
   name: 'make_file',
   description:
-    'Прави файл за изтегляне: format "excel" (таблици, всяка на свой лист) или "document" (страница за печат и PDF). ' +
+    'Прави файл за изтегляне: format "excel" (таблици, всяка на свой лист), "word" (.docx за редактиране) или "pdf" (за печат и пращане). ' +
+    'Всеки файл може после да се изтегли и в другите два вида, затова прави един файл, не три. ' +
     'Таблица с данни от Prody: дай from = {tool, input} с някоя от справките (напр. sales_summary) и колони; числата се взимат ' +
     'направо от базата. rows дай само за данни, които не са в Prody (напр. разчетени от прикачен документ).',
   status: 'Правя файла…',
   schema: z.object({
-    format: z.enum(['excel', 'document']),
+    format: z.enum(['excel', 'word', 'pdf', 'document']),
     title: z.string().trim().min(1).max(150),
     intro: z.string().trim().max(5000).optional(),
     sections: z.array(z.object({
@@ -455,7 +456,8 @@ const makeFile: AssistantTool = {
       sections.push({ heading: s.heading ?? null, text: s.text ?? null, table })
     }
     const kind = input.format === 'excel' ? 'excel' : 'document'
-    const card = await storeCard(ctx, kind, input.title, { title: input.title, intro: input.intro ?? null, sections }, true)
+    const format = input.format === 'excel' ? 'xlsx' : input.format === 'word' ? 'docx' : 'pdf'
+    const card = await storeCard(ctx, kind, input.title, { title: input.title, intro: input.intro ?? null, sections, format }, true)
     return {
       ok: true, card_id: card.id,
       tables: sections.filter(s => s.table).map(s => ({ heading: s.heading, rows: s.table.rows.length })),

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, Download, FileText, Loader2, Printer } from 'lucide-react'
+import { CheckCircle2, FileDown, FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -54,7 +54,7 @@ export function ActionCardView({ card: initial }: { card: ActionCard }) {
 
   const open = card.status === 'proposed'
   return (
-    <div className={cn('rounded-lg border bg-white p-3 text-sm shadow-sm', open ? 'border-violet-300' : 'border-slate-200')}>
+    <div className={cn('rounded-xl border bg-white p-3 text-sm shadow-sm', open ? 'border-violet-300' : 'border-slate-200')}>
       <div className="mb-2 flex items-start justify-between gap-2">
         <p className="font-semibold">{card.title}</p>
         {card.status === 'done' && <span className="inline-flex shrink-0 items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />Записано</span>}
@@ -66,9 +66,9 @@ export function ActionCardView({ card: initial }: { card: ActionCard }) {
       {card.kind === 'product_update' && <ChangeBody card={card} open={open} busy={busy} onConfirm={p => decide('confirm', p)} />}
       {error && <Note tone="danger" small className="mt-2">{error}</Note>}
       {open && (
-        <button type="button" onClick={() => decide('dismiss')} disabled={busy} className="mt-2 text-xs text-slate-500 underline disabled:opacity-50">
+        <Button type="button" variant="ghost" size="sm" onClick={() => decide('dismiss')} disabled={busy} className="mt-1 h-9 w-full rounded-full text-slate-500 sm:w-auto">
           Не го искам
-        </button>
+        </Button>
       )}
       {card.status === 'done' && card.result && (
         <div className="mt-2 space-y-1">
@@ -82,8 +82,8 @@ export function ActionCardView({ card: initial }: { card: ActionCard }) {
 
 function ConfirmButton({ kind, busy, disabled, onClick }: { kind: string; busy: boolean; disabled?: boolean; onClick: () => void }) {
   return (
-    <Button type="button" size="sm" className="mt-3 w-full sm:w-auto" disabled={busy || disabled} onClick={onClick}>
-      {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}{CONFIRM_LABEL[kind]}
+    <Button type="button" className="mt-3 h-11 w-full rounded-full sm:w-auto sm:px-6" disabled={busy || disabled} onClick={onClick}>
+      {busy && <Loader2 className="animate-spin" />}{CONFIRM_LABEL[kind]}
     </Button>
   )
 }
@@ -284,24 +284,41 @@ function ChangeBody({ card, open, busy, onConfirm }: BodyProps) {
   )
 }
 
+const FORMATS = [
+  { key: 'xlsx', label: 'Excel', icon: FileSpreadsheet },
+  { key: 'docx', label: 'Word', icon: FileText },
+  { key: 'pdf', label: 'PDF', icon: FileDown },
+] as const
+
 function FileCard({ card }: { card: ActionCard }) {
   const tables = (card.payload.sections || []).filter((s: any) => s.table)
   const rows = tables.reduce((n: number, s: any) => n + s.table.rows.length, 0)
+  // Older files have no format: an Excel one, or a document read as PDF.
+  const main: string = card.payload.format || (card.kind === 'excel' ? 'xlsx' : 'pdf')
+  const ordered = [...FORMATS].sort((a, b) => (a.key === main ? -1 : b.key === main ? 1 : 0))
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-sm">
-      <FileText className="h-5 w-5 shrink-0 text-violet-600" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold">{card.title}</p>
-        <Meta>{tables.length ? `${tables.length} ${tables.length === 1 ? 'таблица' : 'таблици'}, ${rows} реда` : 'Текст'}</Meta>
+    <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+          <FileText className="h-5 w-5" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{card.title}</p>
+          <Meta>{tables.length ? `${tables.length} ${tables.length === 1 ? 'таблица' : 'таблици'}, ${rows} реда` : 'Текст'}</Meta>
+        </div>
       </div>
-      {card.kind === 'excel' && (
-        <a href={`/api/assistant/files/${card.id}`} className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
-          <Download className="mr-1.5 h-4 w-4" />Изтегли Excel
-        </a>
-      )}
-      <a href={`/print/assistant/${card.id}`} target="_blank" rel="noopener" className="inline-flex h-9 items-center rounded-md border px-3 text-sm">
-        <Printer className="mr-1.5 h-4 w-4" />{card.kind === 'excel' ? 'Виж / печат' : 'Отвори за печат / PDF'}
-      </a>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        {ordered.map(f => (
+          <Button key={f.key} asChild size="sm" variant={f.key === main ? 'default' : 'outline'} className="h-10 rounded-full px-4">
+            <a href={`/api/assistant/files/${card.id}?format=${f.key}`} {...(f.key === 'pdf' ? { target: '_blank', rel: 'noopener' } : {})}>
+              <f.icon aria-hidden />{f.label}
+            </a>
+          </Button>
+        ))}
+        <Button asChild size="sm" variant="outline" className="h-10 rounded-full px-4">
+          <a href={`/print/assistant/${card.id}`} target="_blank" rel="noopener"><Printer aria-hidden />Печат</a>
+        </Button>
+      </div>
     </div>
   )
 }

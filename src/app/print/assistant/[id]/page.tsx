@@ -2,19 +2,12 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assistantAccess } from '@/lib/assistant/access'
 import { ownAction } from '@/lib/assistant/store'
-import type { FilePayload } from '@/lib/assistant/files'
+import { cellText as show, type FilePayload } from '@/lib/assistant/files'
 import { sofiaDate } from '@/lib/date-utils'
 import { PrintButton } from '@/components/deliveries/print-button'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Документ' }
-
-function show(v: unknown): string {
-  if (v == null) return ''
-  if (typeof v === 'number') return v.toLocaleString('bg-BG', { maximumFractionDigits: 2 })
-  if (typeof v === 'boolean') return v ? 'да' : 'не'
-  return String(v)
-}
 
 /**
  * A document the AI assistant made, on paper or as PDF from the print dialog.

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, MessageSquarePlus, Paperclip, Send, Sparkles, X } from 'lucide-react'
+import { ArrowUp, Camera, Loader2, MessageSquarePlus, Mic, Paperclip, Square, Sparkles, Volume2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Hint, Meta, Note, PageHeader } from '@/components/ui/text'
@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils'
 import { Answer } from './answer'
 import { ActionCardView } from './action-card'
 import type { ActionCard } from '@/lib/assistant/cards'
+import { shrinkImage, useDictation, useSpeaker } from './voice'
 
 type Msg = { role: 'user' | 'assistant'; text: string; card?: undefined } | { role: 'card'; card: ActionCard; text?: undefined }
 
 const ACCEPT = 'image/*,.pdf,.xlsx,.xls,.csv,.ods,.txt'
-const MAX_FILE = 10 * 1024 * 1024
+/** What one request to the app may carry (Vercel takes about 4.5 MB); pictures are made smaller first. */
+const MAX_FILE = 4 * 1024 * 1024
 type Conversation = { id: string; title: string; updated_at: string }
 
 const EXAMPLES = [
@@ -33,9 +35,22 @@ export function AssistantChat() {
   const [input, setInput] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const [preparing, setPreparing] = useState(false)
+  // Dictation adds to what was already typed; a dictated question is answered aloud.
+  const typedRef = useRef('')
+  const dictatedRef = useRef(false)
+  const speaker = useSpeaker()
+  const dictation = useDictation(text => {
+    dictatedRef.current = true
+    setInput(typedRef.current ? `${typedRef.current} ${text}` : text)
+  })
   const [error, setError] = useState('')
   const [info, setInfo] = useState<{ configured: boolean; blocked: string | null; spent: string; cap: string } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  // Where the next message lands, so the answer read aloud is the one marked as read.
+  const countRef = useRef(0)
+  useEffect(() => { countRef.current = messages.length }, [messages])
 
   const loadList = useCallback(async () => {
     const res = await fetch('/api/assistant', { cache: 'no-store' })
@@ -66,16 +81,33 @@ export function AssistantChat() {
     setError('')
   }
 
-  function pickFile(f: File | null) {
-    if (f && f.size > MAX_FILE) { setError('Файлът е над 10 MB. Снимайте или изрежете само нужното.'); return }
+  async function pickFile(picked: File | null) {
     setError('')
+    if (!picked) { setFile(null); return }
+    setPreparing(true)
+    const f = await shrinkImage(picked)
+    setPreparing(false)
+    if (f.size > MAX_FILE) { setError('Файлът е над 4 MB. Снимайте отново или пратете само нужните страници.'); return }
     setFile(f)
+  }
+
+  function toggleDictation() {
+    if (dictation.listening) { dictation.stop(); return }
+    speaker.stop()
+    typedRef.current = input.trim()
+    dictation.start()
   }
 
   async function ask(question: string) {
     const attached = file
     const q = question.trim() || (attached ? 'Разчети прикачения документ.' : '')
     if (!q || busy) return
+    if (dictation.listening) dictation.stop()
+    // A question asked by voice gets its answer read aloud.
+    const aloud = dictatedRef.current && speaker.supported
+    dictatedRef.current = false
+    if (aloud) speaker.unlock()
+    else speaker.stop()
     setBusy(true)
     setError('')
     setStatus([])
@@ -121,6 +153,7 @@ export function AssistantChat() {
           else if (ev.type === 'answer') {
             answered = true
             // The cards go under the answer that explains them.
+            if (aloud) speaker.speak(`a${countRef.current}`, ev.text)
             setMessages(m => [...m, { role: 'assistant', text: ev.text }, ...cards.map(card => ({ role: 'card' as const, card }))])
           }
           else if (ev.type === 'error') throw new Error(ev.text)
@@ -150,8 +183,8 @@ export function AssistantChat() {
         <div className="flex h-[calc(100dvh-5.5rem-var(--bottom-nav-h,4rem))] min-h-[24rem] flex-col gap-3 lg:h-[calc(100dvh-3rem)]">
       <PageHeader
         title={<span className="inline-flex items-center gap-2"><Sparkles className="h-5 w-5 text-violet-600" aria-hidden />AI асистент</span>}
-        intro={<span className="hidden sm:inline">Питайте за наличности, продажби, доставки и заявки. Прикачете фактура, за да подготви чернова на доставка. Нищо не се записва без Вашия бутон.</span>}
-        actions={<Button variant="outline" size="sm" onClick={newConversation} disabled={busy}><MessageSquarePlus className="mr-1.5 h-4 w-4" />Нов разговор</Button>}
+        intro={<span className="hidden sm:inline">Питайте за наличности, продажби, доставки и заявки. Пишете или диктувайте. Прикачете или снимайте фактура, за да подготви чернова на доставка. Нищо не се записва без Вашия бутон.</span>}
+        actions={<Button variant="outline" size="sm" className="h-10 rounded-full px-4" onClick={newConversation} disabled={busy}><MessageSquarePlus />Нов разговор</Button>}
       />
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -190,7 +223,7 @@ export function AssistantChat() {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
             {messages.length === 0 && !busy && (
               <div className="space-y-3">
-                <Hint>Напишете въпрос най-долу или изберете пример.</Hint>
+                <Hint>Напишете или кажете въпроса си най-долу (бутонът с микрофона), снимайте документ или изберете пример.</Hint>
                 <div className="flex flex-wrap gap-2">
                   {EXAMPLES.map(ex => (
                     <button
@@ -210,10 +243,25 @@ export function AssistantChat() {
             ) : (
               <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div className={cn(
-                  'max-w-[92%] rounded-lg px-3 py-2 text-sm sm:max-w-[80%]',
-                  m.role === 'user' ? 'whitespace-pre-wrap bg-slate-900 text-white' : 'border bg-slate-50 text-slate-900',
+                  'max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[80%]',
+                  m.role === 'user' ? 'whitespace-pre-wrap rounded-br-md bg-slate-900 text-white' : 'rounded-bl-md border bg-slate-50 text-slate-900',
                 )}>
-                  {m.role === 'user' ? m.text : <Answer text={m.text} />}
+                  {m.role === 'user' ? m.text : (
+                    <>
+                      <Answer text={m.text} />
+                      {speaker.supported && (
+                        <button
+                          type="button"
+                          onClick={() => (speaker.speaking === `a${i}` ? speaker.stop() : speaker.speak(`a${i}`, m.text))}
+                          className="-mb-1 -ml-1.5 mt-1.5 inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
+                        >
+                          {speaker.speaking === `a${i}`
+                            ? <><Square className="h-3.5 w-3.5 fill-current" aria-hidden />Спри четенето</>
+                            : <><Volume2 className="h-4 w-4" aria-hidden />Прочети на глас</>}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -228,41 +276,75 @@ export function AssistantChat() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="space-y-2 border-t p-2 sm:p-3">
+          <div className="space-y-2 border-t bg-slate-50/60 p-2 sm:p-3">
             {error && <Note tone="danger" small>{error}</Note>}
+            {dictation.error && <Note tone="warn" small>{dictation.error}</Note>}
             {blocked && <Note tone="warn" small>{blocked}</Note>}
-            {file && (
-              <div className="flex items-center gap-2 rounded-md border bg-slate-50 px-2 py-1 text-xs">
-                <Paperclip className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                <button type="button" onClick={() => setFile(null)} aria-label="Махни файла" className="text-slate-500 hover:text-slate-900"><X className="h-4 w-4" /></button>
-              </div>
+            {speaker.noBulgarian && (
+              <Meta>На това устройство няма български глас за четене: отговорите ще се четат с акцент. Може да се добави от настройките за говор на телефона.</Meta>
             )}
             <form
-              className="flex items-end gap-2"
+              className={cn(
+                'rounded-2xl border bg-white shadow-sm transition-shadow focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100',
+                dictation.listening && 'border-red-300 ring-2 ring-red-100',
+              )}
               onSubmit={e => { e.preventDefault(); ask(input) }}
             >
               <input ref={fileRef} type="file" accept={ACCEPT} className="hidden"
                 onChange={e => { pickFile(e.target.files?.[0] ?? null); e.target.value = '' }} />
-              <Button type="button" variant="outline" className="h-11 w-11 shrink-0 px-0" disabled={busy || !!blocked}
-                onClick={() => fileRef.current?.click()} aria-label="Прикачи снимка, PDF или Excel" title="Прикачи снимка, PDF или Excel">
-                <Paperclip className="h-4 w-4" />
-              </Button>
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={e => { pickFile(e.target.files?.[0] ?? null); e.target.value = '' }} />
+              {(file || preparing) && (
+                <div className="flex items-center gap-2 px-3 pt-3">
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border bg-slate-50 py-1 pl-3 pr-1 text-xs">
+                    {preparing ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-500" aria-hidden />
+                      : file?.type.startsWith('image/') ? <Camera className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                      : <Paperclip className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />}
+                    <span className="min-w-0 truncate">{preparing ? 'Подготвям снимката…' : file?.name}</span>
+                    {file && (
+                      <button type="button" onClick={() => setFile(null)} aria-label="Махни файла"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-900">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </span>
+                </div>
+              )}
               <Textarea
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={e => { setInput(e.target.value); if (!e.target.value) dictatedRef.current = false }}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(input) }
                 }}
-                placeholder="Въпрос към асистента…"
+                placeholder={dictation.listening ? 'Слушам… говорете' : 'Въпрос към асистента…'}
                 rows={2}
                 maxLength={4000}
                 disabled={busy || !!blocked}
-                className="min-h-[2.75rem] flex-1 resize-none text-base sm:text-sm"
+                className="min-h-[3.25rem] resize-none border-0 bg-transparent px-3.5 pt-3 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-sm"
               />
-              <Button type="submit" disabled={busy || (!input.trim() && !file) || !!blocked} className="h-11 shrink-0" aria-label="Изпрати">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
+              <div className="flex items-center gap-1 px-2 pb-2">
+                <Button type="button" variant="ghost" size="sm" className="h-10 rounded-full px-3 text-slate-700" disabled={busy || preparing || !!blocked}
+                  onClick={() => fileRef.current?.click()} title="Прикачи снимка, PDF или Excel">
+                  <Paperclip />Файл
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="h-10 rounded-full px-3 text-slate-700" disabled={busy || preparing || !!blocked}
+                  onClick={() => cameraRef.current?.click()} title="Снимайте хартиен документ с камерата">
+                  <Camera />Снимка
+                </Button>
+                <div className="flex-1" />
+                {dictation.listening && <span className="mr-1 hidden animate-pulse text-xs font-medium text-red-600 sm:inline">Слушам…</span>}
+                <Button type="button" variant={dictation.listening ? 'destructive' : 'outline'} size="icon"
+                  className={cn('h-10 w-10 rounded-full', dictation.listening && 'animate-pulse')}
+                  disabled={busy || !!blocked} onClick={toggleDictation}
+                  aria-label={dictation.listening ? 'Спри диктуването' : 'Диктувай с глас'} title={dictation.listening ? 'Спри диктуването' : 'Диктувай с глас (български)'}
+                  aria-pressed={dictation.listening}>
+                  {dictation.listening ? <Square className="fill-current" /> : <Mic />}
+                </Button>
+                <Button type="submit" size="icon" className="h-10 w-10 rounded-full"
+                  disabled={busy || preparing || (!input.trim() && !file) || !!blocked} aria-label="Изпрати" title="Изпрати">
+                  {busy ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+                </Button>
+              </div>
             </form>
             {info && <Meta>Този месец: {info.spent} от {info.cap}. Отговорите може да грешат: проверете важното в Prody.</Meta>}
           </div>
