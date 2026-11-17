@@ -6,35 +6,77 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Mail, PackageCheck, Printer, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Mail, PackageCheck, Pencil, Printer, Store, X } from 'lucide-react'
 import { ProductThumb } from '@/components/deliveries/product-picker'
+import { PlanEditor, planNumbers, type PlanText } from '@/components/deliveries/plan-editor'
+import { overPlanned, planRows, planSummary } from '@/lib/deliveries/plan'
+import type { StoreOption } from '@/lib/deliveries/queries'
+import { overPlannedLine, planText, planTotals } from '@/lib/supplier-orders/plan'
 import { OrderStatusBadge } from './order-status-badge'
 import { formatOrderNumber, orderTotals } from '@/lib/supplier-orders/format'
 import { formatDeliveryNumber } from '@/lib/deliveries/format'
 import { sofiaDateTime } from '@/lib/date-utils'
 import type { OrderDetail } from '@/lib/supplier-orders/queries'
 import { cn } from '@/lib/utils'
-import { Meta, Note, PageHeader } from '@/components/ui/text'
+import { Hint, Meta, Note, PageHeader } from '@/components/ui/text'
 
 /**
  * A sent, arrived or cancelled order. Steps on top (Поръчана → Изпратена →
  * Пристигна → Доставка) and one big button for what comes next: when the goods
  * come, "Пристигна" makes the delivery and opens it to check against the invoice.
+ * Each line shows its split per store; until the goods come it can be changed
+ * ("Промени разпределението"), and "Пристигна" carries it into the delivery.
  */
-export function OrderView({ order, text, mailReady, justSent }: {
+export function OrderView({ order, stores, text, mailReady, justSent }: {
   order: OrderDetail
+  /** Active stores, the warehouse among them. */
+  stores: StoreOption[]
   /** The order as the supplier sees it, for "Копирай текста". */
   text: string
   mailReady: boolean
   justSent: 'email' | 'manual' | null
 }) {
   const router = useRouter()
-  const [busy, setBusy] = useState<'' | 'arrived' | 'resend' | 'cancel'>('')
+  const [busy, setBusy] = useState<'' | 'arrived' | 'resend' | 'cancel' | 'plan'>('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reason, setReason] = useState('')
   const t = orderTotals(order.lines)
+  const warehouseName = stores.find(s => s.is_warehouse)?.name ?? 'Офис'
+  const shopStores = stores.filter(s => !s.is_warehouse)
+  const split = planTotals(order.lines)
+  const canPlan = order.status === 'sent'
+  // While editing: product_id → typed text per store.
+  const [plans, setPlans] = useState<Record<string, PlanText> | null>(null)
+  const [planSaved, setPlanSaved] = useState(false)
+
+  function startPlan() {
+    setPlanSaved(false)
+    setError('')
+    setPlans(Object.fromEntries(order.lines.map(l => [l.product.id, planText(l.plan)])))
+  }
+
+  async function savePlan() {
+    if (!plans) return
+    const over = overPlannedLine(order.lines.map(l => ({ name: l.product.name, quantity: l.quantity, plan: planNumbers(plans[l.product.id] ?? {}) })))
+    if (over) { setError(over); return }
+    setBusy('plan')
+    setError('')
+    try {
+      await post(`/api/supplier-orders/${order.id}/plan`, {
+        expected_updated_at: order.updated_at,
+        items: order.lines.map(l => ({ product_id: l.product.id, plan: planRows(planNumbers(plans[l.product.id] ?? {})) })),
+      })
+      setPlans(null)
+      setPlanSaved(true)
+      router.refresh()
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
   const deliveryGone = order.status === 'received' && (!order.delivery_id || order.delivery_status === 'cancelled')
 
   async function post(url: string, body?: unknown) {
@@ -202,6 +244,11 @@ export function OrderView({ order, text, mailReady, justSent }: {
             <Button size="sm" variant="outline" asChild>
               <a href={`/print/supplier-order/${order.id}`} target="_blank" rel="noreferrer"><Printer className="mr-1.5 h-4 w-4" />Печат</a>
             </Button>
+            {canPlan && !plans && (
+              <Button size="sm" variant="outline" onClick={startPlan} disabled={!!busy}>
+                <Pencil className="mr-1.5 h-4 w-4" />Промени разпределението
+              </Button>
+            )}
             {order.status === 'sent' && order.supplier.order_emails.length > 0 && mailReady && (
               <Button size="sm" variant="outline" onClick={resend} disabled={!!busy}>
                 {busy === 'resend' ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Mail className="mr-1.5 h-4 w-4" />}Изпрати пак
@@ -209,19 +256,71 @@ export function OrderView({ order, text, mailReady, justSent }: {
             )}
           </div>
         </div>
+        <div className="border-b px-3 py-2 text-xs" data-testid="order-plan-status">
+          {plans ? (
+            <span className="text-slate-700">Напишете колко бройки за кой магазин. Каквото остане, е за {warehouseName}. Доставчикът не вижда разпределението.</span>
+          ) : planSaved ? (
+            <span className="text-emerald-700">Разпределението е записано. Когато стоката дойде, доставката ще е разпределена така.</span>
+          ) : split.units > 0 ? (
+            <span className="text-slate-600">
+              <Store className="mr-1 inline h-3.5 w-3.5" />За магазините: {split.units} бр. на {split.lines} {split.lines === 1 ? 'ред' : 'реда'}. Доставчикът не вижда разпределението.
+              {order.status === 'received' && ' Сега се сменя в доставката.'}
+            </span>
+          ) : canPlan ? (
+            <span className="text-amber-700">
+              Нищо не е разпределено: всичко ще остане в {warehouseName}.{' '}
+              <button type="button" className="underline" onClick={startPlan}>Разпредели по магазини</button>
+            </span>
+          ) : (
+            <span className="text-slate-500">Без разпределение по магазини.</span>
+          )}
+        </div>
         <ul className="divide-y">
-          {order.lines.map((l, i) => (
-            <li key={l.product.id} className="flex items-center gap-3 p-3">
-              <span className="w-5 text-xs text-slate-400 tabular-nums">{i + 1}</span>
-              <ProductThumb src={l.product.image} size={36} />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{l.product.name}</div>
-                <Meta as="div">наличност {l.product.quantity_on_hand} бр.{l.note ? ` · ${l.note}` : ''}</Meta>
-              </div>
-              <span className="text-base font-semibold tabular-nums">{l.quantity} бр.</span>
-            </li>
-          ))}
+          {order.lines.map((l, i) => {
+            const editing = plans?.[l.product.id]
+            const nums = editing ? planNumbers(editing) : l.plan
+            const over = overPlanned(l.quantity, nums)
+            return (
+              <li key={l.product.id} className="space-y-1.5 p-3" data-testid="order-view-line">
+                <div className="flex items-center gap-3">
+                  <span className="w-5 text-xs text-slate-400 tabular-nums">{i + 1}</span>
+                  <ProductThumb src={l.product.image} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{l.product.name}</div>
+                    <Meta as="div">наличност {l.product.quantity_on_hand} бр.{l.note ? ` · ${l.note}` : ''}</Meta>
+                  </div>
+                  <span className="text-base font-semibold tabular-nums">{l.quantity} бр.</span>
+                </div>
+                {editing ? (
+                  <div className="ml-8 rounded-md bg-slate-50 p-2">
+                    <PlanEditor
+                      quantity={l.quantity}
+                      stores={shopStores}
+                      warehouseName={warehouseName}
+                      plan={editing}
+                      onChange={plan => setPlans(p => ({ ...(p ?? {}), [l.product.id]: plan }))}
+                      disabled={busy === 'plan'}
+                    />
+                  </div>
+                ) : (
+                  <div className={cn('ml-8 flex items-center gap-1 text-xs', over > 0 ? 'text-red-700' : 'text-slate-600')}>
+                    <Store className="h-3.5 w-3.5 shrink-0" />
+                    Разпределение: {planSummary(l.quantity, l.plan, shopStores, warehouseName)}
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
+        {plans && (
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t p-3">
+            <Hint small className="mr-auto">Може да го сменяте, докато стоката не е дошла. После се сменя в доставката.</Hint>
+            <Button variant="ghost" onClick={() => setPlans(null)} disabled={busy === 'plan'}>Назад</Button>
+            <Button onClick={savePlan} disabled={busy === 'plan'}>
+              {busy === 'plan' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}Запиши разпределението
+            </Button>
+          </div>
+        )}
         {order.notes && <p className="border-t p-3 text-sm"><span className="font-medium">Бележка:</span> {order.notes}</p>}
       </section>
 

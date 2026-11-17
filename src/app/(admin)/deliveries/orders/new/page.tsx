@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { OrderEditor } from '@/components/supplier-orders/order-editor'
 import { getSupplierContacts } from '@/lib/supplier-orders/queries'
+import { getStoreOptions } from '@/lib/deliveries/queries'
 import { getOrderSignature } from '@/lib/supplier-orders/doc'
 import { mailNotReady } from '@/lib/supplier-orders/email'
 
@@ -14,8 +15,9 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   const { supplier } = await searchParams
   const supabase = await createServerSupabaseClient()
   const admin = createAdminClient()
-  const [suppliers, signature, mail] = await Promise.all([
+  const [suppliers, stores, signature, mail] = await Promise.all([
     getSupplierContacts(supabase),
+    getStoreOptions(supabase),
     getOrderSignature(admin),
     (admin.from('email_settings') as any).select('smtp_host, smtp_port, smtp_user, smtp_pass, sender_email').eq('id', 1).maybeSingle(),
   ])
@@ -23,6 +25,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
     <OrderEditor
       initial={null}
       suppliers={suppliers}
+      stores={stores}
       presetSupplierId={supplier ?? null}
       signature={signature}
       mailReady={mailNotReady(mail.data) === null}

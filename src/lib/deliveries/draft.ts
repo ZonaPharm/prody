@@ -126,6 +126,6 @@ export function saveBlocker(lines: DraftLineState[]): string | null {
   const incomplete = lines.findIndex(l => lineProblem(l) != null)
   if (incomplete >= 0) return `Ред ${incomplete + 1} („${lines[incomplete].product.name}“): липсва ${lineProblem(lines[incomplete])}`
   const over = lines.findIndex(l => lineOverPlanned(l) > 0)
-  if (over >= 0) return `Ред ${over + 1} („${lines[over].product.name}“): разпределено е повече от количеството`
+  if (over >= 0) return `Ред ${over + 1} („${lines[over].product.name}“): за магазините е разпределено повече, отколкото е дошло. Намалете магазините.`
   return null
 }

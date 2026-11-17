@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
 import { isUuid } from '@/lib/deliveries/api'
 import { countOpenProblems } from '@/lib/deliveries/work'
+import { getStoreOptions } from '@/lib/deliveries/queries'
 import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
 import { OrderEditor } from '@/components/supplier-orders/order-editor'
 import { OrderView } from '@/components/supplier-orders/order-view'
@@ -26,8 +27,9 @@ export default async function OrderPage({ params, searchParams }: {
 
   const supabase = await createServerSupabaseClient()
   const admin = createAdminClient()
-  const [order, signature, mail] = await Promise.all([
+  const [order, stores, signature, mail] = await Promise.all([
     getOrderDetail(supabase, id),
+    getStoreOptions(supabase),
     getOrderSignature(admin),
     (admin.from('email_settings') as any).select('smtp_host, smtp_port, smtp_user, smtp_pass, sender_email').eq('id', 1).maybeSingle(),
   ])
@@ -44,9 +46,10 @@ export default async function OrderPage({ params, searchParams }: {
           updated_at: order.updated_at,
           supplier_id: order.supplier.id,
           notes: order.notes ?? '',
-          lines: order.lines.map(l => ({ product: l.product, quantity: l.quantity, note: l.note })),
+          lines: order.lines.map(l => ({ product: l.product, quantity: l.quantity, note: l.note, plan: l.plan })),
         }}
         suppliers={suppliers}
+        stores={stores}
         signature={signature}
         mailReady={mailReady}
         senderName={user.display_name}
@@ -60,6 +63,7 @@ export default async function OrderPage({ params, searchParams }: {
       <DeliveriesTabs active="orders" problems={problems} />
       <OrderView
         order={order}
+        stores={stores}
         text={orderText(orderDocFrom(order, signature, order.sender ?? user.display_name))}
         mailReady={mailReady}
         justSent={sent === 'email' || sent === 'manual' ? sent : null}

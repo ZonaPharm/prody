@@ -428,7 +428,8 @@ export function DeliveryEditor({
             const problem = lineProblem(l)
             const missing = lineMissing(l)
             const over = lineOverPlanned(l)
-            const isOpen = openKeys.has(l.key)
+            // A line whose stores no longer fit (fewer came than ordered) stays open until fixed.
+            const isOpen = openKeys.has(l.key) || over > 0
             const dup = (productCount.get(l.product.id) ?? 0) > 1
             const costAbovePrice = cost != null && l.product.price != null && cost > l.product.price
             const done = missing.length === 0 && over === 0

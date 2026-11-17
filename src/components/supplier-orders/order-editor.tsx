@@ -6,23 +6,29 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft, ArrowRight, Check, Copy, Loader2, Mail, Phone, Plus, Printer, Search, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, Copy, Loader2, Mail, Phone, Plus, Printer, Search, Store, Trash2, X } from 'lucide-react'
 import { ProductPicker, ProductThumb } from '@/components/deliveries/product-picker'
+import { PlanEditor, planNumbers, type PlanText } from '@/components/deliveries/plan-editor'
+import { overPlanned, planRows, planSummary } from '@/lib/deliveries/plan'
+import type { StoreOption } from '@/lib/deliveries/queries'
 import { formatOrderNumber, orderText, orderTotals } from '@/lib/supplier-orders/format'
-import type { SupplierContact, SupplierProduct } from '@/lib/supplier-orders/queries'
+import { overPlannedLine, planText, planTotals } from '@/lib/supplier-orders/plan'
+import type { OrderPlan, SupplierContact, SupplierProduct } from '@/lib/supplier-orders/queries'
 import { cn } from '@/lib/utils'
 import { Empty, Hint, Meta, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 
 /**
  * A new order to a supplier, in three steps shown at the top:
  *   1 Доставчик   pick who we order from
- *   2 Продукти    what and how many (their usual products are listed to tap)
- *   3 Изпращане   see the order as the supplier will, then send it
+ *   2 Продукти    what and how many (their usual products are listed to tap),
+ *                 and under each line how many go to which store (the rest
+ *                 stays in Офис); "Пристигна" carries that split into the delivery
+ *   3 Изпращане   see the order as the supplier will (without the split), then send it
  * The draft is saved when moving to step 3 and with "Запази черновата".
  */
 
 export type LineProduct = { id: string; name: string; sku: string | null; image: string | null; quantity_on_hand: number; status: string }
-type Line = { product: LineProduct; quantity: string; note: string; noteOpen: boolean; hint: number | null }
+type Line = { product: LineProduct; quantity: string; note: string; noteOpen: boolean; hint: number | null; plan: PlanText; planOpen: boolean }
 
 export type OrderDraftInitial = {
   id: string
@@ -30,7 +36,7 @@ export type OrderDraftInitial = {
   updated_at: string
   supplier_id: string
   notes: string
-  lines: { product: LineProduct; quantity: number; note: string | null }[]
+  lines: { product: LineProduct; quantity: number; note: string | null; plan?: OrderPlan }[]
 }
 
 type Step = 1 | 2 | 3
@@ -45,6 +51,7 @@ function parseQty(s: string): number | null {
 export function OrderEditor({
   initial,
   suppliers,
+  stores,
   presetSupplierId,
   signature,
   mailReady,
@@ -52,6 +59,8 @@ export function OrderEditor({
 }: {
   initial: OrderDraftInitial | null
   suppliers: SupplierContact[]
+  /** Active stores, the warehouse among them; the warehouse gets what is not split. */
+  stores: StoreOption[]
   presetSupplierId?: string | null
   signature: string | null
   mailReady: boolean
@@ -62,7 +71,10 @@ export function OrderEditor({
   const [step, setStep] = useState<Step>(startSupplier ? 2 : 1)
   const [supplierId, setSupplierId] = useState<string | null>(startSupplier)
   const [lines, setLines] = useState<Line[]>(
-    () => initial?.lines.map(l => ({ product: l.product, quantity: String(l.quantity), note: l.note ?? '', noteOpen: !!l.note, hint: null })) ?? [],
+    () => initial?.lines.map(l => ({
+      product: l.product, quantity: String(l.quantity), note: l.note ?? '', noteOpen: !!l.note, hint: null,
+      plan: planText(l.plan), planOpen: false,
+    })) ?? [],
   )
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [id, setId] = useState<string | null>(initial?.id ?? null)
@@ -75,10 +87,13 @@ export function OrderEditor({
   const qtyRefs = useRef(new Map<string, HTMLInputElement>())
   const focusNext = useRef<string | null>(null)
 
+  const warehouseName = stores.find(s => s.is_warehouse)?.name ?? 'Офис'
+  const shopStores = useMemo(() => stores.filter(s => !s.is_warehouse), [stores])
   const supplier = suppliers.find(s => s.id === supplierId) ?? null
   const inOrder = useMemo(() => new Set(lines.map(l => l.product.id)), [lines])
   const badLines = lines.filter(l => parseQty(l.quantity) == null)
   const totals = orderTotals(lines.map(l => ({ quantity: parseQty(l.quantity) ?? 0 })))
+  const split = planTotals(lines.map(l => ({ plan: planNumbers(l.plan) })))
 
   useEffect(() => {
     if (focusNext.current) {
@@ -103,7 +118,7 @@ export function OrderEditor({
       return
     }
     focusNext.current = p.id
-    setLines(ls => [...ls, { product: p, quantity: '', note: '', noteOpen: false, hint }])
+    setLines(ls => [...ls, { product: p, quantity: '', note: '', noteOpen: false, hint, plan: {}, planOpen: false }])
     touch()
   }
 
@@ -130,7 +145,12 @@ export function OrderEditor({
           expected_updated_at: updatedAt,
           supplier_id: supplierId,
           notes: notes.trim() || null,
-          items: lines.map(l => ({ product_id: l.product.id, quantity: parseQty(l.quantity), note: l.note.trim() || null })),
+          items: lines.map(l => ({
+            product_id: l.product.id,
+            quantity: parseQty(l.quantity),
+            note: l.note.trim() || null,
+            plan: planRows(planNumbers(l.plan)),
+          })),
         }),
       })
       const data = await res.json()
@@ -154,6 +174,13 @@ export function OrderEditor({
     if (badLines.length > 0) {
       setError(`Напишете колко бройки за „${badLines[0].product.name}“`)
       qtyRefs.current.get(badLines[0].product.id)?.focus()
+      return
+    }
+    const over = overPlannedLine(lines.map(l => ({ name: l.product.name, quantity: parseQty(l.quantity), plan: planNumbers(l.plan) })))
+    if (over) {
+      setError(over)
+      const bad = lines.find(l => overPlanned(parseQty(l.quantity) ?? 0, planNumbers(l.plan)) > 0)
+      if (bad) setLines(ls => ls.map(l => (l.product.id === bad.product.id ? { ...l, planOpen: true } : l)))
       return
     }
     if (await save()) setStep(3)
@@ -217,7 +244,7 @@ export function OrderEditor({
 
   const steps: { n: Step; label: string; detail: string }[] = [
     { n: 1, label: 'Доставчик', detail: supplier?.name ?? 'изберете' },
-    { n: 2, label: 'Продукти', detail: lines.length ? `${totals.lines} ${totals.lines === 1 ? 'продукт' : 'продукта'}, ${totals.units} бр.` : 'добавете' },
+    { n: 2, label: 'Продукти', detail: lines.length ? `${totals.lines} ${totals.lines === 1 ? 'продукт' : 'продукта'}, ${totals.units} бр.` : 'добавете и разпределете' },
     { n: 3, label: 'Изпращане', detail: 'преглед и изпращане' },
   ]
 
@@ -226,7 +253,7 @@ export function OrderEditor({
       <PageHeader
         back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries/orders" aria-label="Назад към поръчките"><ArrowLeft className="h-4 w-4" /></Link></Button>}
         title={number ? `Поръчка ${formatOrderNumber(number)}` : 'Нова поръчка към доставчик'}
-        intro={`Чернова${dirty ? ': има незаписани промени' : id ? ': записана' : ''}. Три стъпки: доставчик, продукти, изпращане.`}
+        intro={`Чернова${dirty ? ': има незаписани промени' : id ? ': записана' : ''}. Три стъпки: доставчик, продукти и разпределение, изпращане.`}
         actions={<>
           {id && step !== 1 && (
             <Button variant="outline" onClick={() => void save()} disabled={!!busy || !dirty}>
@@ -286,7 +313,7 @@ export function OrderEditor({
             <SectionTitle count={`${totals.lines} ${totals.lines === 1 ? 'продукт' : 'продукта'}, ${totals.units} бр.`}>Поръчвам от {supplier.name}</SectionTitle>
             <ProductPicker onPick={p => addProduct({ id: p.id, name: p.name, sku: p.sku, image: p.image, quantity_on_hand: p.quantity_on_hand, status: p.status })} />
             {lines.length === 0 ? (
-              <Hint>Потърсете продукт горе или натиснете <Plus className="inline h-3.5 w-3.5" /> до продукт от списъка „Обикновено взимаме“. После напишете колко бройки.</Hint>
+              <Hint>Потърсете продукт горе или натиснете <Plus className="inline h-3.5 w-3.5" /> до продукт от списъка „Обикновено взимаме“. После напишете колко бройки и под реда колко за кой магазин.</Hint>
             ) : (
               <ul className="divide-y rounded-lg border">
                 {lines.map(l => {
@@ -312,12 +339,22 @@ export function OrderEditor({
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
+                      <LinePlan
+                        quantity={parseQty(l.quantity) ?? 0}
+                        plan={l.plan}
+                        open={l.planOpen}
+                        stores={shopStores}
+                        warehouseName={warehouseName}
+                        productName={l.product.name}
+                        onToggle={() => setLines(ls => ls.map(x => (x.product.id === l.product.id ? { ...x, planOpen: !x.planOpen } : x)))}
+                        onChange={plan => updateLine(l.product.id, { plan })}
+                      />
                       {l.noteOpen ? (
                         <Input value={l.note} maxLength={300} placeholder="Бележка към доставчика: цвят, размер…" className="h-8 text-sm"
                           onChange={e => updateLine(l.product.id, { note: e.target.value })} />
                       ) : (
                         <button type="button" className="text-xs text-primary hover:underline" onClick={() => updateLine(l.product.id, { noteOpen: true })}>
-                          + бележка (цвят, размер…)
+                          + бележка към доставчика (цвят, размер…)
                         </button>
                       )}
                     </li>
@@ -345,6 +382,13 @@ export function OrderEditor({
           <section className="rounded-xl border bg-white p-4" aria-label="Както ще я види доставчикът">
             <SectionTitle className="mb-2">Така ще я види {supplier.name}</SectionTitle>
             <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">{preview}</pre>
+            <PlanReview
+              lines={lines.map(l => ({ name: l.product.name, quantity: parseQty(l.quantity) ?? 0, plan: planNumbers(l.plan) }))}
+              stores={shopStores}
+              warehouseName={warehouseName}
+              onEdit={() => setStep(2)}
+              units={split.units}
+            />
           </section>
           <section className="space-y-3 rounded-xl border bg-white p-4" aria-label="Изпращане">
             <SectionTitle>Как да тръгне?</SectionTitle>
@@ -494,5 +538,76 @@ function SupplierProducts({ supplier, inOrder, onAdd }: {
         </ul>
       )}
     </section>
+  )
+}
+
+/**
+ * The split of one order line, folded to a line of text until opened: the same
+ * fields as in a delivery, one per store, the rest to Офис.
+ */
+function LinePlan({ quantity, plan, open, stores, warehouseName, productName, onToggle, onChange }: {
+  quantity: number
+  plan: PlanText
+  open: boolean
+  stores: StoreOption[]
+  warehouseName: string
+  productName: string
+  onToggle: () => void
+  onChange: (plan: PlanText) => void
+}) {
+  const nums = planNumbers(plan)
+  const over = overPlanned(quantity, nums)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={`Разпределение на ${productName}`}
+        className={cn('inline-flex items-center gap-1 text-left text-xs', over > 0 ? 'text-red-700' : 'text-slate-600 hover:text-slate-900')}
+      >
+        {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+        <Store className="h-3.5 w-3.5 shrink-0" />
+        <span>Разпределение: {planSummary(quantity, nums, stores, warehouseName)}</span>
+      </button>
+      {open && (
+        <div className="mt-1.5 rounded-md bg-slate-50 p-2">
+          <PlanEditor quantity={quantity} stores={stores} warehouseName={warehouseName} plan={plan} onChange={onChange} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Step 3: the split, for us only (the supplier's text above has none of it). */
+function PlanReview({ lines, stores, warehouseName, units, onEdit }: {
+  lines: { name: string; quantity: number; plan: Record<string, number> }[]
+  stores: StoreOption[]
+  warehouseName: string
+  units: number
+  onEdit: () => void
+}) {
+  return (
+    <div className="mt-4 border-t pt-3" data-testid="order-plan-review">
+      <SectionTitle className="mb-1">Разпределение по магазини</SectionTitle>
+      <Hint small className="mb-2">
+        Само за вас: доставчикът не го вижда. Когато стоката дойде, доставката ще е разпределена така. Може да го смените и след изпращане.
+      </Hint>
+      {units === 0 ? (
+        <Note tone="warn">
+          Нищо не е разпределено: всичко ще остане в {warehouseName}.{' '}
+          <button type="button" className="underline" onClick={onEdit}>Разпредели по магазини</button>
+        </Note>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {lines.map((l, i) => (
+            <li key={i} className="flex flex-wrap gap-x-2">
+              <span className="font-medium">{l.name}</span>
+              <span className="text-muted-foreground">{planSummary(l.quantity, l.plan, stores, warehouseName)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
