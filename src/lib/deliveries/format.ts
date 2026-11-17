@@ -203,8 +203,14 @@ export function eventText(e: EventForText): string {
     }
     case 'signal_resolved':
       return 'Решен сигнал'
-    case 'cancelled':
-      return `Отказана${typeof d.reason === 'string' && d.reason ? `: ${d.reason}` : ''}`
+    case 'cancelled': {
+      const why = typeof d.reason === 'string' && d.reason ? `: ${d.reason}` : ''
+      const out = qty > 0 ? `. Извадени ${qty} бр. от наличностите` : ''
+      const short = typeof d.short_units === 'number' && d.short_units > 0
+        ? `, ${d.short_units} бр. не са извадени (вече продадени)`
+        : ''
+      return `Отказана${why}${out}${short}`
+    }
     case 'completed':
       return 'Завършена'
     default:

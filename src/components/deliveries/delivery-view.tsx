@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { LABEL_KIND_LABEL } from '@/lib/label-kind'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react'
 import { deliveryJourney } from '@/lib/deliveries/journey'
@@ -212,7 +213,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
         </div>
       )}
 
-      <CancelDialog open={cancelOpen} onOpenChange={setCancelOpen} deliveryId={delivery.id} received={received} />
+      {cancelOpen && <CancelDialog open onOpenChange={setCancelOpen} deliveryId={delivery.id} received={received} />}
     </div>
   )
 }
@@ -285,6 +286,24 @@ function PlanDialog({ deliveryId, item, stores, warehouseName }: {
   )
 }
 
+type CancelPreviewRow = {
+  store_id: string
+  store_name: string
+  is_warehouse: boolean
+  product_id: string
+  product_name: string
+  to_take: number
+  on_hand: number
+  short: number
+}
+
+/**
+ * "Откажи доставката": first shows where the delivery's units are now and what
+ * leaves each store (cancel_delivery_preview). Units a store has already sold
+ * cannot be taken back; the person ticks that they accept that before the
+ * button works. preview null = a database before 20261117_cancel_delivery_from_stores.
+ * Mounted only while open, so every opening starts from a fresh check.
+ */
 function CancelDialog({ open, onOpenChange, deliveryId, received }: {
   open: boolean
   onOpenChange: (o: boolean) => void
@@ -295,16 +314,38 @@ function CancelDialog({ open, onOpenChange, deliveryId, received }: {
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [preview, setPreview] = useState<CancelPreviewRow[] | null | undefined>(undefined)
+  const [acceptShort, setAcceptShort] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let gone = false
+    fetch(`/api/deliveries/${deliveryId}/cancel`)
+      .then(async res => {
+        const data = await res.json().catch(() => ({}))
+        if (gone) return
+        if (!res.ok) { setPreview(null); setError(data.error || 'Не можах да проверя къде е стоката'); return }
+        setPreview(data.preview ?? null)
+      })
+      .catch(() => { if (!gone) setPreview(null) })
+    return () => { gone = true }
+  }, [open, deliveryId])
+
+  const rows = preview ?? []
+  const total = rows.reduce((s, r) => s + r.to_take - r.short, 0)
+  const short = rows.reduce((s, r) => s + r.short, 0)
+  const inStores = rows.some(r => !r.is_warehouse)
 
   async function submit() {
     if (reason.trim().length < 3) return setError('Напишете причина')
+    if (short > 0 && !acceptShort) return setError(`Потвърдете, че ${short} бр. няма да се извадят`)
     setSaving(true)
     setError('')
     try {
       const res = await fetch(`/api/deliveries/${deliveryId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason.trim() }),
+        body: JSON.stringify({ reason: reason.trim(), ...(short > 0 ? { accept_short: true } : {}) }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Доставката не се отказа')
@@ -321,16 +362,52 @@ function CancelDialog({ open, onOpenChange, deliveryId, received }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle>Отказ от доставката</DialogTitle></DialogHeader>
-        <Note tone={received > 0 ? 'warn' : 'info'}>
-          {received > 0
-            ? `Получените ${received} бр. излизат от Офис. Може само ако нищо от доставката не е изпратено и всичко получено още е в Офис.`
-            : 'Нищо не е получено, наличностите не се променят.'}
-        </Note>
+        {preview === undefined ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Проверявам къде е стоката…</p>
+        ) : preview === null ? (
+          <Note tone={received > 0 ? 'warn' : 'info'}>
+            {received > 0
+              ? `Получените ${received} бр. излизат от Офис. Може само ако нищо от доставката не е изпратено и всичко получено още е в Офис.`
+              : 'Нищо не е получено, наличностите не се променят.'}
+          </Note>
+        ) : rows.length === 0 ? (
+          <Note tone="info">Нищо от доставката не е в наличност, наличностите не се променят.</Note>
+        ) : (
+          <div className="space-y-2">
+            <Note tone="warn">
+              {inStores
+                ? `От наличностите излизат ${total} бр., и от Офис, и от обектите, до които е стигнала доставката.`
+                : `От Офис излизат ${total} бр.`}
+            </Note>
+            <ul className="max-h-60 divide-y overflow-y-auto rounded-md border text-sm">
+              {rows.map(r => (
+                <li key={`${r.store_id}-${r.product_id}`} className="flex items-start justify-between gap-3 p-2">
+                  <div className="min-w-0">
+                    <div className="font-medium">{r.store_name}</div>
+                    <div className="truncate text-xs text-muted-foreground">{r.product_name}</div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="tabular-nums">−{r.to_take - r.short} бр.</div>
+                    {r.short > 0 && <div className="text-xs text-red-700">{r.short} бр. вече продадени</div>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {short > 0 && (
+              <label className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">
+                <Checkbox checked={acceptShort} onCheckedChange={v => setAcceptShort(!!v)} className="mt-0.5" />
+                <span>Разбирам: {short} бр. вече са продадени и няма да се извадят. Ще останат записани в дневника на доставката.</span>
+              </label>
+            )}
+          </div>
+        )}
         <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Причина" aria-label="Причина за отказа" />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Назад</Button>
-          <Button variant="destructive" onClick={submit} disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Откажи доставката</Button>
+          <Button variant="destructive" onClick={submit} disabled={saving || preview === undefined || (short > 0 && !acceptShort)}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Откажи доставката
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -66,7 +66,7 @@ vi.mock('@/lib/audit', () => ({ logAction: mocks.logAction }))
 import { POST as draftPOST } from './draft/route'
 import { POST as savePOST } from './[id]/save/route'
 import { POST as receivePOST } from './[id]/receive/route'
-import { POST as cancelPOST } from './[id]/cancel/route'
+import { GET as cancelGET, POST as cancelPOST } from './[id]/cancel/route'
 import { PATCH as planPATCH } from './[id]/items/[itemId]/plan/route'
 import { POST as productPOST } from './products/route'
 
@@ -276,6 +276,28 @@ describe('delivery API routes', () => {
       mocks.adminRpc.mockResolvedValue({ data: null, error: null })
       expect((await cancelPOST(req({ reason: 'Грешна фактура' }), params({ id: DELIVERY }))).status).toBe(200)
       expect(mocks.adminRpc).toHaveBeenCalledWith('cancel_delivery', { p_delivery_id: DELIVERY, p_user: ADMIN.id, p_reason: 'Грешна фактура' })
+    })
+
+    it('cancel passes the accepted shortfall only when given', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: { removed: 18, short: 2 }, error: null })
+      const res = await cancelPOST(req({ reason: 'Грешна фактура', accept_short: true }), params({ id: DELIVERY }))
+      expect(res.status).toBe(200)
+      expect(mocks.adminRpc).toHaveBeenCalledWith('cancel_delivery',
+        { p_delivery_id: DELIVERY, p_user: ADMIN.id, p_reason: 'Грешна фактура', p_accept_short: true })
+      expect((await res.json()).result).toEqual({ removed: 18, short: 2 })
+      expect((await cancelPOST(req({ reason: 'Грешна фактура', accept_short: 'да' }), params({ id: DELIVERY }))).status).toBe(400)
+    })
+
+    it('cancel preview: rows from the database, null before the migration', async () => {
+      const row = { store_id: STORE, store_name: 'Ботев', is_warehouse: false, product_id: PRODUCT, product_name: 'Маска', to_take: 10, on_hand: 8, short: 2 }
+      mocks.adminRpc.mockResolvedValue({ data: [row], error: null })
+      const res = await cancelGET(req(null), params({ id: DELIVERY }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ preview: [row] })
+      expect(mocks.adminRpc).toHaveBeenCalledWith('cancel_delivery_preview', { p_delivery_id: DELIVERY })
+      mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } })
+      expect(await (await cancelGET(req(null), params({ id: DELIVERY }))).json()).toEqual({ preview: null })
+      expect((await cancelGET(req(null), params({ id: 'x' }))).status).toBe(404)
     })
   })
 

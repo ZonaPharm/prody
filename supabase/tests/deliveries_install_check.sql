@@ -31,7 +31,7 @@ funcs(sig) as (values
   ('public.confirm_shipment(uuid, uuid, jsonb)'),
   ('public.raise_signal(uuid, text, text, uuid, uuid, integer, integer, text)'),
   ('public.resolve_signal(uuid, uuid, text, text)'),
-  ('public.cancel_delivery(uuid, uuid, text)'),
+  ('public.cancel_delivery(uuid, uuid, text, boolean)'),  -- 4 args since 20261117_cancel_delivery_from_stores
   ('public.save_delivery_draft(uuid, uuid, timestamptz, jsonb)'),
   ('public.receive_delivery_checked(uuid, uuid, jsonb, jsonb)'),
   ('public.mark_ready_checked(uuid, jsonb, jsonb)'),

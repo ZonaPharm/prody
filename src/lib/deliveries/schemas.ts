@@ -69,6 +69,8 @@ export const planUpdateSchema = z.object({
 
 export const cancelSchema = z.object({
   reason: z.string().trim().min(3, 'Напишете причина (поне 3 знака)').max(500),
+  /** Delivery cancel only: go ahead although a store has already sold part of it. */
+  accept_short: z.boolean().optional(),
 })
 
 export const newProductSchema = z.object({
