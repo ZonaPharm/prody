@@ -2,6 +2,7 @@
 -- се пуска в production преди миграциите, между тях и след тях.
 --
 -- Един резултат с колони: група, какво, ok, подробности.
+--   0 преди      — няма два продукта с един и същ баркод (иначе миграция 12 спира).
 --   1 миграции   — коя от 16-те миграции вече е пусната (по нещо, което само тя създава).
 --                  Преди пускането всички са false; след него всички true.
 --   2 права      — новите функции се викат само от service_role (не от anon/authenticated).
@@ -50,6 +51,16 @@ new_tables(name) as (values
   ('supplier_orders'), ('supplier_order_items'), ('ai_assistant_access'), ('ai_assistant_settings'),
   ('ai_conversations'), ('ai_messages'), ('ai_usage'), ('ai_actions'), ('email_settings')),
 checks as (
+  -- Миграция 12 прави фабричния баркод уникален: два продукта с един и същ баркод я спират.
+  -- Трябва да е true ПРЕДИ пускането; ако е false, подробностите казват кои баркодове.
+  select 0 as grp, 0 as ord, 'няма два продукта с един и същ баркод' as what,
+         not exists (select 1 from public.products where nullif(btrim(barcode), '') is not null
+                     group by btrim(barcode) having count(*) > 1) as ok,
+         (select string_agg(b || ' ×' || n, ', ') from (
+            select btrim(barcode) as b, count(*) as n from public.products
+            where nullif(btrim(barcode), '') is not null
+            group by 1 having count(*) > 1 order by 1 limit 20) d) as detail
+  union all
   select 1 as grp, m.ord as ord, 'миграция ' || m.name as what, m.present as ok, null::text as detail
   from migrations m
   union all
@@ -84,7 +95,7 @@ checks as (
   from public.users u
   left join public.stores s on s.id = u.store_id
 )
-select case grp when 1 then '1 миграции' when 2 then '2 права' when 3 then '3 RLS'
+select case grp when 0 then '0 преди пускането' when 1 then '1 миграции' when 2 then '2 права' when 3 then '3 RLS'
                 when 4 then '4 Офис' else '5 потребители' end as група,
        what as какво, ok, detail as подробности
 from checks
