@@ -140,8 +140,10 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
           />
         </div>
 
-        {/* Category pills */}
-        <div className="no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto">
+        {/* Category pills (the suppliers). A phone swipes them sideways; a computer
+            shows them all on as many lines as they need, because a mouse cannot
+            swipe and the ones past the edge would be out of reach. */}
+        <div data-testid="till-categories" className="no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto lg:flex-wrap lg:overflow-visible">
           <Button
             variant={selectedCategory === null ? 'default' : 'outline'}
             size="sm"
