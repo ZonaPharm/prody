@@ -11,7 +11,7 @@ import { ProductPicker, ProductThumb } from '@/components/deliveries/product-pic
 import { PlanEditor, planNumbers, type PlanText } from '@/components/deliveries/plan-editor'
 import { overPlanned, planRows, planSummary } from '@/lib/deliveries/plan'
 import type { StoreOption } from '@/lib/deliveries/queries'
-import { formatOrderNumber, orderText, orderTotals } from '@/lib/supplier-orders/format'
+import { formatOrderNumber, orderText, orderTotals, splitForSupplier } from '@/lib/supplier-orders/format'
 import { overPlannedLine, planText, planTotals } from '@/lib/supplier-orders/plan'
 import type { OrderPlan, SupplierContact, SupplierProduct } from '@/lib/supplier-orders/queries'
 import { cn } from '@/lib/utils'
@@ -36,6 +36,7 @@ export type OrderDraftInitial = {
   updated_at: string
   supplier_id: string
   notes: string
+  share_plan?: boolean
   lines: { product: LineProduct; quantity: number; note: string | null; plan?: OrderPlan }[]
 }
 
@@ -77,6 +78,7 @@ export function OrderEditor({
     })) ?? [],
   )
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [sharePlan, setSharePlan] = useState(initial?.share_plan ?? false)
   const [id, setId] = useState<string | null>(initial?.id ?? null)
   const [number, setNumber] = useState<number | null>(initial?.number ?? null)
   const [updatedAt, setUpdatedAt] = useState<string | null>(initial?.updated_at ?? null)
@@ -145,6 +147,7 @@ export function OrderEditor({
           expected_updated_at: updatedAt,
           supplier_id: supplierId,
           notes: notes.trim() || null,
+          share_plan: sharePlan,
           items: lines.map(l => ({
             product_id: l.product.id,
             quantity: parseQty(l.quantity),
@@ -220,6 +223,9 @@ export function OrderEditor({
     router.refresh()
   }
 
+  const supplierSplit = sharePlan
+    ? splitForSupplier(lines.map(l => ({ quantity: parseQty(l.quantity) ?? 0, plan: planNumbers(l.plan) })), stores)
+    : null
   const preview = supplier
     ? orderText({
         number: number ?? 0,
@@ -228,7 +234,11 @@ export function OrderEditor({
         notes: notes.trim() || null,
         signature,
         senderName,
-        lines: lines.map(l => ({ name: l.product.name, barcode: null, quantity: parseQty(l.quantity) ?? 0, note: l.note.trim() || null })),
+        split: supplierSplit ? { columns: supplierSplit.columns } : null,
+        lines: lines.map((l, i) => ({
+          name: l.product.name, barcode: null, quantity: parseQty(l.quantity) ?? 0, note: l.note.trim() || null,
+          ...(supplierSplit ? { split: supplierSplit.rows[i] } : {}),
+        })),
       })
     : ''
 
@@ -388,6 +398,9 @@ export function OrderEditor({
               warehouseName={warehouseName}
               onEdit={() => setStep(2)}
               units={split.units}
+              share={sharePlan}
+              onShare={v => { setSharePlan(v); touch() }}
+              supplierName={supplier.name}
             />
           </section>
           <section className="space-y-3 rounded-xl border bg-white p-4" aria-label="Изпращане">
@@ -580,19 +593,34 @@ function LinePlan({ quantity, plan, open, stores, warehouseName, productName, on
 }
 
 /** Step 3: the split, for us only (the supplier's text above has none of it). */
-function PlanReview({ lines, stores, warehouseName, units, onEdit }: {
+function PlanReview({ lines, stores, warehouseName, units, onEdit, share, onShare, supplierName }: {
   lines: { name: string; quantity: number; plan: Record<string, number> }[]
   stores: StoreOption[]
   warehouseName: string
   units: number
   onEdit: () => void
+  share: boolean
+  onShare: (v: boolean) => void
+  supplierName: string
 }) {
   return (
     <div className="mt-4 border-t pt-3" data-testid="order-plan-review">
       <SectionTitle className="mb-1">Разпределение по магазини</SectionTitle>
       <Hint small className="mb-2">
-        Само за вас: доставчикът не го вижда. Когато стоката дойде, доставката ще е разпределена така. Може да го смените и след изпращане.
+        {share
+          ? 'Доставчикът ще го види в поръчката, за да опакова отделно за всеки обект. '
+          : 'Само за вас: доставчикът не го вижда. '}
+        Когато стоката дойде, доставката ще е разпределена така. Може да го смените и след изпращане.
       </Hint>
+      {units > 0 && (
+        <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-lg border bg-slate-50 p-2.5 text-sm">
+          <input type="checkbox" className="mt-0.5 h-4 w-4" checked={share} onChange={e => onShare(e.target.checked)} />
+          <span>
+            <span className="font-medium">Прати разпределението и на {supplierName}</span>
+            <span className="block text-xs text-muted-foreground">В имейла и на печат: за всеки продукт колко за кой обект и общо, за да опакова поотделно.</span>
+          </span>
+        </label>
+      )}
       {units === 0 ? (
         <Note tone="warn">
           Нищо не е разпределено: всичко ще остане в {warehouseName}.{' '}

@@ -8,6 +8,8 @@
 -- and after receiving too (the existing "План").
 --
 --   supplier_order_plan         one row per order line and store, planned_qty > 0
+--   supplier_orders.share_plan  ticked: the supplier gets the split too (e-mail, text,
+--                               print), to pack per store. Off by default.
 --   supplier_order_plan_problem the checks, shared by the two writers below
 --   save_supplier_order         (replaced) also takes items[].plan, a draft only
 --   save_supplier_order_plan    the plan alone, for a draft or a SENT order: the
@@ -15,8 +17,10 @@
 --                               goods arrive
 --   supplier_order_to_delivery  (replaced) the draft delivery gets the plan
 --
--- The supplier does not see the plan: the e-mail, the copied text and the print are
--- built from products and quantities only, as before.
+-- By default the supplier does not see the plan: the e-mail, the copied text and the
+-- print hold products and quantities only, as before. With share_plan ticked they
+-- also show, per product, how many for each store and the total (Владимир 2026-11-17:
+-- so the supplier can pack for each store).
 --
 -- Rules for a plan: stores exist and are not the warehouse; a store at most once per
 -- line; whole numbers 0 or more (0 rows are dropped); together not more than the line.
@@ -24,8 +28,9 @@
 -- Офис share shrinks first, and a line whose stores no longer fit turns red there
 -- until the admin lowers the stores (Владимир chose this on 2026-11-17).
 --
--- Additive: one new table, one new function, two functions replaced with the same
--- signatures (old callers keep working; a call without "plan" saves an empty plan).
+-- Additive: one new table, one new column with a default, one new function, two
+-- functions replaced with the same signatures (old callers keep working; a call
+-- without "plan" saves an empty plan and share_plan off).
 -- No stock moves. Safe while the shops sell. Re-runnable. STAGING first, production
 -- before merging the PR.
 
@@ -50,6 +55,12 @@ CREATE INDEX IF NOT EXISTS supplier_order_plan_store_idx ON public.supplier_orde
 
 COMMENT ON TABLE public.supplier_order_plan IS
   'Per-store split of an order line to a supplier; the rest stays in Офис. Copied into the draft delivery on "Пристигна".';
+
+ALTER TABLE public.supplier_orders
+  ADD COLUMN IF NOT EXISTS share_plan boolean NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN public.supplier_orders.share_plan IS
+  'The supplier gets the split per store too (e-mail, copied text, print), to pack for each store';
 
 ALTER TABLE public.supplier_order_plan ENABLE ROW LEVEL SECURITY;
 
@@ -132,7 +143,8 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- save_supplier_order (replaced): as in 20261112_supplier_orders, plus items[].plan.
+-- save_supplier_order (replaced): as in 20261112_supplier_orders, plus items[].plan
+-- and share_plan.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.save_supplier_order(
@@ -205,8 +217,8 @@ BEGIN
   END IF;
 
   IF v_id IS NULL THEN
-    INSERT INTO public.supplier_orders (supplier_id, notes, created_by)
-    VALUES (v_supplier, nullif(btrim(p_order->>'notes'), ''), p_user)
+    INSERT INTO public.supplier_orders (supplier_id, notes, share_plan, created_by)
+    VALUES (v_supplier, nullif(btrim(p_order->>'notes'), ''), coalesce((p_order->>'share_plan')::boolean, false), p_user)
     RETURNING id INTO v_id;
   ELSE
     SELECT status, updated_at INTO v_status, v_updated
@@ -222,7 +234,8 @@ BEGIN
     END IF;
     UPDATE public.supplier_orders
     SET supplier_id = v_supplier,
-        notes       = nullif(btrim(p_order->>'notes'), '')
+        notes       = nullif(btrim(p_order->>'notes'), ''),
+        share_plan  = coalesce((p_order->>'share_plan')::boolean, false)
     WHERE id = v_id;
     DELETE FROM public.supplier_order_items WHERE order_id = v_id;  -- the plan goes with it
   END IF;
@@ -247,16 +260,21 @@ $$;
 -- save_supplier_order_plan: only the split, for a draft or a sent order (until the
 -- goods arrive; then it is changed in the delivery).
 --
--- p_items [{product_id, plan: [{store_id, planned_qty}]}]: each listed line gets
---         exactly this plan; lines not listed keep theirs.
--- Returns {updated_at}.
+-- p_items      [{product_id, plan: [{store_id, planned_qty}]}]: each listed line gets
+--              exactly this plan; lines not listed keep theirs. May be empty.
+-- p_share_plan whether the supplier gets the split too; null keeps it as it is.
+-- Returns {updated_at, share_plan}.
 -- ---------------------------------------------------------------------------
+
+-- An earlier draft of this migration had no p_share_plan; drop it so only one remains.
+DROP FUNCTION IF EXISTS public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb);
 
 CREATE OR REPLACE FUNCTION public.save_supplier_order_plan(
   p_order_id            uuid,
   p_user                uuid,
   p_expected_updated_at timestamptz,
-  p_items               jsonb
+  p_items               jsonb,
+  p_share_plan          boolean DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -268,6 +286,7 @@ DECLARE
   v_updated timestamptz;
   v_items   jsonb;
   v_bad     text;
+  v_share   boolean;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = p_user) THEN
     RAISE EXCEPTION 'Непознат потребител';
@@ -324,10 +343,13 @@ BEGIN
   WHERE (pl->>'planned_qty')::integer > 0;
 
   -- A change of plan is a change of the order: another open screen must reload.
-  UPDATE public.supplier_orders SET updated_at = now() WHERE id = p_order_id
-  RETURNING updated_at INTO v_updated;
+  UPDATE public.supplier_orders
+  SET updated_at = now(),
+      share_plan = coalesce(p_share_plan, share_plan)
+  WHERE id = p_order_id
+  RETURNING updated_at, share_plan INTO v_updated, v_share;
 
-  RETURN jsonb_build_object('updated_at', v_updated);
+  RETURN jsonb_build_object('updated_at', v_updated, 'share_plan', v_share);
 END;
 $$;
 
@@ -426,8 +448,8 @@ REVOKE ALL ON FUNCTION public.supplier_order_plan_problem(jsonb) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.supplier_order_plan_problem(jsonb) TO service_role;
 REVOKE ALL ON FUNCTION public.save_supplier_order(uuid, uuid, timestamptz, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.save_supplier_order(uuid, uuid, timestamptz, jsonb) TO service_role;
-REVOKE ALL ON FUNCTION public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb, boolean) TO service_role;
 REVOKE ALL ON FUNCTION public.supplier_order_to_delivery(uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.supplier_order_to_delivery(uuid, uuid) TO service_role;
 

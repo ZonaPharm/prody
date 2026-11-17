@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   const body = await parseBody(request, orderSaveSchema)
   if (!body.ok) return body.response
-  const { id, expected_updated_at, supplier_id, notes, items } = body.data
+  const { id, expected_updated_at, supplier_id, notes, share_plan, items } = body.data
 
   const admin = createAdminClient()
   const { data, error } = await (admin as any).rpc('save_supplier_order', {
@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     p_order: {
       supplier_id,
       notes: notes ?? null,
+      share_plan: share_plan ?? false,
       items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity, note: i.note ?? null, plan: i.plan ?? [] })),
     },
   })

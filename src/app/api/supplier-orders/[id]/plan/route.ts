@@ -24,6 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     p_user: gate.user.id,
     p_expected_updated_at: body.data.expected_updated_at ?? null,
     p_items: body.data.items.map(i => ({ product_id: i.product_id, plan: i.plan })),
+    p_share_plan: body.data.share_plan ?? null,
   })
   if (error) return rpcFailure('save_supplier_order_plan', error, 'Разпределението не можа да се запази')
 
@@ -33,7 +34,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     userName: gate.user.display_name,
     entityType: 'supplier_order',
     entityId: id,
-    details: `${body.data.items.length} ${body.data.items.length === 1 ? 'ред' : 'реда'}`,
+    details: [
+      body.data.items.length ? `${body.data.items.length} ${body.data.items.length === 1 ? 'ред' : 'реда'}` : null,
+      body.data.share_plan === true ? 'разпределението към доставчика: да' : body.data.share_plan === false ? 'разпределението към доставчика: не' : null,
+    ].filter(Boolean).join(', '),
   }, gate.supabase as any)
   return NextResponse.json(data)
 }

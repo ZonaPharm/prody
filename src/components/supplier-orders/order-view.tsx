@@ -37,7 +37,7 @@ export function OrderView({ order, stores, text, mailReady, justSent }: {
   justSent: 'email' | 'manual' | null
 }) {
   const router = useRouter()
-  const [busy, setBusy] = useState<'' | 'arrived' | 'resend' | 'cancel' | 'plan'>('')
+  const [busy, setBusy] = useState<'' | 'arrived' | 'resend' | 'cancel' | 'plan' | 'share'>('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
@@ -55,6 +55,19 @@ export function OrderView({ order, stores, text, mailReady, justSent }: {
     setPlanSaved(false)
     setError('')
     setPlans(Object.fromEntries(order.lines.map(l => [l.product.id, planText(l.plan)])))
+  }
+
+  async function setShare(share: boolean) {
+    setBusy('share')
+    setError('')
+    try {
+      await post(`/api/supplier-orders/${order.id}/plan`, { expected_updated_at: order.updated_at, items: [], share_plan: share })
+      router.refresh()
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setBusy('')
+    }
   }
 
   async function savePlan() {
@@ -263,7 +276,8 @@ export function OrderView({ order, stores, text, mailReady, justSent }: {
             <span className="text-emerald-700">Разпределението е записано. Когато стоката дойде, доставката ще е разпределена така.</span>
           ) : split.units > 0 ? (
             <span className="text-slate-600">
-              <Store className="mr-1 inline h-3.5 w-3.5" />За магазините: {split.units} бр. на {split.lines} {split.lines === 1 ? 'ред' : 'реда'}. Доставчикът не вижда разпределението.
+              <Store className="mr-1 inline h-3.5 w-3.5" />За магазините: {split.units} бр. на {split.lines} {split.lines === 1 ? 'ред' : 'реда'}.
+              {order.share_plan ? ' Доставчикът вижда разпределението.' : ' Доставчикът не вижда разпределението.'}
               {order.status === 'received' && ' Сега се сменя в доставката.'}
             </span>
           ) : canPlan ? (
@@ -275,6 +289,19 @@ export function OrderView({ order, stores, text, mailReady, justSent }: {
             <span className="text-slate-500">Без разпределение по магазини.</span>
           )}
         </div>
+        {canPlan && !plans && split.units > 0 && (
+          <label className="flex cursor-pointer items-start gap-2 border-b bg-slate-50 px-3 py-2 text-sm">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={order.share_plan} disabled={!!busy}
+              onChange={e => void setShare(e.target.checked)} />
+            <span>
+              <span className="font-medium">Прати разпределението и на {order.supplier.name}</span>
+              {busy === 'share' && <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin" />}
+              <span className="block text-xs text-muted-foreground">
+                В „Изпрати пак“, „Копирай текста“ и „Печат“: за всеки продукт колко за кой обект и общо, за да опакова поотделно.
+              </span>
+            </span>
+          </label>
+        )}
         <ul className="divide-y">
           {order.lines.map((l, i) => {
             const editing = plans?.[l.product.id]

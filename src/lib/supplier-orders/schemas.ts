@@ -25,6 +25,7 @@ export const orderSaveSchema = z.object({
   expected_updated_at: z.iso.datetime({ offset: true }).nullable().optional(),
   supplier_id: id,
   notes: z.string().trim().max(2000).nullable().optional(),
+  share_plan: z.boolean().optional(),
   items: z.array(orderLineSchema).max(500, 'Най-много 500 реда в една поръчка'),
 })
 export type OrderSave = z.infer<typeof orderSaveSchema>
@@ -32,8 +33,10 @@ export type OrderSave = z.infer<typeof orderSaveSchema>
 /** Only the split, for a draft or a sent order (until the goods arrive). */
 export const orderPlanSaveSchema = z.object({
   expected_updated_at: z.iso.datetime({ offset: true }).nullable().optional(),
-  items: z.array(z.object({ product_id: id, plan: orderPlanSchema })).min(1, 'Няма редове').max(500),
-})
+  items: z.array(z.object({ product_id: id, plan: orderPlanSchema })).max(500).default([]),
+  /** Whether the supplier gets the split too; left out = unchanged. */
+  share_plan: z.boolean().optional(),
+}).refine(b => b.items.length > 0 || b.share_plan !== undefined, { message: 'Няма какво да се запише' })
 export type OrderPlanSave = z.infer<typeof orderPlanSaveSchema>
 
 export const orderSendSchema = z.object({

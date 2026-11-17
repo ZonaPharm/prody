@@ -46,6 +46,7 @@ export default async function OrderPage({ params, searchParams }: {
           updated_at: order.updated_at,
           supplier_id: order.supplier.id,
           notes: order.notes ?? '',
+          share_plan: order.share_plan,
           lines: order.lines.map(l => ({ product: l.product, quantity: l.quantity, note: l.note, plan: l.plan })),
         }}
         suppliers={suppliers}
@@ -64,7 +65,7 @@ export default async function OrderPage({ params, searchParams }: {
       <OrderView
         order={order}
         stores={stores}
-        text={orderText(orderDocFrom(order, signature, order.sender ?? user.display_name))}
+        text={orderText(orderDocFrom(order, signature, order.sender ?? user.display_name, stores))}
         mailReady={mailReady}
         justSent={sent === 'email' || sent === 'manual' ? sent : null}
       />

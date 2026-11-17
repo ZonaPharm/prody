@@ -1,8 +1,15 @@
-import { supplierBarcode, type OrderDoc } from './format'
+import { splitForSupplier, supplierBarcode, type OrderDoc } from './format'
 import type { OrderDetail } from './queries'
 
-/** The order as the supplier sees it: e-mail, print and copied text all start here. */
-export function orderDocFrom(o: OrderDetail, signature: string | null, senderName: string): OrderDoc {
+type StoreRef = { id: string; name: string; is_warehouse: boolean }
+
+/**
+ * The order as the supplier sees it: e-mail, print and copied text all start here.
+ * The split per store is in it only when the order says so (share_plan) and the
+ * stores are given.
+ */
+export function orderDocFrom(o: OrderDetail, signature: string | null, senderName: string, stores: StoreRef[] = []): OrderDoc {
+  const split = o.share_plan ? splitForSupplier(o.lines, stores) : null
   return {
     number: o.number,
     supplierName: o.supplier.name,
@@ -10,11 +17,13 @@ export function orderDocFrom(o: OrderDetail, signature: string | null, senderNam
     notes: o.notes,
     signature,
     senderName,
-    lines: o.lines.map(l => ({
+    split: split ? { columns: split.columns } : null,
+    lines: o.lines.map((l, i) => ({
       name: l.product.name,
       barcode: supplierBarcode(l.product.barcode),
       quantity: l.quantity,
       note: l.note,
+      ...(split ? { split: split.rows[i] } : {}),
     })),
   }
 }

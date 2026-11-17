@@ -7,6 +7,7 @@ import { getOrderDetail } from '@/lib/supplier-orders/queries'
 import { orderDocFrom } from '@/lib/supplier-orders/doc'
 import { mailNotReady, sendOrderEmail } from '@/lib/supplier-orders/email'
 import { formatOrderNumber } from '@/lib/supplier-orders/format'
+import { getStoreOptions } from '@/lib/deliveries/queries'
 
 /**
  * Send the order. via 'email': to the supplier's order addresses, then it is
@@ -45,8 +46,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle()
     const notReady = mailNotReady(settings)
     if (notReady) return NextResponse.json({ error: notReady }, { status: 400 })
+    const stores = order.share_plan ? await getStoreOptions(admin) : []
     try {
-      await sendOrderEmail(settings, orderDocFrom(order, settings.order_signature ?? null, gate.user.display_name), to, {
+      await sendOrderEmail(settings, orderDocFrom(order, settings.order_signature ?? null, gate.user.display_name, stores), to, {
         email: gate.user.email,
         name: gate.user.display_name,
       })

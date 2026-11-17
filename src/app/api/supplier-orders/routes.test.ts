@@ -117,7 +117,7 @@ describe('supplier order API routes', () => {
       p_order_id: null,
       p_user: ADMIN.id,
       p_expected_updated_at: null,
-      p_order: { supplier_id: SUPPLIER, notes: 'до петък', items: [{ product_id: PRODUCT, quantity: 5, note: 'синя', plan: [] }] },
+      p_order: { supplier_id: SUPPLIER, notes: 'до петък', share_plan: false, items: [{ product_id: PRODUCT, quantity: 5, note: 'синя', plan: [] }] },
     })
   })
 
@@ -143,9 +143,21 @@ describe('supplier order API routes', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ updated_at: '2026-11-17T10:00:00+00:00' })
     expect(mocks.adminRpc).toHaveBeenCalledWith('save_supplier_order_plan', {
-      p_order_id: ORDER, p_user: ADMIN.id, p_expected_updated_at: '2026-11-17T09:00:00+00:00', p_items: items,
+      p_order_id: ORDER, p_user: ADMIN.id, p_expected_updated_at: '2026-11-17T09:00:00+00:00', p_items: items, p_share_plan: null,
     })
     expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'supplier_order_plan_changed', entityId: ORDER }), expect.anything())
+  })
+
+  it('plan: "send the split to the supplier" alone, with no lines', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: { updated_at: 't', share_plan: true }, error: null })
+    const res = await planPOST(req({ items: [], share_plan: true }), params({ id: ORDER }))
+    expect(res.status).toBe(200)
+    expect(mocks.adminRpc).toHaveBeenCalledWith('save_supplier_order_plan', {
+      p_order_id: ORDER, p_user: ADMIN.id, p_expected_updated_at: null, p_items: [], p_share_plan: true,
+    })
+    const save = await savePOST(req({ ...saveBody, share_plan: true }))
+    expect(save.status).toBe(200)
+    expect(mocks.adminRpc.mock.calls[1][1].p_order.share_plan).toBe(true)
   })
 
   it('plan: admins only, a bad id is 404, an empty list is 400, a refusal shows its message', async () => {

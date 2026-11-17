@@ -121,6 +121,8 @@ export type OrderDetail = {
   delivery_status: string | null
   cancelled_at: string | null
   cancel_reason: string | null
+  /** The supplier gets the split per store too (e-mail, text, print). */
+  share_plan: boolean
   supplier: SupplierContact
   lines: OrderDetailLine[]
 }
@@ -174,6 +176,7 @@ export async function getOrderDetail(supabase: any, id: string): Promise<OrderDe
     delivery_status: o.delivery?.status ?? null,
     cancelled_at: o.cancelled_at,
     cancel_reason: o.cancel_reason,
+    share_plan: o.share_plan === true,
     supplier: toContact(o.supplier ?? { id: o.supplier_id, name: '—' }),
     lines: items.map((i: any) => ({
       product: toOrderProduct(i.product),

@@ -10,6 +10,7 @@ import {
   orderText,
   orderTotals,
   parseEmails,
+  splitForSupplier,
   supplierBarcode,
   type OrderDoc,
 } from './format'
@@ -91,6 +92,56 @@ describe('orderHtml', () => {
   })
   it('escapeHtml covers quotes', () => {
     expect(escapeHtml(`"a'&`)).toBe('&quot;a&#39;&amp;')
+  })
+})
+
+describe('the split for the supplier', () => {
+  const stores = [
+    { id: 'w', name: 'Офис', is_warehouse: true },
+    { id: 'a', name: 'Ботев', is_warehouse: false },
+    { id: 'b', name: 'Заимов', is_warehouse: false },
+    { id: 'c', name: 'Люлин', is_warehouse: false },
+  ]
+
+  it('splitForSupplier: a column per store that gets anything, then Офис for the rest', () => {
+    expect(splitForSupplier([
+      { quantity: 10, plan: { a: 4, b: 3 } },
+      { quantity: 24, plan: { a: 24 } },
+    ], stores)).toEqual({ columns: ['Ботев', 'Заимов', 'Офис'], rows: [[4, 3, 3], [24, 0, 0]] })
+  })
+
+  it('splitForSupplier: no Офис column when everything goes to stores; null when nothing is split', () => {
+    expect(splitForSupplier([{ quantity: 5, plan: { c: 5 } }], stores)).toEqual({ columns: ['Люлин'], rows: [[5]] })
+    expect(splitForSupplier([{ quantity: 5, plan: {} }], stores)).toBeNull()
+  })
+
+  const split: OrderDoc = {
+    ...doc,
+    split: { columns: ['Ботев', 'Офис'] },
+    lines: [
+      { ...doc.lines[0], split: [4, 6] },
+      { ...doc.lines[1], split: [0, 24] },
+    ],
+  }
+
+  it('orderText adds a block per store to pack', () => {
+    const t = orderText(split)
+    expect(t).toContain('Моля, опаковайте отделно за всеки обект:')
+    expect(t).toContain('Ботев (4 бр.):\n- Боя за коса <тъмна> — 4 бр.')
+    expect(t).toContain('Офис (30 бр.):\n- Боя за коса <тъмна> — 6 бр.\n- Паста за зъби — 24 бр.')
+    expect(t).not.toContain('Ботев (4 бр.):\n- Паста')
+    expect(orderText(doc)).not.toContain('опаковайте')
+  })
+
+  it('orderHtml adds a column per store, a total column and a total row', () => {
+    const h = orderHtml(split)
+    expect(h).toContain('>Ботев</th>')
+    expect(h).toContain('>Офис</th>')
+    expect(h).toContain('>Общо</th>')
+    expect(h).not.toContain('>Брой</th>')
+    expect(h).toContain('<strong>34</strong>')
+    expect(h).toContain('<strong>30</strong>')
+    expect(orderHtml(doc)).toContain('>Брой</th>')
   })
 })
 

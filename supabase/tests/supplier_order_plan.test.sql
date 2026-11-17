@@ -4,7 +4,7 @@
 -- Run against STAGING only (SQL Editor), after the migration. Synthetic products
 -- named 'TEST order plan' and a supplier 'TEST order plan supplier'; every scenario
 -- ends by raising 'ROLLBACK', so nothing stays. Needs an admin, the warehouse (Офис)
--- and at least two other active stores. Every row should read passed = true.
+-- and at least two other active stores. Every row (10) should read passed = true.
 
 create or replace function pg_temp.sp_product()
 returns uuid language sql as $$
@@ -220,14 +220,42 @@ begin
     return next;
   end;
 
+  -- P6b share_plan: off by default; set on save; the plan call keeps it on null and
+  -- changes it alone with an empty list.
+  begin
+    v_sup := pg_temp.sp_supplier(); v_p1 := pg_temp.sp_product();
+    v_j := public.save_supplier_order(null, v_admin, null, jsonb_build_object('supplier_id', v_sup,
+      'items', jsonb_build_array(pg_temp.sp_line(v_p1, 2))));
+    v_o := (v_j ->> 'id')::uuid;
+    select share_plan::text into v_txt from public.supplier_orders where id = v_o;
+    v_j := public.save_supplier_order(v_o, v_admin, null, jsonb_build_object('supplier_id', v_sup, 'share_plan', true,
+      'items', jsonb_build_array(pg_temp.sp_line(v_p1, 2))));
+    select v_txt || '|' || share_plan into v_txt from public.supplier_orders where id = v_o;
+    perform public.send_supplier_order(v_o, v_admin, 'manual', null);
+    v_j2 := public.save_supplier_order_plan(v_o, v_admin, null, jsonb_build_array(
+      jsonb_build_object('product_id', v_p1, 'plan', jsonb_build_array(pg_temp.sp_row(v_s1, 1)))));
+    select v_txt || '|' || share_plan || '|' || (v_j2 ->> 'share_plan') into v_txt from public.supplier_orders where id = v_o;
+    v_j2 := public.save_supplier_order_plan(v_o, v_admin, null, '[]'::jsonb, false);
+    select v_txt || '|' || share_plan || '|' || (select count(*) from public.supplier_order_plan where order_id = v_o)
+      into v_txt from public.supplier_orders where id = v_o;
+    raise exception 'ROLLBACK';
+  exception when others then
+    test := 'P6b share_plan: default off, saved with the order, changed alone after sending';
+    if sqlerrm = 'ROLLBACK' then
+      passed := v_txt = 'false|true|true|true|false|1';
+      detail := v_txt;
+    else passed := false; detail := 'unexpected: ' || sqlerrm; end if;
+    return next;
+  end;
+
   test := 'P7 only service_role may execute; RLS on; anon cannot read';
-  passed := not has_function_privilege('anon', 'public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb)', 'EXECUTE')
-            and not has_function_privilege('authenticated', 'public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb)', 'EXECUTE')
+  passed := not has_function_privilege('anon', 'public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb, boolean)', 'EXECUTE')
+            and not has_function_privilege('authenticated', 'public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb, boolean)', 'EXECUTE')
             and not has_function_privilege('authenticated', 'public.supplier_order_plan_problem(jsonb)', 'EXECUTE')
             and not has_function_privilege('anon', 'public.supplier_order_plan_problem(jsonb)', 'EXECUTE')
             and not has_function_privilege('authenticated', 'public.save_supplier_order(uuid, uuid, timestamptz, jsonb)', 'EXECUTE')
             and not has_function_privilege('authenticated', 'public.supplier_order_to_delivery(uuid, uuid)', 'EXECUTE')
-            and has_function_privilege('service_role', 'public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb)', 'EXECUTE')
+            and has_function_privilege('service_role', 'public.save_supplier_order_plan(uuid, uuid, timestamptz, jsonb, boolean)', 'EXECUTE')
             and has_function_privilege('service_role', 'public.supplier_order_to_delivery(uuid, uuid)', 'EXECUTE')
             and (select relrowsecurity from pg_class where oid = 'public.supplier_order_plan'::regclass)
             and not has_table_privilege('anon', 'public.supplier_order_plan', 'SELECT')
