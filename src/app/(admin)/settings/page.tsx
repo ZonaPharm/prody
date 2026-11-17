@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CategoriesManager } from './categories-manager'
 import { StoresManager } from './stores-manager'
 import { AiSettings } from './ai-settings'
+import { AssistantAccess } from './assistant-access'
 import { MinQtyManager } from './min-qty-manager'
 import { EmailSettings } from './email-settings'
 import { UsersManager } from './users-manager'
@@ -63,6 +64,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </TabsContent>
         <TabsContent value="ai">
           <AiSettings />
+          <AssistantAccess />
         </TabsContent>
         <TabsContent value="email">
           <EmailSettings />
