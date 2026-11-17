@@ -1,3 +1,5 @@
+import { deliveriesActive, deliveriesEnabledFor, type FeatureEnv } from './deliveries/feature'
+
 /**
  * Roles of a person (decision 2026-11-12: one account can hold several roles,
  * e.g. Офис + Шофьор). What a person may see and do is the union of their roles.
@@ -121,12 +123,24 @@ export function canSell(profile: { roles?: unknown; role?: unknown } | null | un
   return r.includes('admin') || r.includes('seller')
 }
 
-/** Where a person starts after signing in. */
-export function homePath(profile: { roles?: unknown; role?: unknown } | null | undefined): string {
+/**
+ * Where a person starts after signing in.
+ *
+ * Офис starts at „Задачи“ only where the Доставки switch is on for them
+ * (src/lib/deliveries/feature.ts): otherwise the admin area sends them back
+ * here, which would loop. Without it they start at the till if they also sell,
+ * else at „Моите продажби“, a page every signed-in person may open.
+ */
+export function homePath(
+  profile: { roles?: unknown; role?: unknown; email?: unknown } | null | undefined,
+  env: FeatureEnv = process.env,
+): string {
   const r = rolesOf(profile)
+  if (r.length === 0) return '/record-sale'
   if (r.includes('admin')) return '/dashboard'
-  if (r.includes('office')) return '/tasks'
+  const email = typeof profile?.email === 'string' ? profile.email : null
+  if (r.includes('office') && deliveriesEnabledFor(email, env)) return '/tasks'
   if (r.includes('seller')) return '/record-sale'
-  if (r.includes('driver')) return '/my-tasks'
-  return '/record-sale'
+  if (r.includes('driver') && deliveriesActive(env)) return '/my-tasks'
+  return '/my-sales'
 }

@@ -103,10 +103,29 @@ describe('what a person may do', () => {
     expect(canSell({ role: 'seller' })).toBe(true)
   })
   it('start page by roles', () => {
-    expect(homePath({ roles: ['admin', 'accountant'] })).toBe('/dashboard')
-    expect(homePath({ roles: ['office', 'seller', 'driver'] })).toBe('/tasks')
-    expect(homePath({ roles: ['seller', 'driver'] })).toBe('/record-sale')
-    expect(homePath({ roles: ['driver'] })).toBe('/my-tasks')
-    expect(homePath({ role: 'seller' })).toBe('/record-sale')
+    const on = { DELIVERIES_ENABLED: 'all' }
+    expect(homePath({ roles: ['admin', 'accountant'] }, on)).toBe('/dashboard')
+    expect(homePath({ roles: ['office', 'seller', 'driver'] }, on)).toBe('/tasks')
+    expect(homePath({ roles: ['seller', 'driver'] }, on)).toBe('/record-sale')
+    expect(homePath({ roles: ['driver'] }, on)).toBe('/my-tasks')
+    expect(homePath({ role: 'seller' }, on)).toBe('/record-sale')
+  })
+  it('Офис without Доставки does not start at „Задачи“ (the admin area would send them back: a loop)', () => {
+    const prod = { VERCEL_ENV: 'production', NODE_ENV: 'production' }
+    const pilot = { DELIVERIES_ENABLED: 'vladimir@x.bg', NODE_ENV: 'production' }
+    // Switch unset in production: nobody has Доставки.
+    expect(homePath({ roles: ['office'], email: 'nasi@x.bg' }, prod)).toBe('/my-sales')
+    expect(homePath({ roles: ['office', 'seller'], email: 'ivo@x.bg' }, prod)).toBe('/record-sale')
+    expect(homePath({ roles: ['driver'] }, prod)).toBe('/my-sales')
+    // Pilot list: only the listed people start at „Задачи“.
+    expect(homePath({ roles: ['office'], email: 'nasi@x.bg' }, pilot)).toBe('/my-sales')
+    expect(homePath({ roles: ['office'], email: 'Vladimir@x.bg' }, pilot)).toBe('/tasks')
+    expect(homePath({ roles: ['office', 'driver'], email: 'nasi@x.bg' }, pilot)).toBe('/my-tasks')
+    // Accountant alone cannot use the till: not sent there (it would send them back).
+    expect(homePath({ roles: ['accountant'] }, prod)).toBe('/my-sales')
+    // Admins and sellers as before.
+    expect(homePath({ roles: ['admin', 'office'], email: 'n@x.bg' }, prod)).toBe('/dashboard')
+    expect(homePath({ role: 'seller' }, prod)).toBe('/record-sale')
+    expect(homePath(null, prod)).toBe('/record-sale')
   })
 })
