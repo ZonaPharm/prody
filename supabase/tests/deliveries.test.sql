@@ -611,7 +611,8 @@ begin
 
   -- T17 cancel: a draft is simply cancelled; a received delivery takes its
   -- stock back out of the warehouse with delivery_cancel movements; after a
-  -- sale from its batch, or after shipping, it is refused.
+  -- sale from its batch it is refused unless the shortfall is accepted
+  -- (20261117_cancel_delivery_from_stores).
   begin
     v_d1 := pg_temp.dt_delivery(v_admin);
     perform public.cancel_delivery(v_d1, v_admin, 'TEST deliveries');
@@ -644,13 +645,13 @@ begin
     exception when others then v_err3 := sqlerrm; end;
     raise exception 'ROLLBACK';
   exception when others then
-    test := 'T17 cancel a draft and a received delivery; refused after a sale from its batch';
+    test := 'T17 cancel a draft and a received delivery; refused after a sale unless accepted';
     if sqlerrm = 'ROLLBACK' then
       passed := v_txt = 'cancelled:true:TEST deliveries'
                 and v_err = 'Посочете причина за отказа'
                 and v_txt2 = '2,0' and v_txt3 = '-6:true' and v_qoh = 2 and v_txt4 = 'cancelled' and v_n = 1
                 and v_err2 like 'Доставка Д-% е отказана и не може да се откаже'
-                and v_err3 like 'Доставката не може да се откаже: от „TEST deliveries“ са приети 6 бр., а в % от тази доставка са останали 5 бр.%';
+                and v_err3 like 'Доставката не може да се откаже: от „TEST deliveries“ трябва да се приберат 6 бр. от %, а там има само 5 бр. (част е продадена).%';
       detail := format('draft=%s | no reason=%s | batches=%s cancel movements=%s qoh=%s status=%s events=%s | again=%s | after sale=%s',
                        v_txt, v_err, v_txt2, v_txt3, v_qoh, v_txt4, v_n, v_err2, v_err3);
     else passed := false; detail := 'unexpected: ' || sqlerrm; end if;
@@ -672,10 +673,10 @@ begin
     select status into v_txt from public.deliveries where id = v_d1;
     raise exception 'ROLLBACK';
   exception when others then
-    test := 'T18 cancel refused while on an unsent trip and after shipping';
+    test := 'T18 cancel refused while on an unsent trip and while the shipment is on the road';
     if sqlerrm = 'ROLLBACK' then
       passed := v_err like 'Доставката е в курс К-%, който още не е тръгнал%'
-                and v_err2 like 'Доставката не може да се откаже: „TEST deliveries“ вече е изпратена към обектите (5 бр.)'
+                and v_err2 like 'Пратка П-% до % е на път и още не е приета.%'
                 and v_txt = 'in_progress';
       detail := format('unsent=%s | shipped=%s | status=%s', v_err, v_err2, v_txt);
     else passed := false; detail := 'unexpected: ' || sqlerrm; end if;
