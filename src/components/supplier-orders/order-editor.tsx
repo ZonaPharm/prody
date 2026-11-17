@@ -318,8 +318,9 @@ export function OrderEditor({
       )}
 
       {step === 2 && supplier && (
-        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-          <section className="space-y-3 rounded-xl border bg-white p-3 lg:order-2" aria-label="Поръчката">
+        // grid-cols-1 + min-w-0: a long product name or e-mail must not widen the page on a phone.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start" data-testid="order-step-products">
+          <section className="min-w-0 space-y-3 rounded-xl border bg-white p-3 lg:order-2" aria-label="Поръчката">
             <SectionTitle count={`${totals.lines} ${totals.lines === 1 ? 'продукт' : 'продукта'}, ${totals.units} бр.`}>Поръчвам от {supplier.name}</SectionTitle>
             <ProductPicker onPick={p => addProduct({ id: p.id, name: p.name, sku: p.sku, image: p.image, quantity_on_hand: p.quantity_on_hand, status: p.status })} />
             {lines.length === 0 ? (
@@ -333,7 +334,7 @@ export function OrderEditor({
                       <div className="flex items-center gap-2">
                         <ProductThumb src={l.product.image} size={36} />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">{l.product.name}</div>
+                          <div className="line-clamp-2 break-words text-sm font-medium" title={l.product.name}>{l.product.name}</div>
                           <Meta as="div">наличност {l.product.quantity_on_hand} бр.{l.hint ? ` · последно ${l.hint} бр.` : ''}</Meta>
                         </div>
                         <Input
@@ -377,7 +378,7 @@ export function OrderEditor({
               <Textarea id="o-notes" value={notes} maxLength={2000} rows={2} placeholder="Например: доставка до петък"
                 onChange={e => { setNotes(e.target.value); touch() }} />
             </div>
-            <Button className="h-12 w-full text-base" onClick={toReview} disabled={!!busy || lines.length === 0}>
+            <Button className="h-auto min-h-12 w-full whitespace-normal py-2 text-base" onClick={toReview} disabled={!!busy || lines.length === 0}>
               {busy === 'save' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Напред: преглед и изпращане<ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -388,8 +389,8 @@ export function OrderEditor({
       )}
 
       {step === 3 && supplier && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_360px] lg:items-start">
-          <section className="rounded-xl border bg-white p-4" aria-label="Както ще я види доставчикът">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <section className="min-w-0 rounded-xl border bg-white p-4" aria-label="Както ще я види доставчикът">
             <SectionTitle className="mb-2">Така ще я види {supplier.name}</SectionTitle>
             <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">{preview}</pre>
             <PlanReview
@@ -403,7 +404,7 @@ export function OrderEditor({
               supplierName={supplier.name}
             />
           </section>
-          <section className="space-y-3 rounded-xl border bg-white p-4" aria-label="Изпращане">
+          <section className="min-w-0 space-y-3 rounded-xl border bg-white p-4" aria-label="Изпращане">
             <SectionTitle>Как да тръгне?</SectionTitle>
             {supplier.order_emails.length > 0 && mailReady ? (
               <Button className="h-auto w-full flex-col items-start gap-0.5 py-3 text-left" onClick={() => send('email')} disabled={!!busy}>
@@ -420,10 +421,10 @@ export function OrderEditor({
               </Note>
             )}
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={copyText} disabled={!!busy}>
+              <Button variant="outline" className="h-auto min-h-10 whitespace-normal py-2" onClick={copyText} disabled={!!busy}>
                 {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}{copied ? 'Копирано' : 'Копирай текста'}
               </Button>
-              <Button variant="outline" asChild disabled={!id}>
+              <Button variant="outline" className="h-auto min-h-10 whitespace-normal py-2" asChild disabled={!id}>
                 <a href={id ? `/print/supplier-order/${id}` : '#'} target="_blank" rel="noreferrer"><Printer className="mr-2 h-4 w-4" />Печат</a>
               </Button>
             </div>
@@ -464,15 +465,15 @@ function SupplierStep({ suppliers, selected, onPick }: { suppliers: SupplierCont
           Няма доставчици. Добавете ги в <Link className="underline" href="/settings?tab=suppliers">Настройки → Доставчици</Link>.
         </Empty>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map(s => (
-            <li key={s.id}>
+            <li key={s.id} className="min-w-0">
               <button
                 type="button"
                 onClick={() => onPick(s.id)}
-                className={cn('w-full rounded-xl border bg-white p-3 text-left hover:border-primary hover:bg-primary/5', selected === s.id && 'border-primary ring-2 ring-primary/20')}
+                className={cn('w-full min-w-0 rounded-xl border bg-white p-3 text-left hover:border-primary hover:bg-primary/5', selected === s.id && 'border-primary ring-2 ring-primary/20')}
               >
-                <span className="block font-medium">{s.name}</span>
+                <span className="block truncate font-medium">{s.name}</span>
                 <Meta as="span" className="block truncate">
                   {s.order_emails.length ? <><Mail className="mr-1 inline h-3 w-3" />{s.order_emails[0]}{s.order_emails.length > 1 ? ` +${s.order_emails.length - 1}` : ''}</> : 'без имейл: поръчва се по телефона'}
                 </Meta>
@@ -511,7 +512,7 @@ function SupplierProducts({ supplier, inOrder, onAdd }: {
   const shown = (items ?? []).filter(p => !needle || p.name.toLowerCase().includes(needle) || (p.sku ?? '').toLowerCase().includes(needle))
 
   return (
-    <section className="space-y-2 rounded-xl border bg-white p-3 lg:order-1" aria-label="Обикновено взимаме">
+    <section className="min-w-0 space-y-2 rounded-xl border bg-white p-3 lg:order-1" aria-label="Обикновено взимаме">
       <SectionTitle count={items ? items.length : undefined}>Обикновено взимаме от {supplier.name}</SectionTitle>
       {items && items.length > 8 && (
         <div className="relative">
@@ -532,7 +533,7 @@ function SupplierProducts({ supplier, inOrder, onAdd }: {
               <li key={p.id} className="flex items-center gap-2 py-1.5">
                 <ProductThumb src={p.image} size={32} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm">{p.name}</div>
+                  <div className="line-clamp-2 break-words text-sm" title={p.name}>{p.name}</div>
                   <div className={cn('text-xs', p.quantity_on_hand <= 0 ? 'text-red-600' : 'text-muted-foreground')}>
                     наличност {p.quantity_on_hand} бр.{p.last_qty ? ` · последно ${p.last_qty} бр.` : ''}
                     {p.status !== 'active' && <span className="ml-1 text-amber-700">(неактивен)</span>}
