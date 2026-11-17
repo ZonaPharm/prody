@@ -8,6 +8,7 @@ import { Package } from 'lucide-react'
 import { STATUS_LABELS, STATUS_VARIANTS, INACTIVE_REASON_LABELS } from '@/lib/constants'
 import { ToggleStatusButton } from './toggle-status-button'
 import { getImageSrc } from '@/lib/images'
+import { STORE_STOCK_TONE, storeStockTone } from '@/lib/products/store-stock'
 
 interface ProductCardProps {
   product: {
@@ -33,9 +34,7 @@ export default function ProductCard({ product, href }: ProductCardProps) {
   // "no picture" box, not the browser's broken image with the name in big letters.
   const [imageFailed, setImageFailed] = useState(false)
   const stores = product.store_stock ?? []
-  // Stores in two columns, top to bottom then the next column
-  // (Ботев, Бургас, Варна | Заимов, Офис, Пловдив), so the card is half as tall.
-  const storeRows = Math.ceil(stores.length / 2)
+  const stockTotal = stores.reduce((sum, s) => sum + s.qty, 0)
 
   const categoryName = product.category?.name
   const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
@@ -90,24 +89,33 @@ export default function ProductCard({ product, href }: ProductCardProps) {
             {product.price != null ? `${Number(product.price).toFixed(2)} €` : '—'}
           </p>
 
-          {/* Store stock — two columns */}
+          {/* Store stock: every store in its own box, name above its count, so a
+              count is never read as the next store's (they used to blur together). */}
           {stores.length > 0 && (
-            <div
-              className="border-t pt-1.5 mt-1 grid grid-flow-col grid-cols-2 gap-x-3 gap-y-0.5"
-              style={{ gridTemplateRows: `repeat(${storeRows}, auto)` }}
-            >
-              {stores.map((s, i) => (
-                <div key={i} className="flex min-w-0 items-center justify-between gap-1 text-[11px]">
-                  <span className="text-muted-foreground truncate">{s.store_name}</span>
-                  <span className={`font-medium tabular-nums shrink-0 ${
-                    s.qty === 0 ? 'text-red-600' :
-                    product.min_quantity && s.qty <= product.min_quantity ? 'text-amber-600' :
-                    'text-slate-700'
-                  }`}>
-                    {s.qty} бр.
-                  </span>
-                </div>
-              ))}
+            <div className="border-t pt-1.5 mt-1 space-y-1">
+              <div className="flex items-baseline justify-between gap-2 text-[11px] text-muted-foreground">
+                <span>По обекти</span>
+                <span className="tabular-nums">Общо {stockTotal} бр.</span>
+              </div>
+              {/* 3 boxes a row; on the narrowest phones 2, so the store names fit. */}
+              <div className="grid grid-cols-2 gap-1 min-[360px]:grid-cols-3">
+                {stores.map((s, i) => {
+                  const tone = STORE_STOCK_TONE[storeStockTone(s.qty, product.min_quantity)]
+                  return (
+                    <div
+                      key={i}
+                      title={`${s.store_name}: ${s.qty} бр.`}
+                      className={`min-w-0 rounded-md border px-1.5 py-1 ${tone.box}`}
+                    >
+                      <div className={`truncate text-[10px] font-medium leading-tight ${tone.name}`}>{s.store_name}</div>
+                      <div className={`tabular-nums leading-tight ${tone.qty}`}>
+                        <span className="text-sm font-bold">{s.qty}</span>
+                        <span className="ml-0.5 text-[10px]">бр.</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
