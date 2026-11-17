@@ -8,6 +8,7 @@ import { askAssistant, type AgentEvent } from '@/lib/assistant/agent'
 import { namesLoader, type ActContext } from '@/lib/assistant/tools'
 import { AttachmentError, documentBlock, readAttachment, type Attachment } from '@/lib/assistant/attachments'
 import type { UserPart } from '@/lib/assistant/deepseek'
+import { UploadError, ownsUpload, takeUpload } from '@/lib/assistant/uploads'
 import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 import { callDeepSeek, deepseekErrorText } from '@/lib/assistant/deepseek'
 import { checkCap, formatUsd } from '@/lib/assistant/pricing'
@@ -42,6 +43,8 @@ export async function GET() {
 
 const Body = z.object({
   conversation_id: z.string().uuid().nullish(),
+  /** A bigger file the browser put in Storage first (see uploads.ts). */
+  upload: z.object({ path: z.string().max(200), name: z.string().trim().min(1).max(200), type: z.string().max(200).default('') }).nullish(),
   question: z.string().trim().min(1, 'Напишете въпрос').max(4000, 'Въпросът е твърде дълъг'),
 })
 
@@ -91,12 +94,17 @@ export async function POST(request: NextRequest) {
   const db = createAdminClient()
 
   // An attached document is read before anything is stored, so a bad file costs nothing.
+  // A big file is taken out of Storage and deleted there before it is read.
   let attachment: Attachment | null = null
-  if (req.file) {
+  const upload = parsed.data.upload
+  if (upload && !ownsUpload(user.id, upload.path)) return NextResponse.json({ error: 'Няма такъв качен файл.' }, { status: 400 })
+  if (req.file || upload) {
     try {
-      attachment = await readAttachment(req.file.name, req.file.type, new Uint8Array(await req.file.arrayBuffer()))
+      attachment = req.file
+        ? await readAttachment(req.file.name, req.file.type, new Uint8Array(await req.file.arrayBuffer()))
+        : await readAttachment(upload!.name, upload!.type, await takeUpload(db.storage as any, upload!.path))
     } catch (err) {
-      if (err instanceof AttachmentError) return NextResponse.json({ error: err.message }, { status: 400 })
+      if (err instanceof AttachmentError || err instanceof UploadError) return NextResponse.json({ error: err.message }, { status: 400 })
       throw err
     }
   }

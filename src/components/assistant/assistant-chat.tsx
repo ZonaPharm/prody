@@ -10,12 +10,28 @@ import { Answer } from './answer'
 import { ActionCardView } from './action-card'
 import type { ActionCard } from '@/lib/assistant/cards'
 import { shrinkImage, useDictation, useRecorder, useSpeaker } from './voice'
+import { createClient } from '@/lib/supabase/client'
 
 type Msg = { role: 'user' | 'assistant'; text: string; card?: undefined } | { role: 'card'; card: ActionCard; text?: undefined }
 
 const ACCEPT = 'image/*,.pdf,.xlsx,.xls,.csv,.ods,.txt'
-/** What one request to the app may carry (Vercel takes about 4.5 MB); pictures are made smaller first. */
-const MAX_FILE = 4 * 1024 * 1024
+/** The largest attachment; pictures are made smaller first. Bigger than DIRECT goes through Storage (uploads.ts). */
+const MAX_FILE = 20 * 1024 * 1024
+/** Up to this a file goes with the question (Vercel takes about 4.5 MB per request). */
+const DIRECT = 4 * 1024 * 1024
+
+/** Puts a bigger file in temporary storage; the server deletes it as soon as it reads it. */
+async function uploadBig(f: File): Promise<{ path: string; name: string; type: string }> {
+  const res = await fetch('/api/assistant/upload', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: f.name, type: f.type, size: f.size }),
+  })
+  const link = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(link.error || 'Файлът не можа да се качи.')
+  const { error } = await createClient().storage.from(link.bucket).uploadToSignedUrl(link.path, link.token, f, { contentType: f.type || undefined })
+  if (error) throw new Error('Файлът не можа да се качи. Опитайте пак.')
+  return { path: link.path, name: f.name, type: f.type }
+}
 type Conversation = { id: string; title: string; updated_at: string }
 
 const EXAMPLES = [
@@ -94,7 +110,7 @@ export function AssistantChat() {
     setPreparing(true)
     const f = await shrinkImage(picked)
     setPreparing(false)
-    if (f.size > MAX_FILE) { setError('Файлът е над 4 MB. Снимайте отново или пратете само нужните страници.'); return }
+    if (f.size > MAX_FILE) { setError('Файлът е над 20 MB. Пратете само нужните страници.'); return }
     setFile(f)
   }
 
@@ -126,7 +142,12 @@ export function AssistantChat() {
     try {
       let body: BodyInit
       const headers: Record<string, string> = {}
-      if (attached) {
+      if (attached && attached.size > DIRECT) {
+        setStatus(['Качвам файла…'])
+        const upload = await uploadBig(attached)
+        headers['Content-Type'] = 'application/json'
+        body = JSON.stringify({ conversation_id: currentId, question: q, upload })
+      } else if (attached) {
         const form = new FormData()
         form.set('question', q)
         if (currentId) form.set('conversation_id', currentId)

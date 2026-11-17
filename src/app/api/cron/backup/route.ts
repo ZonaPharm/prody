@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runBackup } from '@/lib/backup'
 import { reportBackupFailure } from '@/lib/backup-alert'
 import { runIntegrityCheck, integritySummaryHtml, sendIntegrityAlert } from '@/lib/integrity-check'
+import { sweepUploads } from '@/lib/assistant/uploads'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -53,6 +55,10 @@ export async function GET(request: NextRequest) {
 
   await sendIntegrityAlert(integrity)
 
+  // Files attached to the AI assistant and never used (the page was closed
+  // between upload and question). Never throws, so it cannot fail the backup.
+  const assistantUploadsRemoved = await sweepUploads(createAdminClient().storage as any)
+
   const statusCode = result.status === 'ok' ? 200 : 500
-  return NextResponse.json({ ...result, integrity }, { status: statusCode })
+  return NextResponse.json({ ...result, integrity, assistantUploadsRemoved }, { status: statusCode })
 }
