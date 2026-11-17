@@ -1,0 +1,38 @@
+import Link from 'next/link'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireDeliveriesAdmin } from '@/lib/deliveries/page-gate'
+import { getDeliveriesList, type ListFilter } from '@/lib/deliveries/queries'
+import { DeliveriesList } from '@/components/deliveries/deliveries-list'
+import { DeliveriesTabs } from '@/components/deliveries/deliveries-tabs'
+import { countOpenProblems } from '@/lib/deliveries/work'
+import { Button } from '@/components/ui/button'
+import { Plus, Send } from 'lucide-react'
+import { PageHeader } from '@/components/ui/text'
+
+export const dynamic = 'force-dynamic'
+
+const FILTERS: ListFilter[] = ['open', 'completed', 'cancelled', 'all']
+
+export default async function DeliveriesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  await requireDeliveriesAdmin({ adminOnly: true })
+  const sp = await searchParams
+  const filter: ListFilter = FILTERS.includes(sp.filter as ListFilter) ? (sp.filter as ListFilter) : 'open'
+
+  const supabase = await createServerSupabaseClient()
+  const [rows, problems] = await Promise.all([getDeliveriesList(supabase, filter), countOpenProblems(supabase)])
+
+  return (
+    <div className="space-y-4 max-w-7xl">
+      <DeliveriesTabs active="list" problems={problems} />
+      <PageHeader
+        title="Доставки"
+        intro="Стоката от доставчиците: въвеждане, получаване в Офис и дневник."
+        actions={<>
+          <Button asChild variant="outline"><Link href="/deliveries/orders/new"><Send className="mr-2 h-4 w-4" />Поръчай от доставчик</Link></Button>
+          <Button asChild><Link href="/deliveries/new"><Plus className="mr-2 h-4 w-4" />Нова доставка</Link></Button>
+        </>}
+      />
+      <DeliveriesList rows={rows} filter={filter} />
+    </div>
+  )
+}

@@ -4,14 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // resolves to the given result, which is all the route needs from Supabase.
 function query(result: unknown) {
   const q: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'gt', 'order', 'insert']) q[m] = () => q
-  q.single = () => Promise.resolve(result)
-  q.then = (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) => Promise.resolve(result).then(ok, fail)
+  let eqValue: unknown
+  for (const m of ['select', 'gt', 'order', 'insert']) q[m] = () => q
+  q.eq = (_col: string, value: unknown) => { eqValue = value; return q }
+  const resolve = () => (typeof result === 'function' ? result(eqValue) : result)
+  q.single = () => Promise.resolve(resolve())
+  q.then = (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) => Promise.resolve(resolve()).then(ok, fail)
   return q
 }
 
 const mocks = vi.hoisted(() => ({
   insertedSales: [] as { id: string; product_id: string; quantity: number }[],
+  insertedRows: [] as Record<string, unknown>[],
+  profile: {} as Record<string, unknown>,
+  prices: {} as Record<string, number | null>,
   adminRpc: vi.fn(),
   executeSaleFIFO: vi.fn(),
   getFIFOBatches: vi.fn(),
@@ -22,9 +28,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createServerSupabaseClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'seller-1', email: 'seller@example.test' } } }) },
     from: (table: string) => {
-      if (table === 'users') return query({ data: { role: 'seller', store_id: 'store-1', display_name: 'Продавач' } })
+      if (table === 'users') return query(() => ({ data: mocks.profile }))
       if (table === 'stores') return query({ data: { id: 'store-1' } })
-      if (table === 'sales') return query({ data: mocks.insertedSales, error: null })
+      if (table === 'sales') {
+        const q = query(() => ({ data: mocks.insertedSales, error: null }))
+        q.insert = (rows: Record<string, unknown>[]) => { mocks.insertedRows = rows; return q }
+        return q
+      }
       throw new Error(`unexpected table ${table}`)
     },
   }),
@@ -32,7 +42,9 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     from: (table: string) => {
-      if (table === 'products') return query({ data: { name: 'Продукт' } })
+      if (table === 'products') {
+        return query((id: unknown) => ({ data: { name: 'Продукт', price: mocks.prices[id as string] ?? null } }))
+      }
       throw new Error(`unexpected admin table ${table}`)
     },
     rpc: mocks.adminRpc,
@@ -58,6 +70,9 @@ function sell(body: unknown) {
 describe('POST /api/sales/group', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.profile = { role: 'seller', store_id: 'store-1', display_name: 'Продавач', is_active: true }
+    mocks.prices = { 'product-a': 10, 'product-b': 4.5 }
+    mocks.insertedRows = []
     mocks.insertedSales = [
       { id: 'sale-a', product_id: 'product-a', quantity: 2 },
       { id: 'sale-b', product_id: 'product-b', quantity: 1 },
@@ -104,5 +119,51 @@ describe('POST /api/sales/group', () => {
 
     const actions = mocks.logAction.mock.calls.map(([entry]) => entry.action)
     expect(actions).toEqual(['sale_group'])
+  })
+
+  // The till sends the price it shows, but the request can be edited in the
+  // browser. The recorded price has to be the product's own.
+  it('records the product price, not the price sent by the browser', async () => {
+    const tampered = [
+      { product_id: 'product-a', quantity: 2, unit_price: 0.01 },
+      { product_id: 'product-b', quantity: 1, unit_price: 0.01 },
+    ]
+    const res = await sell({ store_id: 'store-1', items: tampered, payment_method: 'cash' })
+
+    expect(res.status).toBe(200)
+    expect(mocks.insertedRows.map(r => r.sale_price)).toEqual([10, 4.5])
+    expect(mocks.executeSaleFIFO).toHaveBeenNthCalledWith(1, 'product-a', 'store-1', 2, 10, 'sale-a', 'seller-1')
+  })
+
+  it('refuses a product with no price instead of selling it for 0', async () => {
+    mocks.prices['product-b'] = null
+    const res = await sell({ store_id: 'store-1', items })
+
+    expect(res.status).toBe(400)
+    expect(mocks.insertedRows).toEqual([])
+    expect(mocks.executeSaleFIFO).not.toHaveBeenCalled()
+  })
+
+  it('refuses a deactivated seller', async () => {
+    mocks.profile = { ...mocks.profile, is_active: false }
+    const res = await sell({ store_id: 'store-1', items })
+
+    expect(res.status).toBe(403)
+    expect(mocks.insertedRows).toEqual([])
+  })
+
+  it('refuses an unknown payment method', async () => {
+    const res = await sell({ store_id: 'store-1', items, payment_method: 'transfer' })
+
+    expect(res.status).toBe(400)
+    expect(mocks.insertedRows).toEqual([])
+  })
+
+  it('refuses a fractional or non-positive quantity', async () => {
+    for (const quantity of [0, -1, 1.5]) {
+      const res = await sell({ store_id: 'store-1', items: [{ product_id: 'product-a', quantity, unit_price: 10 }] })
+      expect(res.status).toBe(400)
+    }
+    expect(mocks.insertedRows).toEqual([])
   })
 })

@@ -37,7 +37,7 @@ export function VoidSaleButton({ saleId }: { saleId: string }) {
     <Button
       size="sm"
       variant="ghost"
-      className={`h-7 text-xs ${confirmed ? 'text-red-600 hover:text-red-700 bg-red-50' : 'text-muted-foreground hover:text-red-500'}`}
+      className={`h-9 lg:h-7 text-xs ${confirmed ? 'text-red-600 hover:text-red-700 bg-red-50' : 'text-muted-foreground hover:text-red-500'}`}
       onClick={handleVoid}
       disabled={loading}
     >

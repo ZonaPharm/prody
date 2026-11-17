@@ -35,15 +35,15 @@ export function SwitchRoleButton({ targetRole = 'seller' }: SwitchRoleButtonProp
   const isSeller = targetRole === 'seller'
 
   return (
-    <div className={`rounded-md px-3 py-2 text-xs font-medium text-center transition-colors cursor-pointer ${
+    <button type="button" className={`w-full rounded-lg px-3 py-2 text-sm font-medium text-center transition-colors ${
       isSeller
-        ? 'border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
-        : 'border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
-    }`} onClick={handleSwitch}>
+        ? 'border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+        : 'border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100'
+    }`} onClick={handleSwitch} disabled={loading}>
       {loading ? (
         <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
       ) : null}
       {isSeller ? 'Виж като продавач' : 'Върни се като админ'}
-    </div>
+    </button>
   )
 }

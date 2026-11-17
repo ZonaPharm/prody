@@ -1,22 +1,69 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gzipSync } from 'zlib'
 import { fetchAll } from '@/lib/fetch-all'
+import { isMissingTableError } from '@/lib/missing-table'
 
+// In foreign-key order: every table comes after the tables it references, so
+// a restore that inserts the file's tables in this order never hits a missing
+// parent. (users references auth.users, which is not in the backup: the auth
+// accounts must exist before users is restored.) The deliveries tables sit
+// between products/users and stock_batches, because stock_batches now
+// references delivery_items and stock_movements references deliveries and
+// shipments. delivery_events is append-only (a trigger rejects UPDATE and
+// DELETE): restore it with plain INSERTs into an empty table — see
+// docs/BACKUP-RESTORE.md.
 const TABLES = [
+  'categories',
+  'stores',
+  'users',
   'products',
   'product_images',
-  'categories',
   'labels',
-  'stores',
+  'label_sheet_profiles',
+  'suppliers',
+  'deliveries',
+  'delivery_items',
+  'delivery_item_plan',
+  'trips',
+  'shipments',
+  'shipment_lines',
+  'delivery_signals',
+  'delivery_events',
+  'notifications',
   'stock_batches',
+  'sales',
   'stock_movements',
   'stock_requests',
   'request_events',
-  'sales',
-  'users',
+  // Both were missing, so a restore would have lost every stock correction
+  // and every note on a request.
+  'request_notes',
+  'stock_corrections',
   'email_settings',
   'audit_logs',
 ]
+
+/**
+ * Added by 20261110_deliveries_schema. Until that migration is applied where
+ * this code runs, these tables do not exist; skipping them then keeps the
+ * nightly backup of everything else going instead of failing it. Any other
+ * error on them still fails the backup like any table. Once the migration is
+ * in production this set can go.
+ */
+const TABLES_PENDING_MIGRATION = new Set([
+  'label_sheet_profiles',
+  'suppliers',
+  'deliveries',
+  'delivery_items',
+  'delivery_item_plan',
+  'trips',
+  'shipments',
+  'shipment_lines',
+  'delivery_signals',
+  'delivery_events',
+  // 20261112_deliveries_tasks_notifications
+  'notifications',
+])
 
 const BUCKET = 'db-backups'
 const RETENTION_DAYS = 7
@@ -44,6 +91,7 @@ export async function runBackup(extraHtml = ''): Promise<BackupResult> {
   let emailResult = 'not sent'
 
   const failedTables: string[] = []
+  const absentTables: string[] = []
 
   try {
     // 1. Export all tables.
@@ -54,8 +102,14 @@ export async function runBackup(extraHtml = ''): Promise<BackupResult> {
     // the data was never in the file, and its size looked plausible anyway.
     for (const table of TABLES) {
       try {
-        backup[table] = await fetchAll<any>(() => (admin.from(table) as any).select('*'))
+        // Ordered, so the pages do not overlap or skip rows while sales are
+        // written during the backup. Every table here has an id column.
+        backup[table] = await fetchAll<any>(() => (admin.from(table) as any).select('*').order('id'))
       } catch (tableErr: any) {
+        if (TABLES_PENDING_MIGRATION.has(table) && isMissingTableError(tableErr)) {
+          absentTables.push(table)
+          continue
+        }
         // A table that cannot be read is a hole in the backup, not a detail to
         // log and walk past: the file would still be written and reported as a
         // success while missing whatever that table held.
@@ -72,6 +126,7 @@ export async function runBackup(extraHtml = ''): Promise<BackupResult> {
     }
 
     const rowCounts = Object.entries(backup).map(([t, rows]) => `${t}:${rows.length}`).join(',')
+      + (absentTables.length > 0 ? ` (още няма: ${absentTables.join(', ')})` : '')
     const totalRows = Object.values(backup).reduce((sum, rows) => sum + rows.length, 0)
 
     const payload = JSON.stringify({

@@ -6,7 +6,7 @@ import { getProducts } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, ScanBarcode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Suspense } from 'react'
 import ProductSearch from '@/components/products/product-search'
@@ -63,7 +63,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Каталог</h1>
         </div>
@@ -71,16 +71,24 @@ export default async function CatalogPage({ searchParams }: PageProps) {
           <Suspense>
             <ExportButton />
           </Suspense>
+          {/* Small products without a label: the card the seller scans them from. */}
+          <Button asChild variant="outline" title="Карта на касата: баркодовете на малките продукти">
+            <a href="/print/barcode-card" target="_blank" rel="noopener">
+              <ScanBarcode className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Карта на касата</span>
+            </a>
+          </Button>
           <Button asChild>
             <Link href="/catalog/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Добави продукт
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Добави продукт</span>
+              <span className="sm:hidden">Нов</span>
             </Link>
           </Button>
         </div>
       </div>
 
-      <div className="sticky top-0 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-3 bg-slate-50/95 backdrop-blur-sm">
+      <div className="sticky top-14 lg:top-0 z-20 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 bg-slate-50/95 backdrop-blur-sm">
         <Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded-md" />}>
           <ProductSearch categories={categories as { id: string; name: string }[]} stores={stores as { id: string; name: string }[]} />
         </Suspense>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getFIFOBatches, calculateFIFODeduction } from '@/lib/inventory'
+import { rpcErrorResponse } from '@/lib/rpc-error'
 import { logAction } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
@@ -23,52 +23,29 @@ export async function POST(request: NextRequest) {
 
   try {
     const admin = createAdminClient()
-    const { batches, total } = await getFIFOBatches(product_id, from_store_id, quantity)
 
-    if (total < quantity) {
-      return NextResponse.json({ error: `Недостатъчна наличност: ${total} бр.` }, { status: 400 })
-    }
+    // One transaction in the database: FIFO from the source store's batches,
+    // a transfer_out per batch, a new batch at the same cost in the target
+    // store with its transfer_in. The old read-compute-write in JS could lose
+    // a deduction to a sale of the same product at the same moment, and left
+    // half a transfer behind when one of its writes failed.
+    const { data: touched, error } = await (admin as any).rpc('transfer_stock', {
+      p_product_id: product_id,
+      p_from_store: from_store_id,
+      p_to_store: to_store_id,
+      p_quantity: quantity,
+      p_user: user.id,
+      p_notes: null,
+    })
 
-    const { deductedFrom } = calculateFIFODeduction(batches, quantity)
-
-    for (const d of deductedFrom) {
-      // Deduct from source batch
-      await (admin.from('stock_batches') as any)
-        .select('quantity_remaining').eq('id', d.batchId).single()
-        .then(async ({ data: b }: any) => {
-          if (b) {
-            await (admin.from('stock_batches') as any)
-              .update({ quantity_remaining: b.quantity_remaining - d.qty })
-              .eq('id', d.batchId)
-          }
-        })
-
-      // Create transfer_out movement
-      await (admin.from('stock_movements') as any).insert({
-        product_id, store_id: from_store_id, batch_id: d.batchId,
-        type: 'transfer_out', quantity: -d.qty, unit_cost: d.unitCost,
-        source_store_id: to_store_id, created_by: user.id,
-      })
-
-      // Create new batch in target store with same cost
-      const { data: newBatch } = await (admin.from('stock_batches') as any)
-        .insert({
-          product_id, store_id: to_store_id,
-          quantity_remaining: d.qty, unit_cost: d.unitCost,
-        })
-        .select('id').single()
-
-      if (newBatch) {
-        await (admin.from('stock_movements') as any).insert({
-          product_id, store_id: to_store_id, batch_id: newBatch.id,
-          type: 'transfer_in', quantity: d.qty, unit_cost: d.unitCost,
-          source_store_id: from_store_id, created_by: user.id,
-        })
-      }
+    if (error) {
+      const { status, error: message } = rpcErrorResponse(error, 'Грешка при трансфер')
+      if (status === 500) console.error('transfer_stock failed:', JSON.stringify(error))
+      return NextResponse.json({ error: message }, { status })
     }
 
     await logAction({ action: 'transfer', userId: user.id, entityType: 'stock_movement', details: `${from_store_id} → ${to_store_id}, ${quantity} бр.` }, supabase)
-    return NextResponse.json({ success: true, transferred: deductedFrom.length })
+    return NextResponse.json({ success: true, transferred: touched ?? 0 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Грешка при трансфер' }, { status: 500 })
   }

@@ -16,9 +16,12 @@ interface ProductInventoryTabProps {
   autoRestock?: boolean
   initialQty?: number
   initialCost?: number
+  /** Third tab "Доставки" (only where the Deliveries menu is on), drawn by the server page. */
+  deliveries?: { count: number; node: React.ReactNode }
+  initialTab?: 'stock' | 'movements' | 'deliveries'
 }
 
-export function ProductInventoryTab({ productId, productName, stores, autoRestock, initialQty, initialCost }: ProductInventoryTabProps) {
+export function ProductInventoryTab({ productId, productName, stores, autoRestock, initialQty, initialCost, deliveries, initialTab = 'stock' }: ProductInventoryTabProps) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -35,7 +38,7 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
 
   if (loading) {
     return (
-      <Card>
+      <Card id="product-stock">
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
@@ -74,10 +77,10 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
   }))
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">Складова наличност и движения</CardTitle>
-        <div className="flex items-center gap-2">
+    <Card id="product-stock" className="scroll-mt-4">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+        <CardTitle className="text-lg">{deliveries ? 'Наличност, движения и доставки' : 'Складова наличност и движения'}</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
           <TransferForm
             productId={productId}
             productName={productName}
@@ -93,10 +96,11 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="stock">
+        <Tabs key={initialTab} defaultValue={deliveries || initialTab !== 'deliveries' ? initialTab : 'stock'}>
           <TabsList>
             <TabsTrigger value="stock">По магазини</TabsTrigger>
             <TabsTrigger value="movements">Движения</TabsTrigger>
+            {deliveries && <TabsTrigger value="deliveries">Доставки ({deliveries.count})</TabsTrigger>}
           </TabsList>
           <TabsContent value="stock" className="pt-4">
             <StockPerStore data={stockPerStore} />
@@ -104,6 +108,11 @@ export function ProductInventoryTab({ productId, productName, stores, autoRestoc
           <TabsContent value="movements" className="pt-4">
             <MovementHistory data={movements} />
           </TabsContent>
+          {deliveries && (
+            <TabsContent value="deliveries" className="pt-4">
+              {deliveries.node}
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>

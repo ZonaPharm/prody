@@ -10,7 +10,8 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+    /* Navy from the Prody logo */
+    --primary: 208 66% 19%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,8 +23,17 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --ring: 208 66% 30%;
+    --radius: 0.625rem;
+    /* Height of the phone tab bar (0 on a computer). Bars fixed to the bottom of
+       a screen sit above it with bottom-[var(--bottom-nav-h)]. */
+    --bottom-nav-h: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --bottom-nav-h: 0px;
+    }
   }
 
   .dark {
@@ -60,5 +70,26 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* One look per heading level on every screen (see src/components/ui/text.tsx).
+     A class on the element still wins over these. */
+  h1 {
+    @apply text-2xl font-bold tracking-tight text-slate-900;
+  }
+  h2 {
+    @apply text-base font-semibold text-slate-900;
+  }
+  h3 {
+    @apply text-sm font-semibold text-slate-900;
+  }
+}
+
+@layer utilities {
+  /* Horizontal tab rows scroll on a phone without showing a scrollbar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

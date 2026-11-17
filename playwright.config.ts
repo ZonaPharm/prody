@@ -12,6 +12,14 @@ const PRODUCTION_REF = 'ocvmqlbfkloskabicxuw'
 
 loadEnvConfig(process.cwd(), true)
 
+// In a cloud session the staging keys come as STAGING_* secrets instead of a
+// .env.local; hand them to the dev server under the names the app reads.
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.STAGING_SUPABASE_URL) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.STAGING_SUPABASE_URL
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||= process.env.STAGING_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= process.env.STAGING_SUPABASE_SERVICE_ROLE_KEY
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 if (!supabaseUrl) {
   throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set. Point it at prody-staging (in .env.local) before running e2e tests.')

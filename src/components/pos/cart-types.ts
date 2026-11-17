@@ -7,6 +7,9 @@ export type Product = {
   quantity_on_hand: number
   image_url?: string | null
   category_id: string | null
+  /** Factory barcode and the internal code: the till finds the product by either. */
+  barcode?: string | null
+  internal_barcode?: string | null
 }
 
 export type CartItem = {

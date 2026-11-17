@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { looksLikeCode } from '@/lib/barcodes'
 
 export async function getProducts(filters?: {
   search?: string
@@ -22,7 +23,12 @@ export async function getProducts(filters?: {
     .select(filters?.storeId ? `${columns}, in_store:stock_batches!inner(id)` : columns)
 
   if (filters?.search) {
-    query = query.ilike('name', `%${filters.search}%`)
+    const q = filters.search.trim()
+    // A scanned or typed barcode (digits only, so safe inside .or) finds the product
+    // by its factory barcode or internal code too.
+    query = looksLikeCode(q)
+      ? query.or(`name.ilike.%${q}%,barcode.eq.${q},internal_barcode.eq.${q}`)
+      : query.ilike('name', `%${filters.search}%`)
   }
   // '__none__' asks for the products that have no category at all. A plain
   // falsy check cannot express that, since an empty value already means
@@ -87,6 +93,8 @@ export async function getProduct(id: string) {
     cost_price: number | null
     sku: string | null
     barcode: string | null
+    internal_barcode: string | null
+    small_item: boolean
     category_id: string | null
     source: string | null
     source_url: string | null

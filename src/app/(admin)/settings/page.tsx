@@ -10,11 +10,20 @@ import { UsersManager } from './users-manager'
 import { AuditLogs } from './audit-logs'
 import { BackupSettings } from './backup-settings'
 import { ExternalImages } from './external-images'
+import { SuppliersManager } from './suppliers-manager'
+import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SettingsPage() {
-  await requireAdmin()
+const TABS = ['categories', 'stores', 'suppliers', 'min-qty', 'ai', 'email', 'users', 'logs', 'backup', 'images']
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const user = await requireAdmin()
+  // Links from other screens open the right tab, e.g. /settings?tab=users.
+  const { tab } = await searchParams
+  const initialTab = tab && TABS.includes(tab) ? tab : 'categories'
+  // Suppliers belong to the deliveries feature and show only where it is on.
+  const deliveries = deliveriesEnabledFor(user.email)
   const supabase = await createServerSupabaseClient()
 
   const { data: products } = await (supabase.from('products') as any)
@@ -23,12 +32,14 @@ export default async function SettingsPage() {
     .order('name')
 
   return (
-    <div>
+    <div className="max-w-5xl">
       <h1 className="text-2xl font-bold mb-6">Настройки</h1>
-      <Tabs defaultValue="categories">
-        <TabsList className="flex-wrap">
+      <Tabs defaultValue={initialTab}>
+        {/* Nine sections: on a phone they wrap into rows, all visible, instead of a strip that hides half of them off-screen. */}
+        <TabsList className="h-auto flex-wrap gap-1 overflow-visible mb-2">
           <TabsTrigger value="categories">Категории</TabsTrigger>
           <TabsTrigger value="stores">Магазини</TabsTrigger>
+          {deliveries && <TabsTrigger value="suppliers">Доставчици</TabsTrigger>}
           <TabsTrigger value="min-qty">Мин. количества</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="email">Имейл</TabsTrigger>
@@ -42,6 +53,11 @@ export default async function SettingsPage() {
         <TabsContent value="stores">
           <StoresManager />
         </TabsContent>
+        {deliveries && (
+          <TabsContent value="suppliers">
+            <SuppliersManager />
+          </TabsContent>
+        )}
         <TabsContent value="min-qty">
           <MinQtyManager products={products || []} />
         </TabsContent>

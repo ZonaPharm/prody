@@ -105,7 +105,7 @@ export function StoresManager() {
         </div>
       )}
 
-      <div className="flex gap-2 items-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="text-sm font-medium mb-1 block">Име на магазин</label>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Нов магазин" />
@@ -119,7 +119,7 @@ export function StoresManager() {
 
       <div className="space-y-1">
         {stores.map((store) => (
-          <div key={store.id} className="flex items-center gap-3 py-2 border-b">
+          <div key={store.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 border-b">
             {editingId === store.id ? (
               <>
                 <Input
@@ -143,8 +143,9 @@ export function StoresManager() {
               </>
             ) : (
               <>
-                <span className="flex-1 font-medium">{store.name}</span>
-                <span className="text-sm text-muted-foreground">{store.address || '—'}</span>
+                <span className="min-w-0 flex-1 font-medium">{store.name}
+                  <span className="block text-sm font-normal text-muted-foreground sm:ml-3 sm:inline">{store.address || '—'}</span>
+                </span>
                 <Badge variant={store.is_active ? 'default' : 'destructive'}>
                   {store.is_active ? 'Активен' : 'Неактивен'}
                 </Badge>

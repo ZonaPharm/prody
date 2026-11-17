@@ -23,6 +23,9 @@ function buildPageUrl(sp: Record<string, string | undefined>, page: number) {
   return params.toString()
 }
 
+/** Columns of a sale row on a wide screen: date, product, store, seller, payment, amount, action. */
+const SALE_COLS = 'grid-cols-[8.5rem_minmax(0,1fr)_9rem_10rem_5rem_6.5rem_6rem]'
+
 export default async function AdminSalesPage({ searchParams }: PageProps) {
   await requireAdmin()
   const supabase = await createServerSupabaseClient()
@@ -90,16 +93,22 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
   // Grouped-by-product data
   let groupedProducts: { name: string; sales: number; qty: number; revenue: number; price: number }[] = []
   if (grouped === '1') {
-    let gq = supabase
-      .from('sales')
-      .select('quantity, sale_price, product:products!inner(name, price)')
-      .gte('sale_date', fromDate)
-      .lte('sale_date', toDate)
-      .eq('voided', false)
-    if (storeIds.length > 0) gq = gq.in('store_id', storeIds)
-    if (sp.product) gq = gq.eq('product_id', sp.product)
-    if (sp.category) gq = gq.eq('product.category_id', sp.category)
-    const { data: gs } = await gq
+    // Paged like the totals above: a month holds more than PostgREST's 1000-row
+    // cap, and this view summed only the first 1000 sales.
+    const gs = await fetchAll<any>(() => {
+      let gq = supabase
+        .from('sales')
+        .select('quantity, sale_price, product:products!inner(name, price, category_id)')
+        .gte('sale_date', fromDate)
+        .lte('sale_date', toDate)
+        .eq('voided', false)
+        .order('id')
+      if (storeIds.length > 0) gq = gq.in('store_id', storeIds)
+      if (sp.product) gq = gq.eq('product_id', sp.product)
+      if (sp.category === '__none__') gq = gq.is('product.category_id', null)
+      else if (sp.category) gq = gq.eq('product.category_id', sp.category)
+      return gq as any
+    })
     const byName: Record<string, { count: number; qty: number; rev: number; price: number }> = {}
     ;(gs || []).forEach((s: any) => {
       const n = s.product?.name || '?'
@@ -164,19 +173,19 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
         products={(products || []) as { id: string; name: string }[]}
       />
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-white p-4">
+      {/* Summary: on a phone the total across the top, card and cash side by side under it */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="col-span-2 sm:col-span-1 rounded-lg border bg-white p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">Общо продажби</p>
-          <p className="text-2xl font-bold">{total.toFixed(2)} €</p>
+          <p className="text-2xl font-bold tabular-nums">{total.toFixed(2)} €</p>
         </div>
-        <div className="rounded-lg border bg-green-50 p-4">
-          <p className="text-sm text-green-700">Плащания с карта</p>
-          <p className="text-2xl font-bold text-green-700">{cardTotal.toFixed(2)} €</p>
+        <div className="rounded-lg border bg-green-50 p-3 sm:p-4">
+          <p className="text-sm text-green-700">С карта</p>
+          <p className="text-lg sm:text-2xl font-bold text-green-700 tabular-nums">{cardTotal.toFixed(2)} €</p>
         </div>
-        <div className="rounded-lg border bg-blue-50 p-4">
-          <p className="text-sm text-blue-700">Плащания в брой</p>
-          <p className="text-2xl font-bold text-blue-700">{cashTotal.toFixed(2)} €</p>
+        <div className="rounded-lg border bg-blue-50 p-3 sm:p-4">
+          <p className="text-sm text-blue-700">В брой</p>
+          <p className="text-lg sm:text-2xl font-bold text-blue-700 tabular-nums">{cashTotal.toFixed(2)} €</p>
         </div>
       </div>
 
@@ -186,7 +195,22 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
           {groupedProducts.length === 0 ? (
             <p className="text-muted-foreground py-12 text-center">Няма продажби за избрания период</p>
           ) : (
-            <div className="rounded-lg border bg-white overflow-hidden">
+            <>
+            {/* Phone: one card per product (name, then pieces and sum), no sideways table */}
+            <div className="sm:hidden rounded-lg border bg-white divide-y">
+              {groupedProducts.map(p => (
+                <div key={p.name} className="px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 font-medium leading-snug">{p.name}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{p.revenue.toFixed(2)} €</span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+                    {p.qty} бр. · {p.sales} {p.sales === 1 ? 'продажба' : 'продажби'} · {p.price.toFixed(2)} € бр.
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block rounded-lg border bg-white overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-slate-50 text-left text-xs text-muted-foreground uppercase tracking-wider">
@@ -210,12 +234,18 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
 
       {/* Sales list */}
       {grouped !== '1' && <div>
+        {(sales || []).length > 0 && (
+          <div className={`hidden lg:grid ${SALE_COLS} gap-4 px-4 pb-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground border-l-4 border-l-transparent`}>
+            <span>Дата</span><span>Продукт</span><span>Обект</span><span>Продавач</span><span>Плащане</span><span className="text-right">Сума</span><span />
+          </div>
+        )}
         {(sales || []).map((s: any, i: number) => {
           // Detect group start/change for visual grouping
           const isGroup = s.sale_group_id && groupCounts[s.sale_group_id] > 1
@@ -234,36 +264,47 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
                   Група #{meta.shortId} &middot; {groupCounts[s.sale_group_id]} артикула
                 </div>
               )}
-              <div className={`flex items-center justify-between py-3 px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
-                <div className="min-w-0">
-                  <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
-                  <span className="text-slate-400 mx-1">&times;{s.quantity}</span>
-                  <span className="text-sm text-muted-foreground">
-                    &mdash; {s.store?.name} от {s.seller?.display_name}
-                  </span>
+              {/* Two lines: what and how much; where, who and when. Fits a phone without squeezing the name. */}
+              <div className={`lg:hidden py-2.5 px-3 sm:px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
+                    <span className="text-slate-400 ml-1 whitespace-nowrap">&times;{s.quantity}</span>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                  <span>{s.store?.name} · {s.seller?.display_name}</span>
                   {s.voided && (
-                    <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">
-                      сторнирана
-                    </span>
+                    <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">сторнирана</span>
                   )}
                   {isGroup && (
-                    <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
-                      група
-                    </span>
+                    <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">група</span>
                   )}
                   {s.payment_method && (
-                    <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
                       {s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : 'Превод'}
                     </span>
                   )}
+                  <span className="ml-auto flex items-center gap-2 text-xs tabular-nums">
+                    {dateStr} {time}
+                    {!s.voided && <VoidSaleButton saleId={s.id} />}
+                  </span>
                 </div>
-                <div className="text-right shrink-0 ml-4 flex items-center gap-2">
-                  {!s.voided && <VoidSaleButton saleId={s.id} />}
-                  <div>
-                    <span className="font-semibold">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
-                    <p className="text-xs text-muted-foreground">{dateStr} {time}</p>
-                  </div>
+              </div>
+              {/* Wide screen: one line per sale, in columns, like a table. */}
+              <div className={`hidden lg:grid ${SALE_COLS} items-center gap-4 py-2 px-4 bg-white rounded border hover:border-slate-300 transition-colors border-l-4 mb-0.5 text-sm ${s.voided ? 'opacity-60' : ''} ${meta?.color || ''} ${isGroup ? '' : 'border-l-transparent'}`}>
+                <span className="text-xs tabular-nums text-muted-foreground">{dateStr} {time}</span>
+                <div className="min-w-0 truncate">
+                  <span className={`font-medium ${s.voided ? 'line-through' : ''}`}>{s.product?.name}</span>
+                  <span className="text-slate-400 ml-1">&times;{s.quantity}</span>
+                  {s.voided && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">сторнирана</span>}
                 </div>
+                <span className="truncate">{s.store?.name}</span>
+                <span className="truncate text-muted-foreground">{s.seller?.display_name}</span>
+                <span className="text-muted-foreground">{s.payment_method === 'cash' ? 'Кеш' : s.payment_method === 'card' ? 'Карта' : s.payment_method ? 'Превод' : '—'}</span>
+                <span className="text-right font-semibold tabular-nums">{(s.quantity * Number(s.sale_price)).toFixed(2)} €</span>
+                <span className="flex justify-end">{!s.voided && <VoidSaleButton saleId={s.id} />}</span>
               </div>
             </div>
           )
@@ -283,7 +324,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
             {hasPrev && (
               <a
                 href={`/sales?${buildPageUrl(sp, page - 1)}`}
-                className="px-4 py-2 rounded border text-sm hover:bg-slate-50 transition-colors"
+                className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50 transition-colors"
               >
                 ← Назад
               </a>
@@ -291,7 +332,7 @@ export default async function AdminSalesPage({ searchParams }: PageProps) {
             {hasMore && (
               <a
                 href={`/sales?${buildPageUrl(sp, page + 1)}`}
-                className="px-4 py-2 rounded border text-sm hover:bg-slate-50 transition-colors"
+                className="px-4 py-2.5 rounded border bg-white text-sm hover:bg-slate-50 transition-colors"
               >
                 Напред →
               </a>

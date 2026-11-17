@@ -9,12 +9,15 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Pencil, Ban, Loader2, Copy } from 'lucide-react'
+import { Hint, Meta, Note } from '@/components/ui/text'
+import { ROLES, ROLE_HINT, ROLE_LABEL, needsStore, rolesOf, sortRoles, type Role } from '@/lib/roles'
 
 interface UserRow {
   id: string
   display_name: string
   email: string
   role: string
+  roles?: string[] | null
   store_id: string | null
   is_active: boolean
   last_sign_in_at: string | null
@@ -23,7 +26,7 @@ interface UserRow {
 
 export function UsersManager() {
   const [users, setUsers] = useState<UserRow[]>([])
-  const [stores, setStores] = useState<{ id: string; name: string }[]>([])
+  const [stores, setStores] = useState<{ id: string; name: string; is_warehouse?: boolean }[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
@@ -31,7 +34,7 @@ export function UsersManager() {
 
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
-  const [formRole, setFormRole] = useState('seller')
+  const [formRoles, setFormRoles] = useState<Role[]>(['seller'])
   const [formStoreId, setFormStoreId] = useState('')
   const [formPassword, setFormPassword] = useState('')
   const [formSendEmail, setFormSendEmail] = useState(true)
@@ -47,7 +50,7 @@ export function UsersManager() {
   useEffect(() => { loadUsers() }, [])
   useEffect(() => {
     fetch('/api/stores').then(r => r.json()).then(d => {
-      if (Array.isArray(d)) setStores(d.filter((s: any) => !s.is_warehouse))
+      if (Array.isArray(d)) setStores(d)
     }).catch(() => {})
   }, [])
 
@@ -60,7 +63,7 @@ export function UsersManager() {
 
   const openNew = () => {
     setEditing(null)
-    setFormName(''); setFormEmail(''); setFormRole('seller')
+    setFormName(''); setFormEmail(''); setFormRoles(['seller'])
     setFormStoreId(''); setFormSendEmail(true); setReturnedPassword('')
     genPassword()
     setDialogOpen(true)
@@ -70,7 +73,7 @@ export function UsersManager() {
     setEditing(u)
     setFormName(u.display_name || '')
     setFormEmail(u.email || '')
-    setFormRole(u.role || 'seller')
+    setFormRoles(rolesOf(u))
     setFormStoreId(u.store_id || '')
     setFormPassword('')
     setFormSendEmail(false)
@@ -86,8 +89,8 @@ export function UsersManager() {
     const body: any = {
       display_name: formName,
       email: formEmail,
-      role: formRole,
-      store_id: formRole === 'seller' ? formStoreId : null,
+      roles: formRoles,
+      store_id: needsStore(formRoles) ? formStoreId : null,
       send_email: formSendEmail,
     }
     if (formPassword) body.password = formPassword
@@ -124,7 +127,8 @@ export function UsersManager() {
     setTimeout(() => setToast(''), 2000)
   }
 
-  const roleLabel: Record<string, string> = { admin: 'Админ', seller: 'Продавач' }
+  const toggleRole = (r: Role, on: boolean) =>
+    setFormRoles(prev => sortRoles(on ? [...prev, r] : prev.filter(x => x !== r)))
 
   if (loading) return <div className="p-4 text-muted-foreground">Зареждане...</div>
 
@@ -137,14 +141,15 @@ export function UsersManager() {
         <CardTitle className="text-lg">Потребители</CardTitle>
         <Button size="sm" onClick={openNew}><Plus className="mr-1.5 h-4 w-4" />Добави</Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        <Hint>Отметнете ролите на всеки човек: един човек може да има няколко и вижда всичко, което му дават те.</Hint>
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Име</th>
                 <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Имейл</th>
-                <th className="text-center px-4 py-3 font-medium">Роля</th>
+                <th className="text-left px-4 py-3 font-medium">Роли</th>
                 <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Магазин</th>
                 <th className="text-center px-4 py-3 font-medium">Статус</th>
                 <th className="w-10" />
@@ -155,10 +160,12 @@ export function UsersManager() {
                 <tr key={u.id} className="border-b last:border-0 hover:bg-slate-50/50">
                   <td className="px-4 py-3 font-medium">{u.display_name}</td>
                   <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{u.email}</td>
-                  <td className="px-4 py-3 text-center">
-                    <Badge variant="secondary" className={`text-[10px] ${u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {roleLabel[u.role] || u.role}
-                    </Badge>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {rolesOf(u).map(r => (
+                        <Badge key={r} variant="secondary" className={`text-[10px] ${ROLE_TONE[r]}`}>{ROLE_LABEL[r]}</Badge>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                     {stores.find(s => s.id === u.store_id)?.name || '—'}
@@ -203,29 +210,34 @@ export function UsersManager() {
                 <Label className="text-xs">Имейл</Label>
                 <Input value={formEmail} onChange={e => setFormEmail(e.target.value)} className="h-9" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <fieldset className="space-y-1">
+                <legend className="text-xs font-medium">Роли <span className="font-normal text-muted-foreground">(може няколко)</span></legend>
+                <div className="divide-y rounded-lg border">
+                  {ROLES.map(r => (
+                    <label key={r} className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-slate-50" data-testid={`role-${r}`}>
+                      <input type="checkbox" className="mt-1 h-4 w-4" checked={formRoles.includes(r)}
+                        onChange={e => toggleRole(r, e.target.checked)} />
+                      <span>
+                        <span className="block text-sm font-medium">{ROLE_LABEL[r]}</span>
+                        <Meta as="span" className="block">{ROLE_HINT[r]}</Meta>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {formRoles.length === 0 && <Note tone="danger" small>Изберете поне една роля.</Note>}
+              </fieldset>
+              {needsStore(formRoles) && (
                 <div className="space-y-1">
-                  <Label className="text-xs">Роля</Label>
-                  <Select value={formRole} onValueChange={v => setFormRole(v)}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <Label className="text-xs">Магазин</Label>
+                  <Select value={formStoreId} onValueChange={setFormStoreId}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Изберете магазина, в който работи" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Админ</SelectItem>
-                      <SelectItem value="seller">Продавач</SelectItem>
+                      {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <Hint small>Касата се отваря на този магазин. Ако човекът замества другаде, касата пита веднъж на ден.</Hint>
                 </div>
-                {formRole === 'seller' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Магазин</Label>
-                    <Select value={formStoreId} onValueChange={setFormStoreId}>
-                      <SelectTrigger className="h-9"><SelectValue placeholder="Избери" /></SelectTrigger>
-                      <SelectContent>
-                        {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
+              )}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs">Парола</Label>
@@ -247,21 +259,21 @@ export function UsersManager() {
                 </label>
               )}
               {returnedPassword && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs text-amber-700 font-medium mb-1">Парола — копирай преди да затвориш</p>
+                <Note tone="warn">
+                  <p className="font-medium mb-1">Парола: копирайте я, преди да затворите</p>
                   <div className="flex items-center gap-2">
                     <code className="text-sm font-bold bg-white px-2 py-1 rounded border">{returnedPassword}</code>
                     <Button size="sm" variant="outline" onClick={copyPassword}>
                       <Copy className="mr-1 h-3 w-3" />Копирай
                     </Button>
                   </div>
-                </div>
+                </Note>
               )}
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => { setDialogOpen(false); setReturnedPassword('') }}>
                   Отказ
                 </Button>
-                <Button onClick={save} disabled={saving}>
+                <Button onClick={save} disabled={saving || formRoles.length === 0 || (needsStore(formRoles) && !formStoreId)}>
                   {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                   {editing ? 'Запази' : 'Създай'}
                 </Button>
@@ -272,4 +284,12 @@ export function UsersManager() {
       </CardContent>
     </Card>
   )
+}
+
+const ROLE_TONE: Record<Role, string> = {
+  admin: 'bg-purple-100 text-purple-800',
+  office: 'bg-amber-100 text-amber-800',
+  seller: 'bg-blue-100 text-blue-800',
+  driver: 'bg-emerald-100 text-emerald-800',
+  accountant: 'bg-slate-200 text-slate-800',
 }

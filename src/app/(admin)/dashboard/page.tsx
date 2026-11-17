@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { SalesChart, TopProductsChart } from './charts'
 import { StoreSalesSection } from './store-sales-section'
 import { sofiaToday } from '@/lib/date-utils'
+import { fetchAll } from '@/lib/fetch-all'
 
 export default async function DashboardPage() {
   await requireAdmin()
@@ -14,6 +15,18 @@ export default async function DashboardPage() {
   const today = sofiaToday()
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+
+  // Every sales total here pages through the whole period. A plain select is
+  // capped at 1000 rows by PostgREST, and 30 days hold more than that (1468
+  // sales on 9 November 2026), so the month, top products and per-store
+  // figures were summed from about two thirds of the sales.
+  const salesSince = async (from: string, columns: string) => ({
+    data: await fetchAll<any>(() => (supabase.from('sales') as any)
+      .select(columns)
+      .gte('sale_date', from)
+      .eq('voided', false)
+      .order('id')),
+  })
 
   const [
     { count: totalProducts },
@@ -31,12 +44,12 @@ export default async function DashboardPage() {
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'inactive').eq('inactive_reason', 'ordered'),
     supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active').lte('quantity_on_hand', 5),
-    supabase.from('sales').select('quantity, sale_price').gte('sale_date', today).eq('voided', false),
-    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', monthAgo).order('sale_date').eq('voided', false),
-    supabase.from('sales').select('quantity, sale_price, product:products(name)').gte('sale_date', monthAgo).eq('voided', false),
-    supabase.from('sales').select('quantity, sale_price, sale_date').gte('sale_date', weekAgo).order('sale_date').eq('voided', false),
+    salesSince(today, 'quantity, sale_price'),
+    salesSince(monthAgo, 'quantity, sale_price, sale_date'),
+    salesSince(monthAgo, 'quantity, sale_price, product:products(name)'),
+    salesSince(weekAgo, 'quantity, sale_price, sale_date'),
     supabase.from('stores').select('id, name, is_warehouse').eq('is_active', true).order('name'),
-    supabase.from('sales').select('quantity, sale_price, store_id').gte('sale_date', monthAgo).eq('voided', false),
+    salesSince(monthAgo, 'quantity, sale_price, store_id'),
   ])
 
   const sumReducer = (sum: number, s: any) => sum + s.quantity * Number(s.sale_price)
@@ -85,7 +98,7 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-bold tracking-tight">Табло</h1>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Продукти</CardTitle>
@@ -132,9 +145,33 @@ export default async function DashboardPage() {
 
       </div>
 
-      {/* Store revenue KPIs */}
+      {/* Store revenue: on a phone one card with a row per store (name, bar, sum) */}
+      {nonWarehouseStores.length > 0 && (() => {
+        const rows = nonWarehouseStores.map((store: any) => ({ id: store.id as string, name: store.name as string, revenue: Math.round((storeRevenue[store.id] || 0) * 100) / 100 }))
+        const top = Math.max(1, ...rows.map(r => r.revenue))
+        return (
+          <Card className="sm:hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Оборот по магазини, 30 дни</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2.5">
+              {rows.map(r => (
+                <div key={r.id}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="truncate">{r.name}</span>
+                    <span className="shrink-0 font-semibold tabular-nums">{r.revenue.toFixed(0)} €</span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                    <div className="h-1.5 rounded-full bg-primary" style={{ width: `${Math.round((r.revenue / top) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )
+      })()}
       {nonWarehouseStores.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {nonWarehouseStores.map((store: any) => {
             const revenue = Math.round((storeRevenue[store.id] || 0) * 100) / 100
             return (

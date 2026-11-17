@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { homePath } from '@/lib/roles'
 
 export async function POST(request: Request) {
   try {
@@ -13,13 +14,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
     const { data: { user } } = await supabase.auth.getUser()
+    // '*': before migration 20261112_user_roles there is no roles column.
     const { data: profile } = await supabase
       .from('users')
-      .select('role')
+      .select('*')
       .eq('id', user!.id)
-      .returns<{ role: 'admin' | 'seller' }[]>()
+      .returns<{ role: 'admin' | 'seller'; roles?: string[] }[]>()
       .single()
-    const redirectTo = profile?.role === 'admin' ? '/dashboard' : '/record-sale'
+    const redirectTo = homePath(profile)
     return NextResponse.json({ success: true, redirectTo })
   } catch {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 })

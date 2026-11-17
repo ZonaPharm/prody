@@ -15,14 +15,17 @@ import { STATUS_LABELS, STATUS_VARIANTS } from '@/lib/constants'
 import { logAction } from '@/lib/audit'
 import { ProductInventoryTab } from '@/components/inventory/product-inventory-tab'
 import { PushToWpButton } from '@/components/products/push-to-wp-button'
+import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
+import { getProductDeliveries, type ProductDeliveryLine } from '@/lib/deliveries/queries'
+import { DeliveriesList, LatestDelivery } from '@/components/deliveries/product-deliveries'
 
 interface PageProps {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ restock?: string; qty?: string; cost?: string }>
+  searchParams: Promise<{ restock?: string; qty?: string; cost?: string; tab?: string }>
 }
 
 export default async function ProductDetailPage({ params, searchParams }: PageProps) {
-  await requireAdmin()
+  const user = await requireAdmin()
 
   const { id } = await params
   const sp = await searchParams
@@ -47,6 +50,18 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
     .select('id, name, is_warehouse')
     .eq('is_active', true)
     .order('name')
+
+  // "Доставки": where each recent lot of this product is now (received, labelled,
+  // waiting for a trip, on the way, accepted). Only where the Deliveries menu is on.
+  // The page shows the latest one; all of them are in the "Доставки" tab.
+  const deliveriesOn = deliveriesEnabledFor(user.email)
+  const deliveryLines: ProductDeliveryLine[] = deliveriesOn
+    ? await getProductDeliveries(supabase, id, 50).catch(() => [])
+    : []
+  const storeNames = new Map<string, string>(((stores || []) as any[]).map(s => [s.id, s.name]))
+  const warehouseName = ((stores || []) as any[]).find(s => s.is_warehouse)?.name ?? 'Офис'
+  const storeName = (sid: string) => storeNames.get(sid) ?? '?'
+  const initialTab = sp.tab === 'deliveries' || sp.tab === 'movements' ? sp.tab : 'stock'
 
   const statusColors = STATUS_VARIANTS[product.status] || STATUS_VARIANTS.inactive
   const statusLabel = STATUS_LABELS[product.status] || product.status
@@ -95,7 +110,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
             {product.category?.name || 'Без категория'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-start gap-2 sm:justify-end">
           <PushToWpButton
             productId={product.id}
             wpTitle={(product as any).wp_title ?? null}
@@ -124,10 +139,10 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)] gap-6">
         {/* Images */}
-        <div className="lg:col-span-1 space-y-4">
-          <div className="aspect-square bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden">
+        <div className="space-y-4">
+          <div className={`${primaryImage ? 'aspect-square' : 'h-32 lg:h-48'} bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden`}>
             {primaryImage ? (
               <img
                 src={getImageSrc(primaryImage.url)}
@@ -160,13 +175,13 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
         </div>
 
         {/* Details + Description merged */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Детайли</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Цена</p>
                   <p className="font-medium">
@@ -229,6 +244,23 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
             </CardContent>
           </Card>
 
+          {deliveryLines.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Последна доставка: къде е стоката</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LatestDelivery
+                  line={deliveryLines[0]}
+                  total={deliveryLines.length}
+                  allHref={`/catalog/${product.id}?tab=deliveries#product-stock`}
+                  storeName={storeName}
+                  warehouseName={warehouseName}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {(() => {
             const label = Array.isArray(product.labels) ? product.labels[0] : null
             if (!label) return null
@@ -263,6 +295,11 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
           autoRestock={sp.restock === '1'}
           initialQty={sp.qty ? parseInt(sp.qty) : undefined}
           initialCost={sp.cost ? parseFloat(sp.cost) : undefined}
+          initialTab={initialTab}
+          deliveries={deliveriesOn ? {
+            count: deliveryLines.length,
+            node: <DeliveriesList lines={deliveryLines} storeName={storeName} warehouseName={warehouseName} />,
+          } : undefined}
         />
       </div>
     </div>

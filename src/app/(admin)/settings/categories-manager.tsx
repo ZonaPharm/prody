@@ -84,7 +84,7 @@ export function CategoriesManager() {
         </div>
       )}
 
-      <div className="flex gap-2 items-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="text-sm font-medium mb-1 block">Име на категория</label>
           <Input
@@ -93,7 +93,7 @@ export function CategoriesManager() {
             placeholder="Нова категория"
           />
         </div>
-        <div className="w-64">
+        <div className="sm:w-64">
           <label className="text-sm font-medium mb-1 block">Родителска категория</label>
           <Select
             value={parentId || 'none'}
