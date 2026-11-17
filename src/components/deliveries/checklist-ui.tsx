@@ -89,7 +89,7 @@ export function ChecklistSteps({ steps }: { steps: React.ReactNode[] }) {
       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700">
         <Lightbulb className="h-3.5 w-3.5" aria-hidden />Как става
       </p>
-      <ol className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+      <ol className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
         {steps.map((step, i) => (
           <li key={i} className="flex gap-2">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-[11px] font-semibold text-white">{i + 1}</span>

@@ -40,14 +40,14 @@ export function OrdersList({ rows, filter }: { rows: OrderListRow[]; filter: Ord
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
-        <div className="flex sm:inline-flex rounded-lg border bg-white p-0.5 overflow-x-auto">
+        <div className="grid grid-cols-2 gap-0.5 sm:inline-flex rounded-lg border bg-white p-0.5">
           {TABS.map(t => (
             <button
               key={t.value}
               type="button"
               onClick={() => router.push(t.value === 'open' ? '/deliveries/orders' : `/deliveries/orders?filter=${t.value}`)}
               className={cn(
-                'flex-1 sm:flex-none whitespace-nowrap px-3 py-2 sm:py-1.5 text-sm rounded-md',
+                'whitespace-nowrap px-3 py-2 sm:py-1.5 text-sm rounded-md',
                 filter === t.value ? 'bg-primary text-primary-foreground' : 'text-slate-600 hover:bg-slate-100',
               )}
             >

@@ -70,7 +70,7 @@ export function DeliveriesList({ lines, storeName, warehouseName }: Names & { li
         {lines.map(l => {
           const w = whereabouts(l, l.ship_lines)
           return (
-            <li key={l.item_id} className="grid gap-2 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-6">
+            <li key={l.item_id} className="grid grid-cols-1 gap-2 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-6">
               <Meta l={l} stacked />
               {w.parts.some(p => p.store_id) ? (
                 <details className="group">

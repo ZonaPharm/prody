@@ -97,7 +97,7 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
         <section className="space-y-2">
           <h2 className="font-semibold">Подготвят се в Офис ({upcoming.length})</h2>
           <p className="text-sm text-muted-foreground">Офис вече подготвя тази стока за Вас: опакова я, после шофьорът я кара. Не я заявявайте отново. Влиза в наличността Ви, когато шофьорът тръгне.</p>
-          <ul className="grid gap-2 md:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {upcoming.map(r => (
               <li key={r.id} className="rounded-lg border bg-white px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -114,7 +114,7 @@ export default async function MyShipmentsPage({ searchParams }: { searchParams: 
         </section>
       )}
 
-      <div className={cn('grid items-start gap-4', done.length > 0 && 'xl:grid-cols-2')}>
+      <div className={cn('grid grid-cols-1 items-start gap-4', done.length > 0 && 'xl:grid-cols-2')}>
       {storeId && (
         <section className="space-y-2">
           <h2 className="font-semibold">Чакат потвърждение ({waiting.length})</h2>

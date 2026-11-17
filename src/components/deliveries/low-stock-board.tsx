@@ -188,7 +188,7 @@ export function LowStockBoard({ rows, officeFree, office, trips, sales }: {
         </Empty>
       )}
 
-      <div className={cn('grid gap-4', groups.length > 1 && 'xl:grid-cols-2')}>
+      <div className={cn('grid grid-cols-1 gap-4', groups.length > 1 && 'xl:grid-cols-2')}>
         {groups.map(g => {
           const sendable = g.rows.filter(r => r.suggest > 0)
           const allPicked = sendable.length > 0 && sendable.every(r => picked[keyOf(r)])
