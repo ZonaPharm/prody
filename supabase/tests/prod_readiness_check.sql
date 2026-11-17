@@ -61,6 +61,11 @@ checks as (
             where nullif(btrim(barcode), '') is not null
             group by 1 having count(*) > 1 order by 1 limit 20) d) as detail
   union all
+  -- Снимката преди пускането (00b) удвоява данните; Free планът дава 500 MB.
+  select 0, 1, 'място за снимката: базата е под 200 MB',
+         pg_database_size(current_database()) < 200 * 1024 * 1024,
+         pg_size_pretty(pg_database_size(current_database()))
+  union all
   select 1 as grp, m.ord as ord, 'миграция ' || m.name as what, m.present as ok, null::text as detail
   from migrations m
   union all
