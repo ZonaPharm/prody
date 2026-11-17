@@ -9,7 +9,8 @@
 import sharp from 'sharp'
 import * as XLSX from 'xlsx'
 
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+/** Same as MAX_UPLOAD_BYTES in uploads.ts (kept apart so this file has no server-only imports). */
+export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 /** Text taken from a document is cut here, so one invoice cannot fill the conversation. */
 export const MAX_DOCUMENT_CHARS = 60_000
 
@@ -37,7 +38,7 @@ function clipText(text: string): { text: string; truncated: boolean } {
 }
 
 export async function readAttachment(name: string, type: string, bytes: Uint8Array): Promise<Attachment> {
-  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new AttachmentError('Файлът е над 10 MB. Снимайте или изрежете само нужното.')
+  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new AttachmentError('Файлът е над 20 MB. Пратете само нужните страници.')
   const kind = attachmentKind(name, type)
   if (!kind) throw new AttachmentError('Този вид файл не се чете. Пратете снимка (JPG, PNG), PDF, Excel или CSV.')
 

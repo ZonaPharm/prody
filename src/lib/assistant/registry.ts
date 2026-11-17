@@ -1,11 +1,13 @@
 /**
  * All the assistant's tools in one list: the read-only ones (tools.ts), then
- * the ones that prepare proposals and files (actions.ts).
+ * the ones that prepare proposals and files (actions.ts), then product pages
+ * and photos (product-media.ts).
  */
 import { ACTION_TOOLS } from './actions'
+import { MEDIA_TOOLS } from './product-media'
 import { READ_TOOLS, definitionsOf, runToolIn, statusIn, type ToolContext } from './tools'
 
-export const ASSISTANT_TOOLS = [...READ_TOOLS, ...ACTION_TOOLS]
+export const ASSISTANT_TOOLS = [...READ_TOOLS, ...ACTION_TOOLS, ...MEDIA_TOOLS]
 
 export function toolDefinitions() {
   return definitionsOf(ASSISTANT_TOOLS)

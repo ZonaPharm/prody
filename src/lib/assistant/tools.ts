@@ -42,6 +42,10 @@ export type ActContext = {
   deliveries: boolean
   /** Shows a card on the screen as soon as it is ready. */
   emit: (card: unknown) => void
+  /** The photo attached to this question (JPEG, at most 2000 px), for propose_product_image. */
+  image?: { name: string; bytes: Uint8Array }
+  /** Supabase Storage (service role), for the photo waiting on its card. */
+  storage?: any
 }
 
 type Names = { store: (id: string | null | undefined) => string | null; person: (id: string | null | undefined) => string | null }

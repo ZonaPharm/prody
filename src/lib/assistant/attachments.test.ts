@@ -35,7 +35,7 @@ describe('readAttachment', () => {
   })
   it('an unknown or too big file is refused with a reason', async () => {
     await expect(readAttachment('f.exe', '', new Uint8Array(3))).rejects.toBeInstanceOf(AttachmentError)
-    await expect(readAttachment('f.jpg', 'image/jpeg', new Uint8Array(11 * 1024 * 1024))).rejects.toThrow('10 MB')
+    await expect(readAttachment('f.jpg', 'image/jpeg', new Uint8Array(21 * 1024 * 1024))).rejects.toThrow('20 MB')
   })
   it('the text of a PDF goes to the model as text', async () => {
     // A one-page PDF with one line of text.

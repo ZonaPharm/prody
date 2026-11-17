@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { CheckCircle2, FileDown, FileSpreadsheet, FileText, Loader2, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Hint, Meta, Note } from '@/components/ui/text'
 import { LABEL_KINDS, LABEL_KIND_LABEL } from '@/lib/label-kind'
 import { PRODUCT_FIELDS, fieldValueText, type ActionCard, type ProductField } from '@/lib/assistant/cards'
 import { cn } from '@/lib/utils'
+import { getImageSrc } from '@/lib/images'
 
 const euro = (v: number | null | undefined) => (v == null ? '—' : `${Number(v).toFixed(2).replace('.', ',')} €`)
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s.replace(',', '.')))
@@ -19,6 +21,7 @@ const CONFIRM_LABEL: Record<string, string> = {
   supplier_order: 'Създай чернова на поръчка',
   product_create: 'Създай продукта',
   product_update: 'Запиши промените',
+  product_image: 'Добави снимката',
 }
 
 /**
@@ -64,6 +67,7 @@ export function ActionCardView({ card: initial }: { card: ActionCard }) {
       {card.kind === 'supplier_order' && <OrderBody card={card} open={open} busy={busy} onConfirm={p => decide('confirm', p)} />}
       {card.kind === 'product_create' && <NewProductBody card={card} open={open} busy={busy} onConfirm={p => decide('confirm', p)} />}
       {card.kind === 'product_update' && <ChangeBody card={card} open={open} busy={busy} onConfirm={p => decide('confirm', p)} />}
+      {card.kind === 'product_image' && <ImageBody card={card} open={open} busy={busy} onConfirm={p => decide('confirm', p)} />}
       {error && <Note tone="danger" small className="mt-2">{error}</Note>}
       {open && (
         <Button type="button" variant="ghost" size="sm" onClick={() => decide('dismiss')} disabled={busy} className="mt-1 h-9 w-full rounded-full text-slate-500 sm:w-auto">
@@ -263,7 +267,18 @@ function ChangeBody({ card, open, busy, onConfirm }: BodyProps) {
   return (
     <>
       <ul className="divide-y rounded-md border">
-        {fields.map(f => (
+        {fields.map(f => f === 'description' ? (
+          <li key={f} className={cn('space-y-1.5 px-2 py-2', !keep[f] && 'opacity-50')}>
+            <div className="flex items-center gap-2">
+              {open && <Checkbox checked={keep[f]} onCheckedChange={v => setKeep(k => ({ ...k, [f]: v === true }))} aria-label={PRODUCT_FIELDS[f]} />}
+              <span className="text-xs text-slate-600">{PRODUCT_FIELDS[f]}</span>
+            </div>
+            {diff[f]![0] ? <p className="line-clamp-2 text-xs text-slate-500 line-through">{String(diff[f]![0])}</p> : <Meta>Досега без описание</Meta>}
+            {open
+              ? <Textarea value={values[f]} onChange={e => setValues(v => ({ ...v, [f]: e.target.value }))} rows={6} maxLength={5000} className="text-sm" />
+              : <p className="whitespace-pre-line">{String(diff[f]![1] ?? '—')}</p>}
+          </li>
+        ) : (
           <li key={f} className={cn('flex flex-wrap items-center gap-2 px-2 py-2', !keep[f] && 'opacity-50')}>
             {open && <Checkbox checked={keep[f]} onCheckedChange={v => setKeep(k => ({ ...k, [f]: v === true }))} aria-label={PRODUCT_FIELDS[f]} />}
             <span className="w-36 shrink-0 text-xs text-slate-600">{PRODUCT_FIELDS[f]}</span>
@@ -280,6 +295,31 @@ function ChangeBody({ card, open, busy, onConfirm }: BodyProps) {
           after: Object.fromEntries(chosen.map(f => [f, valueOf(f)])),
         })} />
       )}
+    </>
+  )
+}
+
+/** A photo for a product: the picture itself, and whether it becomes the main one. */
+function ImageBody({ card, open, busy, onConfirm }: BodyProps) {
+  const p = card.payload
+  const [main, setMain] = useState<boolean>(!!p.main)
+  const first = !p.image_count
+  const src = card.status === 'done' && card.result?.image_url ? getImageSrc(card.result.image_url) : open ? `/api/assistant/actions/${card.id}/image` : null
+  return (
+    <>
+      {src
+        ? <img src={src} alt={`Снимка за ${p.product_name}`} className="max-h-72 w-full rounded-md border bg-slate-50 object-contain" />
+        : <Meta>Снимката не е добавена и не се пази.</Meta>}
+      <Meta className="mt-1">
+        {p.width && p.height ? `${p.width}×${p.height} px · ` : ''}{first ? 'Продуктът още няма снимки.' : `Продуктът има ${p.image_count} ${p.image_count === 1 ? 'снимка' : 'снимки'}.`}
+      </Meta>
+      {open && !first && (
+        <label className="mt-2 flex items-center gap-2">
+          <Checkbox checked={main} onCheckedChange={v => setMain(v === true)} />
+          <span>Да е главната снимка (тя се вижда в каталога и в касата)</span>
+        </label>
+      )}
+      {open && <ConfirmButton kind={card.kind} busy={busy} onClick={() => onConfirm({ main: first || main })} />}
     </>
   )
 }

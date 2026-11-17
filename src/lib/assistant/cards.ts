@@ -4,7 +4,7 @@
  */
 import { LABEL_KIND_LABEL } from '@/lib/label-kind'
 
-export const ACTION_KINDS = ['delivery_draft', 'supplier_order', 'product_create', 'product_update', 'excel', 'document'] as const
+export const ACTION_KINDS = ['delivery_draft', 'supplier_order', 'product_create', 'product_update', 'product_image', 'excel', 'document'] as const
 export type ActionKind = (typeof ACTION_KINDS)[number]
 
 export type ActionCard = {

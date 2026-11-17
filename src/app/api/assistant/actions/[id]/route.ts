@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { assistantAccess } from '@/lib/assistant/access'
 import { deliveriesEnabledFor } from '@/lib/deliveries/feature'
 import { cardOf, ownAction } from '@/lib/assistant/store'
+import { removePending } from '@/lib/assistant/uploads'
 import { confirmSchemas, execute, isConfirmable, withinProposal } from '@/lib/assistant/execute'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const release = () => (db.from('ai_actions') as any).update({ status: 'proposed', done_at: null, done_by: null }).eq('id', id)
 
   if (status === 'dismissed') {
+    // A photo nobody wants is not kept.
+    if (kind === 'product_image') await removePending(db.storage as any, action.payload?.pending_path)
     return NextResponse.json({ card: { ...cardOf(action), status } })
   }
 

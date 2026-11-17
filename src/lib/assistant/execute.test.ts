@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { confirmSchemas, execute, withinProposal } from './execute'
-import { fakeDb, type Query } from './fake-db'
+import { fakeDb, fakeStorage, type Query } from './fake-db'
 
 const P1 = '11111111-1111-4111-8111-111111111111'
 const P2 = '22222222-2222-4222-8222-222222222222'
@@ -94,5 +94,50 @@ describe('execute', () => {
       'product_update', { after: { label_kind: 'price' } })
     expect(r.ok).toBe(true)
     expect(f.queries[0].calls).toContainEqual(['update', { label_kind: 'price', needs_label: false }])
+  })
+})
+
+describe('execute: product photo', () => {
+  const PENDING = 'pending/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.webp'
+  const imageCard = { id: 'a9', kind: 'product_image' as const, title: 't', status: 'proposed' as const, result: null,
+    payload: { product_id: P1, product_name: 'Магнезий', pending_path: PENDING, main: false, image_count: 1 } }
+
+  function setupImage(existing: any[]) {
+    const storage = fakeStorage({ [`ai-uploads/${PENDING}`]: new Uint8Array([7, 7, 7]) })
+    const f = fakeDb((q: Query) => {
+      if (q.table === 'products') return [{ id: P1, name: 'Магнезий' }]
+      if (q.table === 'product_images') return q.calls.some(c => c[0] === 'insert') ? [{ id: 'img-new' }] : existing
+      return []
+    })
+    ;(f.db as any).storage = storage
+    return { db: f.db, storage, queries: f.queries }
+  }
+
+  it('copies the photo to the product, deletes the waiting copy, keeps the main photo', async () => {
+    const s = setupImage([{ id: 'img-old', is_primary: true, sort_order: 0 }])
+    const out = await execute(s.db, actor, imageCard as any, 'product_image', { main: false })
+    expect(out.ok).toBe(true)
+    const keys = [...s.storage.files.keys()]
+    expect(keys).toHaveLength(1)
+    expect(keys[0]).toMatch(new RegExp(`^products/${P1}/ai-[0-9a-f-]{36}\\.webp$`))
+    const ins = s.queries.find(q => q.table === 'product_images' && q.calls.some(c => c[0] === 'insert'))!.calls.find(c => c[0] === 'insert')![1] as any
+    expect(ins).toMatchObject({ product_id: P1, is_primary: false, sort_order: 1 })
+    expect(ins.url).toContain(`/products/${P1}/ai-`)
+    expect(s.queries.some(q => q.table === 'product_images' && q.calls.some(c => c[0] === 'update'))).toBe(false)
+    if (out.ok) expect(out.result.image_url).toBe(ins.url)
+  })
+  it('as the main photo: the others stop being main only after it is saved', async () => {
+    const s = setupImage([{ id: 'img-old', is_primary: true, sort_order: 0 }])
+    const out = await execute(s.db, actor, imageCard as any, 'product_image', { main: true })
+    expect(out.ok).toBe(true)
+    const tables = s.queries.filter(q => q.table === 'product_images').map(q => q.calls.map(c => c[0]).find(c => ['insert', 'update'].includes(c as string)) ?? 'select')
+    expect(tables).toEqual(['select', 'insert', 'update', 'update'])
+  })
+  it('a photo that is gone (older than a day) gives a plain message', async () => {
+    const s = setupImage([])
+    s.storage.files.clear()
+    const out = await execute(s.db, actor, imageCard as any, 'product_image', { main: false })
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.error).toContain('Прикачете я отново')
   })
 })
