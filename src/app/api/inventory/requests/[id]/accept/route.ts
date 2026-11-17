@@ -47,6 +47,6 @@ export async function POST(
       body: '🟢 Заявката е приета — в процес на подготовка',
     })
   } catch {}
-  await logAction({ action: 'request_accept', userId: user.id, entityType: 'stock_request', entityId: id }, admin)
+  await logAction({ action: 'request_accept', userId: user.id, entityType: 'stock_request', entityId: id })
   return NextResponse.json({ success: true })
 }

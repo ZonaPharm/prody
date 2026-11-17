@@ -37,6 +37,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: 'trip',
     entityId: id,
     details: `${formatTripNumber(data?.number)}: добавени ${data?.units ?? 0} бр.`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true, ...data })
 }

@@ -41,6 +41,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: 'trip',
     entityId: id,
     details: `Шофьор ${plan.driver_id ?? '—'}, ${whenText(plan.planned_date, plan.planned_time, sofiaToday())}`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true })
 }

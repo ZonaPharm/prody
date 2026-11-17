@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     entityType: 'sale',
     entityId: sale_id,
     details: `Сторнирана продажба: ${sale.quantity} бр. от ${sale.product_id}`,
-  }, admin)
+  })
 
   return NextResponse.json({ success: true, voided: true })
 }

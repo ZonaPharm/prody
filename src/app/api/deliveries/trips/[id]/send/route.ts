@@ -45,6 +45,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: 'trip',
     entityId: id,
     details: `Шофьор ${driver.display_name}: ${data?.shipments ?? 0} пратки, ${data?.units ?? 0} бр.`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true, ...data })
 }

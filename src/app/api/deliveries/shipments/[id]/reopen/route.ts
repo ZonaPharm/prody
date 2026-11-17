@@ -20,6 +20,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     userName: gate.user.display_name,
     entityType: 'shipment',
     entityId: id,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true })
 }

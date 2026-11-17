@@ -36,6 +36,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     entityType: 'supplier',
     entityId: id,
     details: JSON.stringify(body.data),
-  }, gate.supabase as any)
+  })
   return NextResponse.json(data)
 }

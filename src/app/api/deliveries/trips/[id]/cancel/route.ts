@@ -29,6 +29,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: 'trip',
     entityId: id,
     details: body.data.reason,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true })
 }

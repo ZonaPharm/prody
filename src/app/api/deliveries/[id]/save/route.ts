@@ -22,6 +22,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     entityType: 'delivery',
     entityId: id,
     details: formatDeliveryNumber(number),
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true, number })
 }

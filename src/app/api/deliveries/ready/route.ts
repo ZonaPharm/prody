@@ -39,6 +39,6 @@ export async function POST(request: Request) {
     userName: gate.user.display_name,
     entityType: 'delivery',
     details: `${data?.labelled ?? 0} бр. етикетирани, ${data?.ready ?? 0} бр. готови за магазините${signals.length ? `, ${signals.length} сигнала` : ''}`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true, ...data })
 }

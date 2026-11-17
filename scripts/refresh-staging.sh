@@ -243,6 +243,15 @@ CREATE TRIGGER on_auth_user_created
 -- SMTP password and recipient list, so a report sent from a preview deploy
 -- would reach them. Clearing both stops every outgoing message.
 UPDATE public.email_settings SET smtp_pass = NULL, recipients = '[]'::jsonb;
+-- The same for the error alerts (migration 20261117_app_errors), when production has them.
+DO $do$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
+               AND table_name = 'email_settings' AND column_name = 'error_alert_to') THEN
+    EXECUTE $q$UPDATE public.email_settings SET error_alert_to = '[]'::jsonb$q$;
+  END IF;
+END
+$do$;
 
 -- PostgREST caches the schema. Dropping it invalidates that cache, and until
 -- it reloads every request fails with PGRST205, which the app surfaces as an

@@ -38,7 +38,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     entityType: 'label_profile',
     entityId: id,
     details: JSON.stringify(body.data),
-  }, gate.supabase as any)
+  })
   return NextResponse.json(profileFromRow(data))
 }
 
@@ -66,6 +66,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     entityType: 'label_profile',
     entityId: id,
     details: data.name,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ ok: true })
 }

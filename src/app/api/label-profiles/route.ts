@@ -39,6 +39,6 @@ export async function POST(request: Request) {
     entityType: 'label_profile',
     entityId: data.id,
     details: data.name,
-  }, gate.supabase as any)
+  })
   return NextResponse.json(profileFromRow(data))
 }

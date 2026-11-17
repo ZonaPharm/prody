@@ -93,6 +93,6 @@ export async function POST(
       body: isPartial ? `⚠️ Потвърдено частично получаване (${actualQty} от ${req.requested_qty} бр.)` : '✅ Потвърдено получаване — заявката е завършена',
     })
   } catch {}
-  await logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` }, admin)
+  await logAction({ action: 'request_confirm', userId: user.id, entityType: 'stock_request', entityId: id, details: `Статус: ${status}` })
   return NextResponse.json({ success: true, status, received_qty: actualQty })
 }

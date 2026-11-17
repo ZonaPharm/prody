@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       distribution: distribution || [],
       notes,
     })
-    await logAction({ action: 'restock', userId: user.id, entityType: 'stock_batch', details: `Заредени ${quantity} бр.` }, supabase)
+    await logAction({ action: 'restock', userId: user.id, entityType: 'stock_batch', details: `Заредени ${quantity} бр.` })
     return NextResponse.json({ success: true, batches: results })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Грешка при зареждане' }, { status: 500 })

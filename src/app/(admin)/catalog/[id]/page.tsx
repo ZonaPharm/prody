@@ -87,7 +87,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
       // If still failing (e.g. sales records exist), show a clear message
       redirect(`/catalog/${productId}?error=${encodeURIComponent(deleteError.message || 'delete_failed')}`)
     }
-    await logAction({ action: 'delete_product', entityType: 'product', entityId: productId, details: product?.name || productId }, supabase)
+    await logAction({ action: 'delete_product', entityType: 'product', entityId: productId, details: product?.name || productId })
     revalidatePath('/catalog')
     redirect('/catalog')
   }

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     entityId: data?.trip_id,
     details: `${formatTripNumber(data?.trip_number)}${data?.new_trip ? ' (нов)' : ''}, ${formatShipmentNumber(data?.shipment_number)}: `
       + `от Офис ${data?.units ?? 0} бр.${data?.reopened ? ', пратката е отворена за ново опаковане' : ''}`,
-  }, gate.supabase as any)
+  })
 
   // The store hears what comes to it (a new trip: its driver too, once chosen).
   // Best effort: never fails the change.

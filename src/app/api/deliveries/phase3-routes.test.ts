@@ -158,7 +158,7 @@ describe('phase 3 delivery routes', () => {
       const res = await tripAddPOST(req({ store_ids: [STORE, STORE] }), params({ id: TRIP }))
       expect(res.status).toBe(200)
       expect(mocks.adminRpc).toHaveBeenCalledWith('add_to_trip', { p_trip_id: TRIP, p_user: ADMIN.id, p_store_ids: [STORE] })
-      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'trip_changed', details: 'К-000012: добавени 7 бр.' }), expect.anything())
+      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'trip_changed', details: 'К-000012: добавени 7 бр.' }))
     })
 
     it('"Добави от Офис": checks the body, calls add_office_stock, returns the touched shipment', async () => {
@@ -177,7 +177,7 @@ describe('phase 3 delivery routes', () => {
       })
       expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({
         action: 'trip_changed', details: 'К-000012, П-000045: от Офис 3 бр., пратката е отворена за ново опаковане',
-      }), expect.anything())
+      }))
       // No trip: a new one.
       await officePOST(req({ store_id: STORE, lines: [{ product_id: PROD, qty: 1 }] }))
       expect(mocks.adminRpc).toHaveBeenLastCalledWith('add_office_stock', expect.objectContaining({ p_trip_id: null }))

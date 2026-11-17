@@ -73,6 +73,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: 'supplier_order',
     entityId: id,
     details: `${formatOrderNumber(order.number)} → ${order.supplier.name}${via === 'email' ? ` (${to.join(', ')})` : ' (сам)'}`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ ...data, to })
 }

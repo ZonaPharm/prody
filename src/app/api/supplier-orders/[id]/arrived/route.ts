@@ -25,7 +25,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       entityType: 'supplier_order',
       entityId: id,
       details: `доставка ${data.delivery_id}`,
-    }, gate.supabase as any)
+    })
   }
   return NextResponse.json(data)
 }

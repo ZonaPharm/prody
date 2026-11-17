@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     entityType: 'sale',
     entityId: saleGroupId,
     details: `Продажба: ${items.length} артикула, плащане ${method}`,
-  }, admin)
+  })
 
   if (fifoFailures.length > 0) {
     await logAction({
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       entityType: 'sale',
       entityId: saleGroupId,
       details: `Наличността не е намалена (партиди и брояч) за ${fifoFailures.length} артикула: ${fifoFailures.join(', ')}`,
-    }, admin)
+    })
   }
 
   return NextResponse.json({ success: true, sale_group_id: saleGroupId, count: items.length })

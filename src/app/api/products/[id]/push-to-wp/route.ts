@@ -188,7 +188,7 @@ export async function POST(
       entityType: 'product',
       entityId: id,
       details: `${title} → WooCommerce #${result.id}`,
-    }, admin)
+    })
 
     return NextResponse.json({
       success: true,

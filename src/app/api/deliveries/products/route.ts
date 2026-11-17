@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     entityType: 'product',
     entityId: data.id,
     details: `${name} (от доставка)`,
-  }, gate.supabase as any)
+  })
 
   const [product] = toDeliveryProducts([data], [], [])
   product.suggested.supplier_id = supplier_id ?? null

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// The activity log writes through the server key, which tests do not have.
+vi.mock('@/lib/audit', () => ({ logAction: vi.fn(async () => {}) }))
+
 import { confirmSchemas, execute, withinProposal } from './execute'
 import { fakeDb, type Query } from './fake-db'
 

@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       entityType: 'stock_correction',
       entityId: correction?.id,
       details: `${product.name} @ ${store.name}: ${systemTotal} → ${actual_quantity} (${diff > 0 ? '+' : ''}${diff}) — ${reason}`,
-    }, supabase)
+    })
 
     return NextResponse.json({
       correction: {

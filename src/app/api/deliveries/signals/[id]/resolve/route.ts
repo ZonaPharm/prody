@@ -33,6 +33,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     entityType: 'delivery_signal',
     entityId: id,
     details: body.data.resolution + (body.data.note ? `: ${body.data.note}` : ''),
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true })
 }
