@@ -5,6 +5,7 @@ import { canSell, homePath } from '@/lib/roles'
 export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAll } from '@/lib/fetch-all'
+import { orderCategoriesByUse } from '@/lib/pos/categories'
 import { POSClient } from '@/components/pos/pos-client'
 import { Product } from '@/components/pos/cart-types'
 import { AlertTriangle } from 'lucide-react'
@@ -212,10 +213,18 @@ export default async function RecordSalePage({ searchParams }: PageProps) {
     }
   }
 
+  // Suppliers (categories) most sold in this store in the last 90 days first:
+  // the till shows them on one line, the rest under "Покажи още".
+  const categoriesByUse = orderCategoriesByUse(
+    (categories || []) as { id: string; name: string }[],
+    new Map((allActiveProducts || []).map((p: TillProduct) => [p.id, p.category_id])),
+    (storeSalesCounts || []).map((s: { product_id: string }) => s.product_id),
+  )
+
   return (
     <POSClient
       products={productsWithImages}
-      categories={(categories || []) as { id: string; name: string }[]}
+      categories={categoriesByUse}
       frequentlySold={frequentlySold}
       stores={stores as Store[]}
       defaultStoreId={defaultStoreId!}

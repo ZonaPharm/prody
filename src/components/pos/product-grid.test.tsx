@@ -8,7 +8,8 @@ import { ProductGrid } from './product-grid'
 // 17.11.2026: after the release the till on a computer showed only the first
 // suppliers (categories) that fit on one line; Панацея and everything after it
 // could not be reached, because the row scrolled sideways with its scrollbar
-// hidden and a mouse cannot swipe.
+// hidden and a mouse cannot swipe. Now: one line, "Покажи още" opens the rest
+// (src/components/pos/category-pills.tsx).
 
 const SUPPLIERS = [
   'Durex/ Bilka', 'Арома', 'Витамаг', 'Зеолитни продукти', 'Зонафарм',
@@ -33,16 +34,22 @@ describe('till categories (suppliers)', () => {
     for (const s of SUPPLIERS) expect(html).toContain(`>${s.name}</button>`)
   })
 
-  it('on a computer wraps onto more lines instead of scrolling out of reach', () => {
+  it('is one line that wraps, never a sideways scroll a mouse cannot reach', () => {
     const cls = categoryRowClasses(render())
-    expect(cls).toContain('lg:flex-wrap')
-    expect(cls).toContain('lg:overflow-visible')
+    expect(cls).toContain('flex-wrap')
+    expect(cls).not.toContain('overflow-x-auto')
   })
 
-  it('on a phone still swipes sideways on one line', () => {
+  it('closed, shows only the first line (the rest under "Покажи още")', () => {
     const cls = categoryRowClasses(render())
-    expect(cls).toContain('overflow-x-auto')
-    expect(cls).not.toContain('flex-wrap')
+    expect(cls).toContain('max-h-10')
+    expect(cls).toContain('overflow-hidden')
+  })
+
+  it('shows the suppliers in the order given (most sold first)', () => {
+    const html = render()
+    const at = SUPPLIERS.map(s => html.indexOf(`>${s.name}</button>`))
+    expect(at).toEqual([...at].sort((a, b) => a - b))
   })
 })
 
