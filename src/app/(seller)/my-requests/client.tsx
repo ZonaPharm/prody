@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { CategoryPills } from '@/components/pos/category-pills'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -281,25 +282,13 @@ export function MyRequestsClient({ products, categories, imageMap, myRequests, a
               </Note>
             )}
 
-            {/* Category pills */}
-            <div className="flex gap-2 overflow-x-auto pb-1 mb-3">
-              <Button
-                variant={selectedCategory === null ? 'default' : 'outline'}
-                size="sm" className="shrink-0 rounded-full"
-                onClick={() => setSelectedCategory(null)}
-              >
-                Всички
-              </Button>
-              {categories.map(cat => (
-                <Button key={cat.id}
-                  variant={selectedCategory === cat.id ? 'default' : 'outline'}
-                  size="sm" className="shrink-0 rounded-full"
-                  onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
-                >
-                  {cat.name}
-                </Button>
-              ))}
-            </div>
+            {/* The suppliers: one line, the rest under "Покажи още"; tapping the picked one again shows all. */}
+            <CategoryPills
+              className="mb-3"
+              categories={categories}
+              selected={selectedCategory}
+              onSelect={id => setSelectedCategory(id !== null && id === selectedCategory ? null : id)}
+            />
 
             {/* Search */}
             <div className="relative mb-4">

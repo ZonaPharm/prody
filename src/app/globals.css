@@ -85,11 +85,16 @@
 }
 
 @layer utilities {
-  /* Horizontal tab rows scroll on a phone without showing a scrollbar. */
-  .no-scrollbar {
-    scrollbar-width: none;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  /* Horizontal tab rows scroll on a phone without showing a scrollbar. Only on
+     touch screens: with a mouse the scrollbar is the only way to reach what
+     is past the edge (on 17.11.2026 suppliers such as Панацея vanished from
+     the till on computers because the row could no longer be scrolled). */
+  @media (hover: none) and (pointer: coarse) {
+    .no-scrollbar {
+      scrollbar-width: none;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
   }
 }

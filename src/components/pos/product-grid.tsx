@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Package, Star, Send, Plus } from 'lucide-react'
 import { Note } from '@/components/ui/text'
+import { CategoryPills } from './category-pills'
 import { Product } from './cart-types'
 import { getImageSrc } from '@/lib/images'
 import { looksLikeCode, matchesCode } from '@/lib/barcodes'
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils'
 
 interface ProductGridProps {
   products: Product[]
+  /** Most sold in the store first (src/lib/pos/categories.ts). */
   categories: { id: string; name: string }[]
   frequentlySold: Product[]
   onAddToCart: (product: Product) => void
@@ -140,28 +142,8 @@ export function ProductGrid({ products, categories, frequentlySold, onAddToCart,
           />
         </div>
 
-        {/* Category pills */}
-        <div className="no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto">
-          <Button
-            variant={selectedCategory === null ? 'default' : 'outline'}
-            size="sm"
-            className="shrink-0 rounded-full"
-            onClick={() => setSelectedCategory(null)}
-          >
-            Всички
-          </Button>
-          {categories.map(cat => (
-            <Button
-              key={cat.id}
-              variant={selectedCategory === cat.id ? 'default' : 'outline'}
-              size="sm"
-              className="shrink-0 rounded-full"
-              onClick={() => setSelectedCategory(cat.id)}
-            >
-              {cat.name}
-            </Button>
-          ))}
-        </div>
+        {/* The suppliers: one line, the rest under "Покажи още". */}
+        <CategoryPills categories={categories} selected={selectedCategory} onSelect={setSelectedCategory} />
       </div>
 
       {notice && (

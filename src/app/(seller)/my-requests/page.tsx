@@ -5,6 +5,7 @@ import { MyRequestsClient } from './client'
 import { deliveriesActive } from '@/lib/deliveries/feature'
 import { getStoreIncomingAll } from '@/lib/deliveries/tasks-data'
 import { incomingByProduct, incomingText } from '@/lib/deliveries/tasks'
+import { orderCategoriesByUse } from '@/lib/pos/categories'
 import { fetchAll, fetchByIds } from '@/lib/fetch-all'
 import { getOfficeStock, notRequestable, notRequestableReason, type OfficeStockMap } from '@/lib/requests/office-stock'
 
@@ -63,7 +64,7 @@ export default async function MyRequestsPage({
   // Products for request form (with images + categories for grid view). A store
   // may ask only for what Офис can send now (free Офис stock): the rest of the
   // catalog is not offered, only named with the reason when searched for.
-  const [catalog, { data: categories }, images, office] = await Promise.all([
+  const [catalog, { data: categories }, images, office, storeSales] = await Promise.all([
     fetchAll<any>(() => (admin.from('products') as any).select('id, name, price, category_id').eq('status', 'active').order('name').order('id')),
     (admin.from('categories') as any).select('id, name').order('name'),
     // All primary pictures, page by page: past 1000 rows PostgREST would cut the list.
@@ -73,6 +74,17 @@ export default async function MyRequestsPage({
       console.error('requests: office stock failed:', e instanceof Error ? e.message : JSON.stringify(e))
       return null as OfficeStockMap | null
     }),
+    // The store's sales of the last 90 days, only to put the suppliers it sells
+    // most first (as on the till). On a failure they stay alphabetical.
+    storeId
+      ? fetchAll<{ product_id: string }>(() => (admin.from('sales') as any)
+        .select('product_id')
+        .eq('store_id', storeId)
+        .eq('voided', false)
+        .gte('sale_date', new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0])
+        .order('id'))
+        .catch((e: unknown) => { console.error('requests: sales for supplier order failed:', e); return [] as { product_id: string }[] })
+      : Promise.resolve([] as { product_id: string }[]),
   ])
   const officeStock: OfficeStockMap = office ?? {}
   const products = catalog
@@ -144,7 +156,11 @@ export default async function MyRequestsPage({
       products={products}
       unavailable={unavailable}
       officeFailed={office === null}
-      categories={(categories || []) as any[]}
+      categories={orderCategoriesByUse(
+        (categories || []) as { id: string; name: string }[],
+        new Map(catalog.map((p: any) => [p.id as string, (p.category_id ?? null) as string | null])),
+        storeSales.map(s => s.product_id),
+      )}
       imageMap={imageMap}
       myRequests={myRequests}
       activeTab={activeTab}
