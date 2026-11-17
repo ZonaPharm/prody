@@ -37,11 +37,11 @@ export const productChangesSchema = z.object({
 })
 export type ProductChanges = z.infer<typeof productChangesSchema>
 
-function noActContext(ctx: ToolContext) {
+export function noActContext(ctx: ToolContext) {
   return ctx.act ? null : { error: 'Тук не може да се подготвят промени.' }
 }
 
-async function storeCard(ctx: ToolContext, kind: ActionKind, title: string, payload: unknown, done = false): Promise<ActionCard> {
+export async function storeCard(ctx: ToolContext, kind: ActionKind, title: string, payload: unknown, done = false): Promise<ActionCard> {
   const act = ctx.act!
   const now = new Date().toISOString()
   const { data, error } = await (ctx.db.from('ai_actions') as any).insert({
@@ -60,7 +60,7 @@ async function storeCard(ctx: ToolContext, kind: ActionKind, title: string, payl
   return card
 }
 
-const PROPOSED = 'Показах картата на човека. Нищо не е записано: той трябва да прегледа и да натисне бутона. Кажи му това с едно изречение и не твърди, че е направено.'
+export const PROPOSED = 'Показах картата на човека. Нищо не е записано: той трябва да прегледа и да натисне бутона. Кажи му това с едно изречение и не твърди, че е направено.'
 
 async function productsById(ctx: ToolContext, ids: string[]) {
   const list = await fetchByIds<any>(chunk => (ctx.db.from('products') as any)

@@ -15,11 +15,13 @@ import { factoryBarcodeProblem, normalizeCode } from '@/lib/barcodes'
 import { LABEL_KINDS } from '@/lib/label-kind'
 import { missingLabelKind } from '@/lib/deliveries/label-kind-compat'
 import { productChangesSchema, type ActionCard } from './actions'
+import { randomUUID } from 'crypto'
+import { readPending, removePending } from './uploads'
 
 type Db = SupabaseClient<any, any, any>
 export type Actor = { id: string; name: string }
 export type Outcome =
-  | { ok: true; result: { url?: string; label?: string; text: string; id?: string } }
+  | { ok: true; result: { url?: string; label?: string; text: string; id?: string; image_url?: string } }
   /** `proposal`: the card as it should now read (new products made before a failed draft are kept, not made twice). */
   | { ok: false; error: string; proposal?: any }
 
@@ -66,6 +68,7 @@ export const confirmSchemas = {
     }),
   }),
   product_update: z.object({ after: productChangesSchema }),
+  product_image: z.object({ main: z.boolean() }),
 } as const
 
 export type ConfirmKind = keyof typeof confirmSchemas
@@ -202,6 +205,8 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
     return { ok: true, result: { url: `/catalog/${made.id}`, label: 'Отвори продукта', text: 'Продуктът е създаден, без наличност. Стоката идва с доставка.' } }
   }
 
+  if (kind === 'product_image') return addProductImage(db, actor, action, edited.main, meta)
+
   // product_update
   const proposal = action.payload
   const patch: Record<string, unknown> = { ...edited.after }
@@ -224,4 +229,41 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
   if (!data?.length) return { ok: false, error: 'Продуктът е променен след предложението. Помолете асистента да го погледне пак.' }
   await logAction({ action: 'update_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: proposal.product_id, details: `${proposal.product_name}: ${Object.keys(edited.after).join(', ')} (от AI асистента)`, metadata: { ...meta, after: edited.after } }, db as any)
   return { ok: true, result: { url: `/catalog/${proposal.product_id}`, label: 'Отвори продукта', text: 'Промяната е записана.' } }
+}
+
+/** The product's photos are public files in the "products" bucket, like the ones added on the product form. */
+const PRODUCT_BUCKET = 'products'
+
+async function addProductImage(db: Db, actor: Actor, action: ActionCard, main: boolean, meta: Record<string, unknown>): Promise<Outcome> {
+  const p = action.payload
+  const storage = (db as any).storage
+  const { data: product } = await (db.from('products') as any).select('id, name').eq('id', p.product_id).maybeSingle()
+  if (!product) return { ok: false, error: 'Продуктът вече го няма.' }
+  const bytes = await readPending(storage, p.pending_path)
+  if (!bytes) return { ok: false, error: 'Подготвената снимка вече я няма (пази се един ден). Прикачете я отново.' }
+
+  const path = `${product.id}/ai-${randomUUID()}.webp`
+  const { error: upErr } = await storage.from(PRODUCT_BUCKET).upload(path, bytes, { contentType: 'image/webp', upsert: false })
+  if (upErr) return { ok: false, error: 'Снимката не можа да се качи. Опитайте пак.' }
+  const url: string = storage.from(PRODUCT_BUCKET).getPublicUrl(path).data.publicUrl
+
+  const { data: images } = await (db.from('product_images') as any).select('id, is_primary, sort_order').eq('product_id', product.id)
+  const list = (images ?? []) as { id: string; is_primary: boolean; sort_order: number }[]
+  const primary = main || list.length === 0
+  const { data: row, error } = await (db.from('product_images') as any).insert({
+    product_id: product.id, url, is_primary: false,
+    sort_order: list.reduce((m, i) => Math.max(m, i.sort_order ?? 0), -1) + 1,
+  }).select('id').single()
+  if (error) {
+    await storage.from(PRODUCT_BUCKET).remove([path]).catch(() => {})
+    return { ok: false, error: 'Снимката не можа да се запише към продукта.' }
+  }
+  // The new one becomes the main photo only once it is safely saved; then no product is left without one.
+  if (primary) {
+    await (db.from('product_images') as any).update({ is_primary: false }).eq('product_id', product.id).neq('id', row.id)
+    await (db.from('product_images') as any).update({ is_primary: true }).eq('id', row.id)
+  }
+  await removePending(storage, p.pending_path)
+  await logAction({ action: 'update_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: product.id, details: `${product.name}: нова снимка${primary ? ' (главна)' : ''} (от AI асистента)`, metadata: { ...meta, image_id: row.id } }, db as any)
+  return { ok: true, result: { url: `/catalog/${product.id}`, label: 'Отвори продукта', text: primary ? 'Снимката е добавена като главна.' : 'Снимката е добавена към продукта.', id: row.id, image_url: url } }
 }

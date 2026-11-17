@@ -48,3 +48,26 @@ export function fakeDb(handler: (q: Query) => unknown[] | { error: unknown }) {
   }
   return { db: db as any, queries }
 }
+
+/** A stand-in for Supabase Storage: buckets of files in memory. Test-only. */
+export function fakeStorage(initial: Record<string, Uint8Array> = {}) {
+  const files = new Map<string, Uint8Array>(Object.entries(initial)) // key "bucket/path"
+  const buckets = new Set<string>(['products'])
+  const storage = {
+    files,
+    getBucket: async (id: string) => ({ data: buckets.has(id) ? { id } : null, error: buckets.has(id) ? null : { message: 'not found' } }),
+    createBucket: async (id: string) => { buckets.add(id); return { data: { name: id }, error: null } },
+    from: (bucket: string) => ({
+      upload: async (path: string, bytes: Uint8Array) => { files.set(`${bucket}/${path}`, new Uint8Array(bytes)); return { data: { path }, error: null } },
+      download: async (path: string) => {
+        const f = files.get(`${bucket}/${path}`)
+        return f ? { data: new Blob([f as BlobPart]), error: null } : { data: null, error: { message: 'Object not found' } }
+      },
+      remove: async (paths: string[]) => { for (const p of paths) files.delete(`${bucket}/${p}`); return { data: [], error: null } },
+      getPublicUrl: (path: string) => ({ data: { publicUrl: `https://db.example/storage/v1/object/public/${bucket}/${path}` } }),
+      list: async () => ({ data: [], error: null }),
+      createSignedUploadUrl: async (path: string) => ({ data: { token: 't', path }, error: null }),
+    }),
+  }
+  return storage
+}

@@ -141,6 +141,11 @@ export async function POST(request: NextRequest) {
           questionSeq: history.nextSeq,
           deliveries: deliveriesEnabledFor(user.email),
           emit: card => send({ type: 'card', card }),
+          // The attached photo stays in memory for this question only, for a product photo card.
+          image: attachment?.kind === 'image'
+            ? { name: attachment.name, bytes: Buffer.from(attachment.dataUrl.slice(attachment.dataUrl.indexOf(',') + 1), 'base64') }
+            : undefined,
+          storage: db.storage,
         }
         const result = await askAssistant({
           history: history.history,

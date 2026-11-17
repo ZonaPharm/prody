@@ -22,6 +22,12 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 export const DIRECT_UPLOAD_BYTES = 4 * 1024 * 1024
 /** An upload not used within this time is a leftover. */
 export const UPLOAD_TTL_MS = 60 * 60 * 1000
+/**
+ * A product photo waiting on its card for the person to press "Добави"
+ * (see propose_product_image). Kept a day, then removed like any leftover.
+ */
+export const PENDING_FOLDER = 'pending'
+export const PENDING_TTL_MS = 24 * 60 * 60 * 1000
 
 export class UploadError extends Error {}
 
@@ -107,7 +113,7 @@ export async function sweepUploads(storage: Storage, opts: { folder?: string; no
     for (const folder of folders) {
       const { data } = await bucket.list(folder, { limit: 1000 })
       const old = (data ?? [])
-        .filter((f: any) => f.id && now - Date.parse(f.created_at || f.updated_at || '') > UPLOAD_TTL_MS)
+        .filter((f: any) => f.id && now - Date.parse(f.created_at || f.updated_at || '') > (folder === PENDING_FOLDER ? PENDING_TTL_MS : UPLOAD_TTL_MS))
         .map((f: any) => `${folder}/${f.name}`)
       if (old.length) {
         const { error } = await bucket.remove(old)
@@ -118,4 +124,31 @@ export async function sweepUploads(storage: Storage, opts: { folder?: string; no
     console.error('assistant upload sweep failed:', err)
   }
   return removed
+}
+
+/** Keeps a prepared product photo until its card is answered. */
+export async function storePending(storage: Storage, bytes: Uint8Array, contentType: string, id = randomUUID()): Promise<string> {
+  await ensureBucket(storage)
+  const ext = contentType === 'image/webp' ? '.webp' : contentType === 'image/jpeg' ? '.jpg' : ''
+  const path = `${PENDING_FOLDER}/${id}${ext}`
+  const { error } = await storage.from(UPLOAD_BUCKET).upload(path, bytes, { contentType, upsert: false })
+  if (error) throw new Error(error.message || 'pending upload failed')
+  return path
+}
+
+export function isPendingPath(path: unknown): path is string {
+  return typeof path === 'string' && /^pending\/[0-9a-f-]{36}\.(webp|jpg)$/.test(path)
+}
+
+/** The prepared photo, or null when it is gone (answered, or older than a day). */
+export async function readPending(storage: Storage, path: string): Promise<Uint8Array | null> {
+  if (!isPendingPath(path)) return null
+  const { data, error } = await storage.from(UPLOAD_BUCKET).download(path)
+  if (error || !data) return null
+  return new Uint8Array(await data.arrayBuffer())
+}
+
+export async function removePending(storage: Storage, path: string): Promise<void> {
+  if (!isPendingPath(path)) return
+  await storage.from(UPLOAD_BUCKET).remove([path]).catch(() => {})
 }
