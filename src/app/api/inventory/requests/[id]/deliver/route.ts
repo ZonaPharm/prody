@@ -62,6 +62,6 @@ export async function POST(
       body: '✅ Заявката е доставена — очаква потвърждение от продавач',
     })
   } catch {}
-  await logAction({ action: 'request_deliver', userId: user.id, entityType: 'stock_request', entityId: id }, admin)
+  await logAction({ action: 'request_deliver', userId: user.id, entityType: 'stock_request', entityId: id })
   return NextResponse.json({ success: true })
 }

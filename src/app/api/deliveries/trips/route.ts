@@ -55,6 +55,6 @@ export async function POST(request: Request) {
     entityType: 'trip',
     entityId: data?.trip_id,
     details: `${formatTripNumber(data?.number)}: ${(data?.shipments ?? []).length} пратки`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ success: true, ...data, ...(planError ? { warning: planError } : {}) })
 }

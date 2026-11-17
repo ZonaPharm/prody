@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
+import { ErrorReporter } from '@/components/error-reporter'
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <Toaster />
+        <ErrorReporter />
       </body>
     </html>
   )

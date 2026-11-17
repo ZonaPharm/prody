@@ -30,6 +30,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     entityType: 'supplier_order',
     entityId: id,
     details: `ПР-${String(data[0].number).padStart(6, '0')}`,
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ ok: true })
 }

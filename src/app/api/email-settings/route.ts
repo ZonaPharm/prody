@@ -59,6 +59,6 @@ export async function POST(request: NextRequest) {
     userId: gate.user.id,
     userName: gate.profile.display_name,
     entityType: 'email_settings',
-  }, gate.supabase)
+  })
   return NextResponse.json(publicEmailSettings(data))
 }

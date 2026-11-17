@@ -42,7 +42,7 @@ export async function PUT(
   await logAction({
     action: 'user_update', userId: user.id, userName: user.email, entityType: 'user', entityId: id,
     details: `${display_name}: ${rolesText(roles.roles)}`,
-  }, supabase as any)
+  })
 
   // Send email if password changed and checkbox checked
   let emailSent = false

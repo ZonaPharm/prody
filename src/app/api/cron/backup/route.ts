@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runBackup } from '@/lib/backup'
 import { reportBackupFailure } from '@/lib/backup-alert'
 import { runIntegrityCheck, integritySummaryHtml, sendIntegrityAlert } from '@/lib/integrity-check'
+import { sendErrorAlert } from '@/lib/errors/alert'
+import { cleanupOldErrors } from '@/lib/errors/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -53,6 +55,11 @@ export async function GET(request: NextRequest) {
 
   await sendIntegrityAlert(integrity)
 
+  // App errors: e-mail the new ones that waited out the one-an-hour limit, and
+  // forget the ones not seen for 90 days. Neither throws.
+  await sendErrorAlert({ force: true })
+  const errorsDeleted = await cleanupOldErrors()
+
   const statusCode = result.status === 'ok' ? 200 : 500
-  return NextResponse.json({ ...result, integrity }, { status: statusCode })
+  return NextResponse.json({ ...result, integrity, errorsDeleted }, { status: statusCode })
 }

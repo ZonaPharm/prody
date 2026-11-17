@@ -42,6 +42,6 @@ export async function POST(request: Request) {
     entityType: 'supplier',
     entityId: data.id,
     details: data.name,
-  }, gate.supabase as any)
+  })
   return NextResponse.json(data)
 }

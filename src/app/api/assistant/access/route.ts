@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     action: enabled ? 'ai_access_granted' : 'ai_access_revoked',
     userId: me.id, userName: me.name, entityType: 'user', entityId: user_id,
     details: `${enabled ? 'Даде' : 'Спря'} достъп до AI асистента на ${target.display_name || target.email}`,
-  }, db as any)
+  })
   return NextResponse.json({ ok: true })
 }
 
@@ -104,6 +104,6 @@ export async function PUT(request: NextRequest) {
   await logAction({
     action: 'ai_cap_changed', userId: me.id, userName: me.name, entityType: 'settings',
     details: `Месечен таван на AI асистента: ${cap.toFixed(2)} $`,
-  }, db as any)
+  })
   return NextResponse.json({ ok: true, monthly_cap_usd: cap })
 }

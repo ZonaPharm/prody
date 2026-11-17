@@ -53,7 +53,7 @@ export async function POST() {
       userId: auth.user!.id,
       entityType: 'product_image',
       details: `Преместени ${moved} от ${results.length} външни снимки`,
-    }, admin)
+    })
 
     return NextResponse.json({
       moved,

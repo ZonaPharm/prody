@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status })
     }
 
-    await logAction({ action: 'transfer', userId: user.id, entityType: 'stock_movement', details: `${from_store_id} → ${to_store_id}, ${quantity} бр.` }, supabase)
+    await logAction({ action: 'transfer', userId: user.id, entityType: 'stock_movement', details: `${from_store_id} → ${to_store_id}, ${quantity} бр.` })
     return NextResponse.json({ success: true, transferred: touched ?? 0 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Грешка при трансфер' }, { status: 500 })

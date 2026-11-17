@@ -151,7 +151,7 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
         productId = made.id
         created.push(l.new_product.name)
         lines.push({ ...l, product_id: made.id, product_name: l.new_product.name, new_product: null })
-        await logAction({ action: 'create_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: made.id, details: `${l.new_product.name} (от AI асистента)`, metadata: meta }, db as any)
+        await logAction({ action: 'create_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: made.id, details: `${l.new_product.name} (от AI асистента)`, metadata: meta })
       } else {
         lines.push(l)
       }
@@ -169,7 +169,7 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
       const made = created.length ? ` Новите продукти (${created.join(', ')}) вече са създадени.` : ''
       return { ok: false, error: rpcError(error, 'Черновата не можа да се запише.') + made, proposal: created.length ? keep() : undefined }
     }
-    await logAction({ action: 'delivery_draft_from_assistant', userId: actor.id, userName: actor.name, entityType: 'delivery', entityId: data.id, details: `${items.length} реда${supplier ? ', ' + supplier : ''}`, metadata: meta }, db as any)
+    await logAction({ action: 'delivery_draft_from_assistant', userId: actor.id, userName: actor.name, entityType: 'delivery', entityId: data.id, details: `${items.length} реда${supplier ? ', ' + supplier : ''}`, metadata: meta })
     return { ok: true, result: { url: `/deliveries/${data.id}`, label: 'Отвори черновата', text: `Черновата е създадена: ${items.length} реда${created.length ? `, ${created.length} нови продукта` : ''}. Нататък: разпределение и „Запази“ в Доставки.`, id: data.id } }
   }
 
@@ -179,7 +179,7 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
       p_order: { supplier_id: edited.supplier_id, notes: edited.notes ?? null, items: edited.lines.map((l: any) => ({ product_id: l.product_id, quantity: l.quantity, note: l.note ?? null })) },
     })
     if (error) return { ok: false, error: rpcError(error, 'Поръчката не можа да се запише.') }
-    await logAction({ action: 'supplier_order_from_assistant', userId: actor.id, userName: actor.name, entityType: 'supplier_order', entityId: data.id, details: `${edited.lines.length} реда`, metadata: meta }, db as any)
+    await logAction({ action: 'supplier_order_from_assistant', userId: actor.id, userName: actor.name, entityType: 'supplier_order', entityId: data.id, details: `${edited.lines.length} реда`, metadata: meta })
     const num = data.number != null ? `ПР-${String(data.number).padStart(6, '0')}` : 'чернова'
     return { ok: true, result: { url: `/deliveries/orders/${data.id}`, label: 'Отвори поръчката', text: `Поръчката е записана (${num}). Изпраща се от „Поръчки“.` } }
   }
@@ -198,7 +198,7 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
       small_item: p.small_item, description: p.description ?? null,
     })
     if ('error' in made) return { ok: false, error: made.error }
-    await logAction({ action: 'create_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: made.id, details: `${p.name} (от AI асистента)`, metadata: meta }, db as any)
+    await logAction({ action: 'create_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: made.id, details: `${p.name} (от AI асистента)`, metadata: meta })
     return { ok: true, result: { url: `/catalog/${made.id}`, label: 'Отвори продукта', text: 'Продуктът е създаден, без наличност. Стоката идва с доставка.' } }
   }
 
@@ -222,6 +222,6 @@ export async function execute(db: Db, actor: Actor, action: ActionCard, kind: Co
     return { ok: false, error: error.message || 'Промяната не можа да се запише.' }
   }
   if (!data?.length) return { ok: false, error: 'Продуктът е променен след предложението. Помолете асистента да го погледне пак.' }
-  await logAction({ action: 'update_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: proposal.product_id, details: `${proposal.product_name}: ${Object.keys(edited.after).join(', ')} (от AI асистента)`, metadata: { ...meta, after: edited.after } }, db as any)
+  await logAction({ action: 'update_product', userId: actor.id, userName: actor.name, entityType: 'product', entityId: proposal.product_id, details: `${proposal.product_name}: ${Object.keys(edited.after).join(', ')} (от AI асистента)`, metadata: { ...meta, after: edited.after } })
   return { ok: true, result: { url: `/catalog/${proposal.product_id}`, label: 'Отвори продукта', text: 'Промяната е записана.' } }
 }

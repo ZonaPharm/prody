@@ -61,7 +61,6 @@ describe('POST /api/inventory/transfer', () => {
     expect(mocks.adminFrom).not.toHaveBeenCalled()
     expect(mocks.logAction).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'transfer', userId: 'admin-1', details: 'office → store-1, 5 бр.' }),
-      expect.anything(),
     )
   })
 

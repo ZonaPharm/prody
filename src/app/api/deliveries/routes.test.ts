@@ -213,7 +213,7 @@ describe('delivery API routes', () => {
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ success: true, number: 124 })
       expect(mocks.adminRpc).toHaveBeenCalledWith('save_delivery', { p_delivery_id: DELIVERY, p_user: ADMIN.id })
-      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'delivery_saved', details: 'Д-000124' }), expect.anything())
+      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'delivery_saved', details: 'Д-000124' }))
     })
   })
 

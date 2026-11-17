@@ -63,7 +63,7 @@ describe('PUT /api/users/[id]', () => {
     const res = await PUT(req({ display_name: 'Ивайло', roles: ['driver', 'office'], store_id: OFFICE }), params(OTHER))
     expect(res.status).toBe(200)
     expect(mocks.updates[0]).toEqual({ display_name: 'Ивайло', roles: ['office', 'driver'], role: 'seller', store_id: null })
-    expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'user_update', details: 'Ивайло: Офис, Шофьор' }), expect.anything())
+    expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'user_update', details: 'Ивайло: Офис, Шофьор' }))
   })
 
   it('anybody can also be a seller, in Офис too', async () => {

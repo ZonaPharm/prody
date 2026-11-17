@@ -87,6 +87,6 @@ export async function POST(
     entityType: 'stock_request',
     entityId: id,
     details: `${shippedQty} от ${req.requested_qty} бр.`,
-  }, admin)
+  })
   return NextResponse.json({ success: true, status, shipped_qty: shippedQty })
 }

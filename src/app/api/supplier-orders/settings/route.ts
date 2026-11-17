@@ -44,6 +44,6 @@ export async function PUT(request: Request) {
     userName: gate.user.display_name,
     entityType: 'email_settings',
     details: 'подпис на поръчките',
-  }, gate.supabase as any)
+  })
   return NextResponse.json({ ok: true })
 }
