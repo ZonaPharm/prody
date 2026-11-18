@@ -32,6 +32,8 @@ import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
+import { useStoreStock } from './use-store-stock'
+import { currentStockOf } from '@/lib/deliveries/store-stock'
 import { Hint, Meta, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 import { compareWithOrder, diffSentence, formatOrderNumber, type OrderedLine } from '@/lib/supplier-orders/format'
 
@@ -97,6 +99,8 @@ export function DeliveryEditor({
   const [header, setHeader] = useState<DraftHeaderState>(initial?.header ?? { order_ref: '', notes: '' })
   const [lines, setLines] = useState<DraftLineState[]>(initial?.lines ?? [])
   const [suppliers, setSuppliers] = useState<SupplierOption[]>(initialSuppliers)
+  // What each store holds now of the products on the lines, shown under the distribution.
+  const stockNow = useStoreStock(lines.map(l => l.product.id))
   const orderedQty = useMemo(() => new Map((fromOrder?.lines ?? []).map(o => [o.product_id, o.quantity])), [fromOrder])
   const orderDiff = useMemo(
     () => fromOrder
@@ -243,7 +247,7 @@ export function DeliveryEditor({
     touch()
   }
 
-  function addProducts(products: DeliveryProduct[]) {
+  function addProducts(products: DeliveryProduct[], quantity: number | null = null) {
     if (!products.length) return
     // A product already on the draft keeps the "Етикет" choice made there.
     const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.label_kind]))
@@ -253,7 +257,7 @@ export function DeliveryEditor({
       product: { id: p.id, name: p.name, sku: p.sku, image: p.image, status: p.status, price: p.price },
       supplier_id: defaultSupplier ?? p.suggested.supplier_id,
       doc_number: defaultDoc,
-      quantity: '',
+      quantity: quantity != null ? String(quantity) : '',
       pack_size: p.suggested.pack_size > 1 ? String(p.suggested.pack_size) : '',
       unit_cost: p.suggested.unit_cost != null ? String(p.suggested.unit_cost).replace('.', ',') : '',
       label_kind: changed.get(p.id) ?? p.label_kind,
@@ -557,6 +561,7 @@ export function DeliveryEditor({
                         warehouseName={warehouseName}
                         plan={l.plan}
                         onChange={plan => updateLine(l.key, { plan })}
+                        current={currentStockOf(l.product.id, stockNow.stock, stockNow.min, warehouse?.id) ?? null}
                         disabled={fatal}
                       />
                     </div>
@@ -581,7 +586,7 @@ export function DeliveryEditor({
                 />
               </div>
               <CatalogDialog categories={categories} stores={shopStores.concat(warehouse ? [warehouse] : [])} inDelivery={inDelivery} onAdd={addProducts} disabled={fatal} />
-              <NewProductDialog categories={categories} supplierId={defaultSupplier} onCreated={p => addProducts([p])} disabled={fatal} />
+              <NewProductDialog categories={categories} supplierName={suppliers.find(s => s.id === defaultSupplier)?.name ?? null} onCreated={(p, qty) => addProducts([p], qty)} disabled={fatal} />
             </div>
             <Hint small className="mt-1.5 ml-1">
               {lines.length === 0

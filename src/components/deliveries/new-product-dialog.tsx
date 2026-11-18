@@ -2,119 +2,91 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Loader2, PackagePlus } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PackagePlus } from 'lucide-react'
+import ProductForm from '@/components/products/product-form'
 import type { DeliveryProduct } from '@/lib/deliveries/products'
-import type { LabelKind } from '@/lib/label-kind'
-import { LabelKindSelect } from './label-kind-select'
-import { Note } from '@/components/ui/text'
 
 type Option = { id: string; name: string }
 
 /**
- * "Нов продукт" without leaving the delivery: name, sale price, category and
- * whether it needs a label. Active at once; its stock comes with the delivery.
+ * "Нов продукт" without leaving the delivery: the same form as Каталог → Нов
+ * продукт (all fields, photos, label, website), so nothing has to be filled in
+ * twice. Once saved, the product becomes the delivery's next line; its stock
+ * comes with the delivery, so the form has no stock field.
  */
 export function NewProductDialog({
   categories,
-  supplierId,
+  supplierName,
   onCreated,
   disabled,
 }: {
   categories: Option[]
-  supplierId: string | null
-  onCreated: (p: DeliveryProduct) => void
+  /** The delivery's supplier, to fill in "Източник". */
+  supplierName: string | null
+  /** quantity: the "Наличност (бр.)" typed in the form, for the line. */
+  onCreated: (p: DeliveryProduct, quantity: number | null) => void
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [price, setPrice] = useState('')
-  const [category, setCategory] = useState('')
-  const [labelKind, setLabelKind] = useState<LabelKind>('full')
-  const [saving, setSaving] = useState(false)
+  // A new form every time the window opens, so nothing is left from the last product.
+  const [formKey, setFormKey] = useState(0)
   const [error, setError] = useState('')
 
-  function reset() {
-    setName(''); setPrice(''); setCategory(''); setLabelKind('full'); setError('')
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    const p = Number(price.replace(',', '.'))
-    if (name.trim().length < 2) return setError('Въведете име')
-    if (!(p > 0)) return setError('Въведете продажна цена над 0')
-    setSaving(true)
+  async function saved(productId: string, quantity: number | null) {
     setError('')
     try {
-      const res = await fetch('/api/deliveries/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          price: p,
-          category_id: category || null,
-          supplier_id: supplierId,
-          needs_label: labelKind === 'full',
-          label_kind: labelKind,
-        }),
-      })
+      const res = await fetch(`/api/deliveries/products/${productId}`)
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Продуктът не можа да се създаде')
-      onCreated(data)
-      reset()
+      if (!res.ok) throw new Error(data.error || 'Продуктът е създаден, но не се добави')
+      onCreated(data, quantity)
       setOpen(false)
     } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
+      // The product is saved: say so and how to add it, rather than lose it.
+      setError(`${err.message}. Потърсете го по име в реда и го изберете.`)
     }
   }
 
   return (
     <>
-      <Button type="button" variant="outline" onClick={() => setOpen(true)} disabled={disabled}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => { setError(''); setFormKey(k => k + 1); setOpen(true) }}
+        disabled={disabled}
+      >
         <PackagePlus className="mr-2 h-4 w-4" />Нов продукт
       </Button>
-      <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset() }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          data-testid="delivery-new-product"
+          className="h-[100dvh] max-h-[100dvh] max-w-none gap-3 p-4 sm:h-auto sm:max-h-[92dvh] sm:max-w-3xl sm:p-6"
+          // A long form: a click beside the window must not throw away what was typed.
+          onInteractOutside={e => e.preventDefault()}
+        >
+          <DialogHeader className="pr-6 text-left">
             <DialogTitle>Нов продукт</DialogTitle>
+            <DialogDescription>
+              Попълнете го както в „Каталог“. Наличността идва с доставката.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={submit} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="np-name">Име</Label>
-              <Input id="np-name" value={name} onChange={e => setName(e.target.value)} autoFocus />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="np-price">Продажна цена (€)</Label>
-                <Input id="np-price" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="8,90" />
+          <div className="-mx-4 -mb-4 min-h-0 overflow-y-auto px-4 sm:-mx-6 sm:-mb-6 sm:px-6">
+            {error ? (
+              // Saved but not added: no form to save it a second time.
+              <div className="space-y-4 pb-6">
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>Затвори</Button>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="np-cat">Категория</Label>
-                <select id="np-cat" className="h-10 w-full rounded-md border border-input bg-white px-2 text-sm" value={category} onChange={e => setCategory(e.target.value)}>
-                  <option value="">—</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Етикет</Label>
-              <LabelKindSelect id="np-label" value={labelKind} onChange={setLabelKind} />
-            </div>
-            <Note small>
-              Продуктът става активен веднага, без наличност. Снимки, описание и останалото се попълват после в „Каталог“.
-            </Note>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Отказ</Button>
-              <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Създай и добави
-              </Button>
-            </div>
-          </form>
+            ) : <ProductForm
+              key={formKey}
+              categories={categories}
+              inDelivery={{
+                defaultSource: supplierName ?? undefined,
+                onSaved: saved,
+                onCancel: () => setOpen(false),
+              }}
+            />}
+          </div>
         </DialogContent>
       </Dialog>
     </>
