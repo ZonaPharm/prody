@@ -53,7 +53,7 @@ export default async function WorkPage() {
       <DeliveriesTabs active="work" problems={problems} />
       <PageHeader title="За работа" intro="Какво чака на всяка стъпка, от всички отворени доставки." />
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Card title="За получаване" count={toReceive.length} unit={toReceive.length === 1 ? 'доставка' : 'доставки'}>
           {toReceive.slice(0, 8).map(d => (
             <Row key={d.id} href={`/deliveries/${d.id}/receive`} left={formatDeliveryNumber(d.number)} right={`чакат ${d.units} бр. по ${d.lines} ${d.lines === 1 ? 'ред' : 'реда'}`} />

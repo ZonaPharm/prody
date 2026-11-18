@@ -105,7 +105,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
           </div>
         ) : (
           <div className="p-4 space-y-3">
-            <ul className="grid gap-2 sm:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {ready.map(s => (
                 <li key={s.store_id} className={cn('rounded-md border', picked.has(s.store_id) && 'border-primary bg-primary/5')}>
                   <label className="flex items-start gap-3 p-3 cursor-pointer">
@@ -132,7 +132,7 @@ export function TripsBoard({ trips, ready, storeName, filter, waitingLabel = 0, 
                 </li>
               ))}
             </ul>
-            <fieldset className="grid gap-3 rounded-md border bg-slate-50 p-3 sm:grid-cols-2">
+            <fieldset className="grid grid-cols-1 gap-3 rounded-md border bg-slate-50 p-3 sm:grid-cols-2">
               <legend className="px-1 text-sm font-semibold">Шофьор и ден</legend>
               <label className="space-y-1 text-sm">
                 <span className="font-medium">Кой кара</span>

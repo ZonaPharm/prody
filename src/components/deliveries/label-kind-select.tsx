@@ -30,7 +30,7 @@ export function LabelKindSelect({ value, onChange, disabled, compact, id }: {
     )
   }
   return (
-    <div role="radiogroup" aria-label="Етикет" className="grid gap-2 sm:grid-cols-3">
+    <div role="radiogroup" aria-label="Етикет" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       {LABEL_KINDS.map(k => (
         <label
           key={k}

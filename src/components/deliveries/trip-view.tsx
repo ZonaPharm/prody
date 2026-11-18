@@ -179,15 +179,23 @@ export function TripView({ trip, drivers, ready = [], today, stores = [] }: {
                   <tbody>
                     {s.lines.map(l => (
                       <tr key={l.id} className="border-t">
-                        <td className="px-4 py-1.5">{l.product_name}</td>
-                        <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                        <td className="px-4 py-1.5 align-top break-words">
+                          {l.product_name}
+                          {/* On a phone the source goes under the name, so the row fits the screen. */}
+                          <span className="block text-xs text-muted-foreground sm:hidden">
+                            {l.delivery_id
+                              ? <Link href={`/deliveries/${l.delivery_id}`} className="hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
+                              : l.plan_id == null ? 'от Офис' : ''}
+                          </span>
+                        </td>
+                        <td className="hidden px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap sm:table-cell">
                           {l.delivery_id
                             ? <Link href={`/deliveries/${l.delivery_id}`} className="hover:underline">{formatDeliveryNumber(l.delivery_number)}</Link>
                             : l.plan_id == null ? 'от Офис' : ''}
                         </td>
-                        <td className="px-4 py-1.5 text-right tabular-nums whitespace-nowrap">
+                        <td className="px-4 py-1.5 text-right align-top tabular-nums whitespace-nowrap">
                           {l.qty} бр.
-                          {l.received_qty != null && l.received_qty < l.qty && <span className="ml-1 text-red-700">(приети {l.received_qty})</span>}
+                          {l.received_qty != null && l.received_qty < l.qty && <span className="block text-xs text-red-700 sm:ml-1 sm:inline sm:text-sm">(приети {l.received_qty})</span>}
                         </td>
                       </tr>
                     ))}
@@ -434,7 +442,7 @@ function AddToTrip({ trip, ready }: { trip: TripDetail; ready: StoreReadyView[] 
         <span className="text-sm text-slate-500">Още не е в нито един курс.</span>
       </header>
       <div className="p-4 space-y-3">
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {ready.map(r => {
             const sh = shipmentOf(r.store_id)
             const packed = sh?.status === 'packed'

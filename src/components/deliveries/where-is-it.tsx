@@ -34,7 +34,7 @@ export function WhereIsIt({ w, storeName, warehouseName, labelHref, compact, one
       <p className="text-sm font-medium">{whereSummary(w)}</p>
       </>}
       {!compact && (
-        <ul className={cn('grid gap-x-6 gap-y-1', !oneColumn && 'md:grid-cols-2')}>
+        <ul className={cn('grid grid-cols-1 gap-x-6 gap-y-1', !oneColumn && 'md:grid-cols-2')}>
           {w.parts.map((p, i) => (
             <PartRow key={i} p={p} w={w} storeName={storeName} warehouseName={warehouseName} labelHref={labelHref} />
           ))}

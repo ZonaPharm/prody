@@ -104,7 +104,7 @@ export function SuppliersManager() {
             <li key={s.id} className="px-3 py-2 text-sm">
               {editing === s.id ? (
                 <div className="space-y-2 py-1">
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="space-y-1">
                       <span className="text-xs font-medium">Име</span>
                       <Input value={edit.name} onChange={e => setEdit(v => ({ ...v, name: e.target.value }))} className="h-9" />

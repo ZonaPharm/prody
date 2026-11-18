@@ -97,8 +97,32 @@ export function AuditLogs() {
           <div className="text-center py-8 text-muted-foreground text-xs">
             Няма записи. Логовете се създават при: зареждане, трансфер, заявки, настройки, потребители.
           </div>
-        ) : type === 'action' ? (
-          <div className="rounded-lg border overflow-hidden">
+        ) : (
+          <>
+          {/* Phone: one block per entry, so nothing is cut off at the right edge. */}
+          <ul className="divide-y rounded-lg border sm:hidden">
+            {logs.map(l => (
+              <li key={l.id} className="space-y-0.5 px-3 py-2 text-xs">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                  <span className="font-medium">{ACTION_LABELS[l.action] || l.action}</span>
+                  <span className="text-muted-foreground tabular-nums">{sofiaDateTime(l.created_at)}</span>
+                </div>
+                <div>
+                  {type === 'action' ? (l.user_name || '—') : (l.user_name || l.details || '—')}
+                  {type === 'auth' && l.status && (
+                    <span className={`ml-2 ${l.status === 'success' ? 'text-green-700' : l.status === 'failed' ? 'text-red-700' : 'text-muted-foreground'}`}>
+                      {l.status === 'success' ? '✅ Успех' : l.status === 'failed' ? '❌ Грешка' : l.status}
+                    </span>
+                  )}
+                </div>
+                <div className="break-words text-muted-foreground">
+                  {type === 'action' ? (l.details || l.entity_type || '—') : (l.details || '—')}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {type === 'action' ? (
+          <div className="hidden rounded-lg border overflow-hidden sm:block">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
                 <tr>
@@ -121,7 +145,7 @@ export function AuditLogs() {
             </table>
           </div>
         ) : (
-          <div className="rounded-lg border overflow-hidden">
+          <div className="hidden rounded-lg border overflow-hidden sm:block">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
                 <tr>
@@ -149,6 +173,8 @@ export function AuditLogs() {
               </tbody>
             </table>
           </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>
