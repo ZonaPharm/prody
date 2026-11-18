@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { requireAdmin } from '@/lib/auth'
 import { getProducts } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
+import { getSuppliers } from '@/lib/db/suppliers'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus, ScanBarcode } from 'lucide-react'
@@ -16,17 +17,18 @@ import { ExportButton } from '@/components/products/export-button'
 const PAGE_SIZE = 50
 
 interface PageProps {
-  searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string; category?: string; store?: string; wp?: string }>
+  searchParams: Promise<{ search?: string; status?: string; sort?: string; hasImages?: string; category?: string; supplier?: string; store?: string; wp?: string }>
 }
 
 export default async function CatalogPage({ searchParams }: PageProps) {
   await requireAdmin()
 
   const params = await searchParams
-  const [products, categories, stores] = await Promise.all([
-    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages, categoryId: params.category, storeId: params.store, wp: params.wp, limit: PAGE_SIZE, offset: 0 }),
+  const [products, categories, stores, suppliers] = await Promise.all([
+    getProducts({ search: params.search, status: params.status, sort: params.sort, hasImages: params.hasImages, categoryId: params.category, supplierId: params.supplier, storeId: params.store, wp: params.wp, limit: PAGE_SIZE, offset: 0 }),
     getCategories(),
     (await createServerSupabaseClient()).from('stores').select('id, name').eq('is_active', true).order('name').then(r => r.data || []),
+    getSuppliers(),
   ])
 
   // Load stock for initial batch only (50 products, not all 488!)
@@ -57,6 +59,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
   if (params.status) filterParams.status = params.status
   if (params.sort) filterParams.sort = params.sort
   if (params.category) filterParams.category = params.category
+  if (params.supplier) filterParams.supplier = params.supplier
   if (params.store) filterParams.store = params.store
   if (params.hasImages) filterParams.hasImages = params.hasImages
   if (params.wp) filterParams.wp = params.wp
@@ -90,7 +93,7 @@ export default async function CatalogPage({ searchParams }: PageProps) {
 
       <div className="sticky top-14 lg:top-0 z-20 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 bg-slate-50/95 backdrop-blur-sm">
         <Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded-md" />}>
-          <ProductSearch categories={categories as { id: string; name: string }[]} stores={stores as { id: string; name: string }[]} />
+          <ProductSearch categories={categories as { id: string; name: string }[]} suppliers={suppliers.filter(s => s.is_active)} stores={stores as { id: string; name: string }[]} />
         </Suspense>
       </div>
 

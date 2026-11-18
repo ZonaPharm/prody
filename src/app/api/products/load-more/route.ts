@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status') || undefined
   const sort = searchParams.get('sort') || undefined
   const category = searchParams.get('category') || undefined
+  const supplier = searchParams.get('supplier') || undefined
   const store = searchParams.get('store') || undefined
   const hasImages = searchParams.get('hasImages') || undefined
   const wp = searchParams.get('wp') || undefined
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
   const products = await getProducts({
     search, status, sort, hasImages, wp,
     categoryId: category,
+    supplierId: supplier,
     storeId: store,
     limit, offset,
   })

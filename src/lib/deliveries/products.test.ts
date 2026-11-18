@@ -40,6 +40,22 @@ describe('toDeliveryProducts', () => {
     expect(p.suggested).toEqual({ supplier_id: 's-temu', unit_cost: 4.2, pack_size: 1 })
   })
 
+  it("without deliveries, takes the product's own supplier over the old text", () => {
+    const [p] = toDeliveryProducts([product({ supplier_id: 's-pan' })], [], suppliers)
+    expect(p.suggested.supplier_id).toBe('s-pan')
+  })
+
+  it("a last supplier that was switched off gives way to the product's own", () => {
+    const [p] = toDeliveryProducts([product({ supplier_id: 's-temu' })],
+      [{ product_id: 'p1', supplier_id: 's-old', unit_cost: 1, pack_size: 1 }], suppliers)
+    expect(p.suggested.supplier_id).toBe('s-temu')
+  })
+
+  it('a product saved without a supplier gets none, whatever its old text', () => {
+    const [p] = toDeliveryProducts([product({ supplier_id: null })], [], suppliers)
+    expect(p.suggested.supplier_id).toBeNull()
+  })
+
   it('does not suggest a supplier that was switched off', () => {
     const [p] = toDeliveryProducts([product()], [{ product_id: 'p1', supplier_id: 's-old', unit_cost: 1, pack_size: 1 }], suppliers)
     expect(p.suggested.supplier_id).toBeNull()

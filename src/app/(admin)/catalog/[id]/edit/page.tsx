@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth'
 import { getProduct } from '@/lib/db/products'
 import { getCategories } from '@/lib/db/categories'
+import { getSuppliers } from '@/lib/db/suppliers'
 import { notFound } from 'next/navigation'
 import ProductForm from '@/components/products/product-form'
 
@@ -12,9 +13,10 @@ export default async function EditProductPage({ params }: PageProps) {
   await requireAdmin()
 
   const { id } = await params
-  const [product, categories] = await Promise.all([
+  const [product, categories, suppliers] = await Promise.all([
     getProduct(id),
     getCategories(),
+    getSuppliers(),
   ])
 
   if (!product) notFound()
@@ -35,6 +37,7 @@ export default async function EditProductPage({ params }: PageProps) {
       <ProductForm
         initialData={{ ...product, label }}
         categories={categories as { id: string; name: string }[]}
+        suppliers={suppliers}
       />
     </div>
   )

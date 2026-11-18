@@ -23,10 +23,11 @@ const FILTER_KEY = 'catalog-filters'
 
 interface Props {
   categories: { id: string; name: string }[]
+  suppliers: { id: string; name: string }[]
   stores: { id: string; name: string }[]
 }
 
-export default function ProductSearch({ categories, stores }: Props) {
+export default function ProductSearch({ categories, suppliers, stores }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -50,6 +51,7 @@ export default function ProductSearch({ categories, stores }: Props) {
           status: p.get('status') || '',
           hasImages: p.get('hasImages') || '',
           category: p.get('category') || '',
+          supplier: p.get('supplier') || '',
           store: p.get('store') || '',
           wp: p.get('wp') || '',
         }
@@ -70,6 +72,9 @@ export default function ProductSearch({ categories, stores }: Props) {
   const [categoryId, setCategoryId] = useState(
     urlInitial.current.category || searchParams.get('category') || savedRef.current.category || 'all'
   )
+  const [supplierId, setSupplierId] = useState(
+    urlInitial.current.supplier || searchParams.get('supplier') || savedRef.current.supplier || 'all'
+  )
   const [storeId, setStoreId] = useState(
     urlInitial.current.store || searchParams.get('store') || savedRef.current.store || 'all'
   )
@@ -78,21 +83,23 @@ export default function ProductSearch({ categories, stores }: Props) {
   )
 
   const updateParams = useCallback(
-    (opts: { search?: string; status?: string; hasImages?: string; category?: string; store?: string; wp?: string; replace?: boolean }) => {
+    (opts: { search?: string; status?: string; hasImages?: string; category?: string; supplier?: string; store?: string; wp?: string; replace?: boolean }) => {
       const params = new URLSearchParams()
       const s = opts.search ?? search
       const st = opts.status ?? status
       const hi = opts.hasImages ?? hasImages
       const cat = opts.category ?? categoryId
+      const sup = opts.supplier ?? supplierId
       const store = opts.store ?? storeId
       const w = opts.wp ?? wp
       if (s) params.set('search', s)
       if (st && st !== 'all') params.set('status', st)
       if (hi && hi !== 'all') params.set('hasImages', hi)
       if (cat && cat !== 'all') params.set('category', cat)
+      if (sup && sup !== 'all') params.set('supplier', sup)
       if (store && store !== 'all') params.set('store', store)
       if (w && w !== 'all') params.set('wp', w)
-      try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, store, wp: w })) } catch {}
+      try { sessionStorage.setItem(FILTER_KEY, JSON.stringify({ search: s, status: st, hasImages: hi, category: cat, supplier: sup, store, wp: w })) } catch {}
       const url = `/catalog?${params.toString()}`
       if (opts.replace) {
         router.replace(url, { scroll: false })
@@ -100,7 +107,7 @@ export default function ProductSearch({ categories, stores }: Props) {
         router.push(url, { scroll: false })
       }
     },
-    [router, search, status, hasImages, categoryId, storeId, wp]
+    [router, search, status, hasImages, categoryId, supplierId, storeId, wp]
   )
 
   useEffect(() => {
@@ -173,6 +180,18 @@ export default function ProductSearch({ categories, stores }: Props) {
           <SelectItem value="__none__">Без категория</SelectItem>
           {categories.map((c) => (
             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={supplierId} onValueChange={(v) => { setSupplierId(v); updateParams({ supplier: v }) }}>
+        <SelectTrigger className="w-auto shrink-0 gap-2 sm:min-w-[170px]">
+          <SelectValue placeholder="Доставчик" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Всички доставчици</SelectItem>
+          <SelectItem value="__none__">Без доставчик</SelectItem>
+          {suppliers.map((s) => (
+            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
           ))}
         </SelectContent>
       </Select>

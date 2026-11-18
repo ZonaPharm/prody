@@ -586,7 +586,7 @@ export function DeliveryEditor({
                 />
               </div>
               <CatalogDialog categories={categories} stores={shopStores.concat(warehouse ? [warehouse] : [])} inDelivery={inDelivery} onAdd={addProducts} disabled={fatal} />
-              <NewProductDialog categories={categories} supplierName={suppliers.find(s => s.id === defaultSupplier)?.name ?? null} onCreated={(p, qty) => addProducts([p], qty)} disabled={fatal} />
+              <NewProductDialog categories={categories} suppliers={suppliers} supplierId={defaultSupplier || null} onCreated={(p, qty) => addProducts([p], qty)} disabled={fatal} />
             </div>
             <Hint small className="mt-1.5 ml-1">
               {lines.length === 0

@@ -30,6 +30,7 @@ import { initialOrderDate } from '@/lib/products/new-product'
 import { cn } from '@/lib/utils'
 
 type CategoryOption = { id: string; name: string }
+type SupplierOption = { id: string; name: string; is_active?: boolean | null }
 
 interface ProductFormProps {
   initialData?: {
@@ -46,6 +47,7 @@ interface ProductFormProps {
     needs_label?: boolean | null
     category_id?: string | null
     source?: string | null
+    supplier_id?: string | null
     source_url?: string | null
     source_order_date?: string | null
     status?: string
@@ -63,21 +65,23 @@ interface ProductFormProps {
     wp_category_ids?: number[] | null
   }
   categories: CategoryOption[]
+  /** Settings → Доставчици. The hidden ones are offered only to a product that already has one. */
+  suppliers: SupplierOption[]
   /**
    * The form opened from a delivery's "Нов продукт": no stock field (the stock
    * comes with the delivery), and the saved product goes back to the delivery
    * instead of to the catalogue.
    */
   inDelivery?: {
-    /** "Източник" to start with: the delivery's supplier. */
-    defaultSource?: string
+    /** The supplier to start with: the delivery's. */
+    defaultSupplierId?: string
     /** quantity: "Наличност (бр.)" as typed; it becomes the line's quantity, not stock. */
     onSaved: (productId: string, quantity: number | null) => void | Promise<void>
     onCancel: () => void
   }
 }
 
-export default function ProductForm({ initialData, categories, inDelivery }: ProductFormProps) {
+export default function ProductForm({ initialData, categories, suppliers, inDelivery }: ProductFormProps) {
   const router = useRouter()
 
   const [name, setName] = useState(initialData?.name || '')
@@ -85,7 +89,8 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
   const [price, setPrice] = useState(initialData?.price?.toString() || '')
   const [costPrice, setCostPrice] = useState(initialData?.cost_price?.toString() || '')
   const [categoryId, setCategoryId] = useState(initialData?.category_id || '__none__')
-  const [source, setSource] = useState(initialData?.source || inDelivery?.defaultSource || '')
+  const [supplierId, setSupplierId] = useState(initialData?.supplier_id || inDelivery?.defaultSupplierId || '__none__')
+  const supplierChoices = suppliers.filter(s => s.is_active !== false || s.id === initialData?.supplier_id)
   const [sourceUrl, setSourceUrl] = useState(initialData?.source_url || '')
   const [sourceOrderDate, setSourceOrderDate] = useState(() =>
     initialOrderDate(initialData?.source_order_date, !initialData?.id, sofiaToday())
@@ -204,7 +209,8 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
         price: price ? parseFloat(price) : null,
         cost_price: costPrice ? parseFloat(costPrice) : null,
         category_id: categoryId === '__none__' ? null : (categoryId || null),
-        source: source.trim() || null,
+        // "Източник" (products.source) follows the supplier in the database.
+        supplier_id: supplierId === '__none__' ? null : supplierId,
         source_url: sourceUrl.trim() || null,
         source_order_date: sourceOrderDate || null,
         status,
@@ -553,12 +559,23 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
         </div>
       </div>
 
-      {/* Row 4: Source, Source URL — 2 cols */}
+      {/* Row 4: Supplier, Source URL — 2 cols */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="source">Източник</Label>
-          <Input id="source" value={source}
-            onChange={(e) => setSource(e.target.value)} placeholder="Име на доставчик" />
+          <Label htmlFor="supplier_id">Доставчик</Label>
+          <Select value={supplierId} onValueChange={setSupplierId}>
+            <SelectTrigger id="supplier_id"><SelectValue placeholder="Избери доставчик" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Без доставчик</SelectItem>
+              {supplierChoices.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.is_active === false ? `${s.name} (скрит)` : s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {supplierId === '__none__' && initialData?.source && (
+            <Meta as="span" className="block">Досега пишеше: „{initialData.source}“.</Meta>
+          )}
+          <Meta as="span" className="block">Нов доставчик се добавя в Настройки → Доставчици.</Meta>
         </div>
         <div className="space-y-2">
           <Label htmlFor="source_url">URL на източник</Label>

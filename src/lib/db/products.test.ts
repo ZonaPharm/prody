@@ -60,3 +60,22 @@ describe('getProducts store filter', () => {
     expect(products).toEqual([{ id: 'p1', name: 'Продукт' }])
   })
 })
+
+describe('getProducts supplier filter', () => {
+  beforeEach(() => {
+    db.calls = []
+    db.tables = []
+    db.rows = []
+  })
+
+  it("keeps the chosen supplier's products", async () => {
+    await getProducts({ supplierId: 'sup-1' })
+    expect(called('eq')).toContainEqual(['supplier_id', 'sup-1'])
+  })
+
+  it('"Без доставчик" asks for the products without one', async () => {
+    await getProducts({ supplierId: '__none__' })
+    expect(called('is')).toContainEqual(['supplier_id', null])
+    expect(called('eq')).not.toContainEqual(['supplier_id', '__none__'])
+  })
+})

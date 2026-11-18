@@ -17,13 +17,15 @@ type Option = { id: string; name: string }
  */
 export function NewProductDialog({
   categories,
-  supplierName,
+  suppliers,
+  supplierId,
   onCreated,
   disabled,
 }: {
   categories: Option[]
-  /** The delivery's supplier, to fill in "Източник". */
-  supplierName: string | null
+  suppliers: (Option & { is_active?: boolean | null })[]
+  /** The delivery's supplier, to start the product's supplier with. */
+  supplierId: string | null
   /** quantity: the "Наличност (бр.)" typed in the form, for the line. */
   onCreated: (p: DeliveryProduct, quantity: number | null) => void
   disabled?: boolean
@@ -80,8 +82,9 @@ export function NewProductDialog({
             ) : <ProductForm
               key={formKey}
               categories={categories}
+              suppliers={suppliers}
               inDelivery={{
-                defaultSource: supplierName ?? undefined,
+                defaultSupplierId: supplierId ?? undefined,
                 onSaved: saved,
                 onCancel: () => setOpen(false),
               }}

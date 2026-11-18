@@ -1,10 +1,11 @@
 import { requireAdmin } from '@/lib/auth'
 import { getCategories } from '@/lib/db/categories'
+import { getSuppliers } from '@/lib/db/suppliers'
 import ProductForm from '@/components/products/product-form'
 
 export default async function NewProductPage() {
   await requireAdmin()
-  const categories = (await getCategories()) as { id: string; name: string }[]
+  const [categories, suppliers] = await Promise.all([getCategories(), getSuppliers()])
 
   return (
     <div className="space-y-6">
@@ -15,7 +16,7 @@ export default async function NewProductPage() {
         </p>
       </div>
 
-      <ProductForm categories={categories} />
+      <ProductForm categories={categories as { id: string; name: string }[]} suppliers={suppliers} />
     </div>
   )
 }

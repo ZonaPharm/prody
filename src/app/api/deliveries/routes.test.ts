@@ -352,11 +352,12 @@ describe('delivery API routes', () => {
   })
 
   describe('new product from a delivery', () => {
-    it('is active with no stock, and keeps the supplier name in the old "Източник"', async () => {
+    it('is active with no stock, with its supplier and the name in the old "Източник"', async () => {
       const res = await productPOST(req({ name: 'Нов крем', price: 9.9, supplier_id: STORE, needs_label: false }))
       expect(res.status).toBe(200)
       expect(mocks.adminInsert).toHaveBeenCalledWith(expect.objectContaining({
         name: 'Нов крем', price: 9.9, status: 'active', quantity_on_hand: 0, source: 'Temu', needs_label: false,
+        supplier_id: STORE,
       }))
       const body = await res.json()
       expect(body.suggested.supplier_id).toBe(STORE)

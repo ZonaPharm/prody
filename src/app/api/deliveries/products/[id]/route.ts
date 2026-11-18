@@ -8,7 +8,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /**
  * One product as a delivery line needs it. The delivery's "Нов продукт" opens
  * the catalogue form, which saves the product itself; the line is then made
- * from this (supplier from "Източник", cost from "Доставна цена").
+ * from this (supplier from the product, cost from "Доставна цена").
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const gate = await deliveriesGate({ adminOnly: true })
