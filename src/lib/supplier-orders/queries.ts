@@ -1,6 +1,5 @@
 import { fetchAll, fetchByIds } from '@/lib/fetch-all'
 import { primaryImage } from '@/lib/deliveries/products'
-import { supplierForSource, type SupplierRef } from '@/lib/deliveries/suppliers'
 import type { OrderStatus } from './format'
 
 /**
@@ -182,11 +181,11 @@ export type SupplierProduct = OrderProduct & {
 
 /**
  * What we usually take from this supplier: products of its deliveries and orders,
- * plus older products whose "Източник" names it. Newest first is the hint; the
+ * plus every product whose own supplier it is. Newest first is the hint; the
  * list itself is by name.
  */
 export async function getSupplierProducts(supabase: any, supplierId: string): Promise<SupplierProduct[]> {
-  const [lines, orderLines, suppliers] = await Promise.all([
+  const [lines, orderLines, own] = await Promise.all([
     fetchAll<any>(() =>
       supabase
         .from('delivery_items')
@@ -203,7 +202,9 @@ export async function getSupplierProducts(supabase: any, supplierId: string): Pr
         .neq('order.status', 'cancelled')
         .order('id'),
     ),
-    supabase.from('suppliers').select('id, name, is_active').limit(1000),
+    fetchAll<any>(() =>
+      supabase.from('products').select('id').eq('supplier_id', supplierId).order('id'),
+    ),
   ])
 
   const last = new Map<string, { qty: number; at: string }>()
@@ -214,15 +215,8 @@ export async function getSupplierProducts(supabase: any, supplierId: string): Pr
   for (const l of lines) remember(l.product_id, l.quantity, l.created_at)
   for (const l of orderLines) remember(l.product_id, l.quantity, l.order?.created_at ?? '')
 
-  // Products from before deliveries: their free-text "Източник".
-  const supplierRefs = (suppliers.data ?? []) as SupplierRef[]
-  const bySource = await fetchAll<any>(() =>
-    supabase.from('products').select('id, source').not('source', 'is', null).order('id'),
-  )
   const ids = new Set(last.keys())
-  for (const p of bySource) {
-    if (supplierForSource(p.source, supplierRefs)?.id === supplierId) ids.add(p.id)
-  }
+  for (const p of own) ids.add(p.id)
   if (ids.size === 0) return []
 
   const products = await fetchByIds<any>(

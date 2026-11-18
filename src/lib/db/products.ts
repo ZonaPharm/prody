@@ -97,6 +97,7 @@ export async function getProduct(id: string) {
     small_item: boolean
     category_id: string | null
     source: string | null
+    supplier_id: string | null
     source_url: string | null
     source_order_date: string | null
     status: 'ordered' | 'received' | 'damaged' | 'returned' | 'active'

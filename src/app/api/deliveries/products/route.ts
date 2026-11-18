@@ -24,7 +24,8 @@ export async function POST(request: Request) {
     const { data: supplier } = await (gate.supabase.from('suppliers') as any)
       .select('name').eq('id', supplier_id).maybeSingle()
     if (!supplier) return NextResponse.json({ error: 'Доставчикът не е намерен' }, { status: 400 })
-    // The old free-text field still feeds the catalogue and the exports.
+    // The old free-text field still feeds the exports; the database keeps it
+    // equal to the supplier's name.
     source = supplier.name
   }
 
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
     name,
     price,
     category_id: category_id ?? null,
+    supplier_id: supplier_id ?? null,
     source,
     status: 'active',
     quantity_on_hand: 0,

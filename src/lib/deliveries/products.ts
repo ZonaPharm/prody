@@ -4,8 +4,8 @@ import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 /**
  * A product as the delivery entry screen needs it: what to show in the search
  * and the catalogue, and what to fill in when it is added to a line
- * (supplier and cost of its last delivery; for products from before
- * deliveries, the supplier from "Източник" and the catalogue cost).
+ * (supplier and cost of its last delivery; otherwise the product's own
+ * supplier and the catalogue cost).
  */
 
 export type DeliveryProduct = {
@@ -22,7 +22,7 @@ export type DeliveryProduct = {
 }
 
 export const PRODUCT_COLUMNS =
-  'id, name, sku, status, price, cost_price, source, needs_label, label_kind, quantity_on_hand, images:product_images(url, is_primary, sort_order)'
+  'id, name, sku, status, price, cost_price, source, supplier_id, needs_label, label_kind, quantity_on_hand, images:product_images(url, is_primary, sort_order)'
 
 type RawProduct = {
   id: string
@@ -32,6 +32,7 @@ type RawProduct = {
   price: number | string | null
   cost_price: number | string | null
   source: string | null
+  supplier_id?: string | null
   needs_label: boolean | null
   label_kind?: string | null
   quantity_on_hand: number | null
@@ -70,9 +71,12 @@ export function toDeliveryProducts(
 
   return products.map(p => {
     const l = last.get(p.id)
+    // The supplier it last came from; else the product's own supplier; else,
+    // for a database without products.supplier_id, the one its "Източник" names.
     let supplierId: string | null = null
     if (l?.supplier_id && activeIds.has(l.supplier_id)) supplierId = l.supplier_id
-    else if (!l) supplierId = supplierForSource(p.source, suppliers.filter(s => s.is_active !== false))?.id ?? null
+    else if (p.supplier_id && activeIds.has(p.supplier_id)) supplierId = p.supplier_id
+    else if (!l && p.supplier_id === undefined) supplierId = supplierForSource(p.source, suppliers.filter(s => s.is_active !== false))?.id ?? null
     return {
       id: p.id,
       name: p.name,

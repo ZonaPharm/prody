@@ -229,7 +229,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
                   </div>
                 )}
                 <div>
-                  <p className="text-sm text-muted-foreground">Източник</p>
+                  <p className="text-sm text-muted-foreground">Доставчик</p>
                   <p className="font-medium">{product.source || '—'}</p>
                 </div>
               </div>
