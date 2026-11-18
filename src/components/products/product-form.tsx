@@ -409,13 +409,16 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
       )}
 
       <Tabs defaultValue="info" className="w-full">
-        <TabsList>
-          <TabsTrigger value="info">Информация</TabsTrigger>
-          <TabsTrigger value="label">Етикет</TabsTrigger>
-          <TabsTrigger value="website">За уебсайта</TabsTrigger>
-        </TabsList>
+        {/* A new product needs only "Информация"; label and website texts are added when editing it. */}
+        {isEdit && (
+          <TabsList>
+            <TabsTrigger value="info">Информация</TabsTrigger>
+            <TabsTrigger value="label">Етикет</TabsTrigger>
+            <TabsTrigger value="website">За уебсайта</TabsTrigger>
+          </TabsList>
+        )}
 
-        <TabsContent value="info" className="space-y-6 pt-4">
+        <TabsContent value="info" className={cn('space-y-6', isEdit && 'pt-4')}>
 
       {/* Row 1: Name — full width */}
       <div className="space-y-2">
