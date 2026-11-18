@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { LABEL_KIND_LABEL } from '@/lib/label-kind'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils'
 import { DeliveryStatusBadge } from './status-badge'
 import { ProductThumb } from './product-picker'
 import { PlanEditor, planNumbers, type PlanText } from './plan-editor'
+import { useStoreStock } from './use-store-stock'
+import { currentStockOf } from '@/lib/deliveries/store-stock'
 import { ResolveButton } from './resolve-dialog'
 import { NextStep, StepTrail } from './step-trail'
 import { WhereIsIt } from './where-is-it'
@@ -46,6 +48,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
   const storeName = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores])
   const shopStores = stores.filter(s => !s.is_warehouse)
   const warehouseName = stores.find(s => s.is_warehouse)?.name ?? 'Офис'
+  const warehouseId = stores.find(s => s.is_warehouse)?.id ?? null
   const itemName = useMemo(() => new Map(delivery.items.map(i => [i.id, i.product_name])), [delivery.items])
 
   const open = delivery.status === 'expected' || delivery.status === 'in_progress'
@@ -129,7 +132,7 @@ export function DeliveryView({ delivery, stores, userName }: { delivery: Deliver
                       {lineSignals > 0 && <span className="ml-1 text-red-700">· {lineSignals} проблем</span>}
                     </div>
                   </div>
-                  {open && <PlanDialog deliveryId={delivery.id} item={i} stores={shopStores} warehouseName={warehouseName} />}
+                  {open && <PlanDialog deliveryId={delivery.id} item={i} stores={shopStores} warehouseName={warehouseName} warehouseId={warehouseId} />}
                 </div>
                 <WhereIsIt
                   w={w}
@@ -227,11 +230,22 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   )
 }
 
-function PlanDialog({ deliveryId, item, stores, warehouseName }: {
+/** Loads what the stores hold now only while the plan dialog is open. */
+function PlanStock({ productId, warehouseId, children }: {
+  productId: string
+  warehouseId: string | null
+  children: (current: ReturnType<typeof currentStockOf> | null) => ReactNode
+}) {
+  const { stock, min } = useStoreStock([productId])
+  return <>{children(currentStockOf(productId, stock, min, warehouseId) ?? null)}</>
+}
+
+function PlanDialog({ deliveryId, item, stores, warehouseName, warehouseId }: {
   deliveryId: string
   item: DetailItem
   stores: { id: string; name: string }[]
   warehouseName: string
+  warehouseId: string | null
 }) {
   const router = useRouter()
   const initial = (): PlanText => Object.fromEntries(item.plan.map(p => [p.store_id, p.planned_qty ? String(p.planned_qty) : '']))
@@ -274,7 +288,11 @@ function PlanDialog({ deliveryId, item, stores, warehouseName }: {
           <Note small>
             Общо {item.quantity} бр. Не може под готовите за обекта; нов обект се добавя само от неразпределения остатък.
           </Note>
-          <PlanEditor quantity={item.quantity} stores={stores} warehouseName={warehouseName} plan={plan} onChange={setPlan} minByStore={minByStore} />
+          <PlanStock productId={item.product_id} warehouseId={warehouseId}>
+            {current => (
+              <PlanEditor quantity={item.quantity} stores={stores} warehouseName={warehouseName} plan={plan} onChange={setPlan} minByStore={minByStore} current={current} />
+            )}
+          </PlanStock>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>Отказ</Button>
