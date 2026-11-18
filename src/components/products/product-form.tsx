@@ -25,6 +25,9 @@ import { factoryBarcodeProblem, normalizeCode } from '@/lib/barcodes'
 import { labelKindOf, type LabelKind } from '@/lib/label-kind'
 import { LabelKindSelect } from '@/components/deliveries/label-kind-select'
 import { Hint, Meta, Note, SectionTitle } from '@/components/ui/text'
+import { sofiaToday } from '@/lib/date-utils'
+import { initialOrderDate } from '@/lib/products/new-product'
+import { cn } from '@/lib/utils'
 
 type CategoryOption = { id: string; name: string }
 
@@ -60,9 +63,20 @@ interface ProductFormProps {
     wp_category_ids?: number[] | null
   }
   categories: CategoryOption[]
+  /**
+   * The form opened from a delivery's "Нов продукт": no stock field (the stock
+   * comes with the delivery), and the saved product goes back to the delivery
+   * instead of to the catalogue.
+   */
+  inDelivery?: {
+    /** "Източник" to start with: the delivery's supplier. */
+    defaultSource?: string
+    onSaved: (productId: string) => void | Promise<void>
+    onCancel: () => void
+  }
 }
 
-export default function ProductForm({ initialData, categories }: ProductFormProps) {
+export default function ProductForm({ initialData, categories, inDelivery }: ProductFormProps) {
   const router = useRouter()
 
   const [name, setName] = useState(initialData?.name || '')
@@ -70,12 +84,10 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [price, setPrice] = useState(initialData?.price?.toString() || '')
   const [costPrice, setCostPrice] = useState(initialData?.cost_price?.toString() || '')
   const [categoryId, setCategoryId] = useState(initialData?.category_id || '__none__')
-  const [source, setSource] = useState(initialData?.source || '')
+  const [source, setSource] = useState(initialData?.source || inDelivery?.defaultSource || '')
   const [sourceUrl, setSourceUrl] = useState(initialData?.source_url || '')
-  const [sourceOrderDate, setSourceOrderDate] = useState(
-    initialData?.source_order_date
-      ? initialData.source_order_date.split('T')[0]
-      : ''
+  const [sourceOrderDate, setSourceOrderDate] = useState(() =>
+    initialOrderDate(initialData?.source_order_date, !initialData?.id, sofiaToday())
   )
   const [status, setStatus] = useState(initialData?.status || 'active')
   const [quantityOnHand, setQuantityOnHand] = useState(
@@ -124,6 +136,11 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
   const [restockStores, setRestockStores] = useState<any[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // The error is at the top of a long form: bring it into view (in the delivery's window too).
+  const errorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (submitError) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [submitError])
 
   const [rewriteLoading, setRewriteLoading] = useState(false)
 
@@ -348,6 +365,11 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
         }
       }
 
+      if (inDelivery) {
+        await inDelivery.onSaved(productId)
+        return
+      }
+
       // If new product with quantity, show RestockForm modal inline
       if (!isEdit && parseInt(quantityOnHand, 10) > 0) {
         const { data: storeList } = await (supabase.from('stores') as any).select('id, name, is_warehouse').eq('is_active', true).order('name')
@@ -378,7 +400,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
     <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {submitError && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4">
+        <div ref={errorRef} className="rounded-md bg-red-50 border border-red-200 p-4">
           <p className="text-sm text-red-700">{submitError}</p>
         </div>
       )}
@@ -439,7 +461,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
+        {!inDelivery && <div className="space-y-2">
           <Label htmlFor="quantity">Наличност (бр.)</Label>
           {isEdit ? (
             <>
@@ -454,7 +476,7 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
             <Input id="quantity" type="number" min="0" value={quantityOnHand}
               onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
           )}
-        </div>
+        </div>}
         <div className="space-y-2">
           <Label htmlFor="min_quantity">Мин. количество</Label>
           <Input id="min_quantity" type="number" min="0" value={minQuantity}
@@ -538,7 +560,8 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
       {/* Row 4b: Date + Source order date */}
       <div className="space-y-2">
         <Label htmlFor="source_order_date">Дата на поръчка</Label>
-        <DateField id="source_order_date" value={sourceOrderDate} allowEmpty
+        {/* As wide as a date, not the whole row. */}
+        <DateField id="source_order_date" className="w-44" value={sourceOrderDate} allowEmpty
           onChange={setSourceOrderDate} />
       </div>
 
@@ -761,12 +784,16 @@ export default function ProductForm({ initialData, categories }: ProductFormProp
 
       {/* Submit: stays at the bottom of the screen (above the phone's tab bar)
           while the long form scrolls, so saving never means scrolling to the end. */}
-      <div className="sticky bottom-[var(--bottom-nav-h)] z-20 -mx-4 lg:-mx-6 flex items-center gap-3 border-t bg-white/95 px-4 lg:px-6 py-3 backdrop-blur">
+      <div className={cn(
+        'sticky z-20 flex items-center gap-3 border-t bg-white/95 py-3 backdrop-blur',
+        // In the delivery's window: at the window's bottom edge, across its padding.
+        inDelivery ? 'bottom-0 -mx-4 px-4 sm:-mx-6 sm:px-6' : 'bottom-[var(--bottom-nav-h)] -mx-4 lg:-mx-6 px-4 lg:px-6',
+      )}>
         <Button type="submit" disabled={submitLoading} className="h-11 flex-1 sm:flex-none">
           {submitLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {submitLoading ? 'Запазва...' : isEdit ? 'Запази промените' : 'Добави продукт'}
+          {submitLoading ? 'Запазва...' : isEdit ? 'Запази промените' : inDelivery ? 'Създай и добави в доставката' : 'Добави продукт'}
         </Button>
-        <Button type="button" variant="outline" className="h-11" onClick={() => router.push('/catalog')}>Отказ</Button>
+        <Button type="button" variant="outline" className="h-11" onClick={() => inDelivery ? inDelivery.onCancel() : router.push('/catalog')}>Отказ</Button>
       </div>
     </form>
 
