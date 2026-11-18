@@ -4,6 +4,7 @@ import { looksLikeCode } from '@/lib/barcodes'
 export async function getProducts(filters?: {
   search?: string
   categoryId?: string
+  supplierId?: string
   storeId?: string
   status?: string
   sort?: string
@@ -37,6 +38,12 @@ export async function getProducts(filters?: {
     query = query.is('category_id', null)
   } else if (filters?.categoryId) {
     query = query.eq('category_id', filters.categoryId)
+  }
+  // The product's own supplier; '__none__' the products without one.
+  if (filters?.supplierId === '__none__') {
+    query = query.is('supplier_id', null)
+  } else if (filters?.supplierId) {
+    query = query.eq('supplier_id', filters.supplierId)
   }
   // 'not_synced' asks for the products that have never reached the shop. As
   // with the category filter, a plain falsy check cannot express it, since an

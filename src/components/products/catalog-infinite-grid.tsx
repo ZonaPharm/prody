@@ -52,6 +52,7 @@ export default function CatalogInfiniteGrid({ initialProducts, filters, hasMore:
         if (f.status) params.set('status', f.status)
         if (f.sort) params.set('sort', f.sort)
         if (f.category) params.set('category', f.category)
+        if (f.supplier) params.set('supplier', f.supplier)
         if (f.store) params.set('store', f.store)
         if (f.hasImages) params.set('hasImages', f.hasImages)
         if (f.wp) params.set('wp', f.wp)
