@@ -16,7 +16,7 @@ type Data = {
 }
 
 const eur = (n: number, digits = 0) =>
-  `${n.toLocaleString('bg-BG', { minimumFractionDigits: digits, maximumFractionDigits: digits })} €`
+  `${n.toLocaleString('bg-BG', { minimumFractionDigits: digits, maximumFractionDigits: digits })}\u00a0€`
 
 const units = (n: number) => `${n.toLocaleString('bg-BG')} бр.`
 

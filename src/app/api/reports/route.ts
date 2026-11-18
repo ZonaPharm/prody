@@ -2,6 +2,50 @@ import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { sofiaToday } from '@/lib/date-utils'
 import { fetchAll, fetchByIds } from '@/lib/fetch-all'
+import { summarizeSales, previousPeriod, type SaleRow, type SellMovement } from '@/lib/reports/sales-summary'
+
+/**
+ * The period's sales (voided left out) with store, product and catalogue cost,
+ * and the 'sell' stock movements of those sales, which carry the purchase
+ * price of the batch each unit came from.
+ */
+async function loadSales(supabase: any, from: string, to: string): Promise<{ sales: SaleRow[]; movements: SellMovement[] }> {
+  const [rows, movements] = await Promise.all([
+    fetchAll<any>(() => supabase
+      .from('sales')
+      .select('id, sale_group_id, store_id, product_id, quantity, sale_price, payment_method, sale_date, store:stores(name), product:products(name, cost_price)')
+      .gte('sale_date', from)
+      .lte('sale_date', to)
+      .eq('voided', false)
+      .order('id')),
+    // Filtered through the sale itself, so no long list of ids goes in the URL.
+    fetchAll<any>(() => supabase
+      .from('stock_movements')
+      .select('sale_id, quantity, unit_cost, sale:sales!inner(sale_date)')
+      .eq('type', 'sell')
+      .gte('sale.sale_date', from)
+      .lte('sale.sale_date', to)
+      .order('id')),
+  ])
+  const one = (v: any) => (Array.isArray(v) ? v[0] : v)
+  const sales: SaleRow[] = rows.map((r: any) => ({
+    id: r.id,
+    sale_group_id: r.sale_group_id,
+    store_id: r.store_id,
+    store_name: one(r.store)?.name || '—',
+    product_id: r.product_id,
+    product_name: one(r.product)?.name || '—',
+    quantity: r.quantity,
+    sale_price: r.sale_price,
+    payment_method: r.payment_method,
+    sale_date: r.sale_date,
+    cost_price: one(r.product)?.cost_price ?? null,
+  }))
+  return {
+    sales,
+    movements: movements.filter((m: any) => m.sale_id).map((m: any) => ({ sale_id: m.sale_id, quantity: m.quantity, unit_cost: m.unit_cost })),
+  }
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -24,39 +68,23 @@ export async function GET(request: Request) {
   }
   const untilDate = to || sofiaToday()
 
-  // All sales for the period
-  const sales = await fetchAll<any>(() => supabase
-    .from('sales')
-    .select('quantity, sale_price, sale_date, product:products(name)')
-    .gte('sale_date', sinceDate)
-    .lte('sale_date', untilDate)
-    .eq('voided', false)
-    .order('sale_date') as any)
+  // The period asked for and the one of the same length right before it, for
+  // the "спрямо предходния период" figures.
+  const prev = previousPeriod(sinceDate, untilDate)
+  const [current, before] = await Promise.all([
+    loadSales(supabase, sinceDate, untilDate),
+    loadSales(supabase, prev.from, prev.to),
+  ])
+  const summary = summarizeSales(current.sales, current.movements)
+  const previousSummary = summarizeSales(before.sales, before.movements)
 
-  // Aggregate: revenue by day
-  const dayMap = new Map<string, number>()
   const productQty = new Map<string, number>()
   const productRev = new Map<string, number>()
-  let totalRevenue = 0
-  let totalCount = 0
-  const productSet = new Set<string>()
-
-  ;(sales || []).forEach((s: any) => {
-    const name = Array.isArray(s.product) ? (s.product[0]?.name || '—') : (s.product?.name || '—')
+  for (const s of current.sales) {
     const rev = s.quantity * Number(s.sale_price)
-
-    dayMap.set(s.sale_date, (dayMap.get(s.sale_date) || 0) + rev)
-    productQty.set(name, (productQty.get(name) || 0) + s.quantity)
-    productRev.set(name, (productRev.get(name) || 0) + rev)
-    productSet.add(name)
-    totalRevenue += rev
-    totalCount++
-  })
-
-  // Revenue by day (sorted)
-  const byDay = Array.from(dayMap.entries())
-    .map(([sale_date, revenue]) => ({ sale_date, revenue: Math.round(revenue * 100) / 100 }))
-    .sort((a, b) => a.sale_date.localeCompare(b.sale_date))
+    productQty.set(s.product_name, (productQty.get(s.product_name) || 0) + s.quantity)
+    productRev.set(s.product_name, (productRev.get(s.product_name) || 0) + rev)
+  }
 
   // Top products by quantity
   const topProducts = Array.from(productQty.entries())
@@ -133,10 +161,13 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    totalRevenue: Math.round(totalRevenue * 100) / 100,
-    totalCount,
-    uniqueProducts: productSet.size,
-    byDay,
+    totalRevenue: summary.totals.revenue,
+    // Receipts, not sales rows: a receipt with three products is one sale.
+    totalCount: summary.totals.receipts,
+    uniqueProducts: summary.uniqueProducts,
+    byDay: summary.byDay,
+    summary,
+    previous: { from: prev.from, to: prev.to, totals: previousSummary.totals, payment: previousSummary.payment },
     topProducts,
     topRevenue,
     lowStock: lowStockWithStores,
