@@ -32,6 +32,8 @@ import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
+import { useStoreStock } from './use-store-stock'
+import { currentStockOf } from '@/lib/deliveries/store-stock'
 import { Hint, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 import { compareWithOrder, diffSentence, formatOrderNumber, type OrderedLine } from '@/lib/supplier-orders/format'
 
@@ -93,6 +95,8 @@ export function DeliveryEditor({
   const [header, setHeader] = useState<DraftHeaderState>(initial?.header ?? { order_ref: '', notes: '' })
   const [lines, setLines] = useState<DraftLineState[]>(initial?.lines ?? [])
   const [suppliers, setSuppliers] = useState<SupplierOption[]>(initialSuppliers)
+  // What each store holds now of the products on the lines, shown under the distribution.
+  const stockNow = useStoreStock(lines.map(l => l.product.id))
   const orderedQty = useMemo(() => new Map((fromOrder?.lines ?? []).map(o => [o.product_id, o.quantity])), [fromOrder])
   const orderDiff = useMemo(
     () => fromOrder
@@ -552,6 +556,7 @@ export function DeliveryEditor({
                         warehouseName={warehouseName}
                         plan={l.plan}
                         onChange={plan => updateLine(l.key, { plan })}
+                        current={currentStockOf(l.product.id, stockNow.stock, stockNow.min, warehouse?.id) ?? null}
                         disabled={fatal}
                       />
                     </div>
