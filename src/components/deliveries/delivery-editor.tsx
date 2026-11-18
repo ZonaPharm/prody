@@ -25,14 +25,14 @@ import {
 } from '@/lib/deliveries/draft'
 import { formatMoney } from '@/lib/deliveries/format'
 import { planSummary } from '@/lib/deliveries/plan'
-import { sofiaTime } from '@/lib/date-utils'
+import { sofiaDateTime, sofiaTime } from '@/lib/date-utils'
 import { cn } from '@/lib/utils'
 import { ProductPicker, ProductThumb } from './product-picker'
 import { CatalogDialog } from './catalog-dialog'
 import { NewProductDialog } from './new-product-dialog'
 import { SupplierSelect, type SupplierOption } from './supplier-select'
 import { PlanEditor, planNumbers } from './plan-editor'
-import { Hint, Note, PageHeader, SectionTitle } from '@/components/ui/text'
+import { Hint, Meta, Note, PageHeader, SectionTitle } from '@/components/ui/text'
 import { compareWithOrder, diffSentence, formatOrderNumber, type OrderedLine } from '@/lib/supplier-orders/format'
 
 /** The order this draft delivery was made from ("Пристигна"), to check what came against it. */
@@ -68,7 +68,8 @@ function newKey() {
  * catalogue with ticks, or a new product); an empty row left as it is means
  * there are no more. Supplier and cost fill in from the product's last
  * delivery; the plan per store opens right under the line. Everything autosaves as one draft
- * (no stock moves); "Запиши доставката" gives it a number and it waits for receiving.
+ * (no stock moves); "Запиши и приеми" gives it a number and puts every line into Офис
+ * at once: what is typed in is what arrived, so there is no separate receiving step.
  */
 export function DeliveryEditor({
   initial,
@@ -76,12 +77,15 @@ export function DeliveryEditor({
   suppliers: initialSuppliers,
   categories,
   fromOrder = null,
+  userName = null,
 }: {
   initial: DraftInitial | null
   stores: StoreOption[]
   suppliers: SupplierOption[]
   categories: Option[]
   fromOrder?: FromOrder | null
+  /** Who signs the receiving (the signed-in account). */
+  userName?: string | null
 }) {
   const router = useRouter()
   const warehouse = stores.find(s => s.is_warehouse)
@@ -306,7 +310,8 @@ export function DeliveryEditor({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Доставката не можа да се запише')
       savedVersion.current = version.current
-      router.push(`/deliveries/${id}`)
+      // Saved, but the stock could not go in: "Получаване" still does it by hand.
+      router.push(data.receive_error ? `/deliveries/${id}/receive` : `/deliveries/${id}`)
       router.refresh()
     } catch (e: any) {
       setFinishError(e.message)
@@ -354,7 +359,7 @@ export function DeliveryEditor({
       <PageHeader
         back={<Button asChild variant="ghost" size="icon"><Link href="/deliveries" aria-label="Назад"><ArrowLeft className="h-4 w-4" /></Link></Button>}
         title={deliveryId ? 'Чернова на доставка' : 'Нова доставка'}
-        intro="Черновата се пази сама и не променя наличностите."
+        intro="Въведете каквото дойде. Черновата се пази сама; стоката влиза в Офис чак при „Запиши и приеми“."
         actions={<SaveIndicator state={save} />}
       />
 
@@ -415,7 +420,7 @@ export function DeliveryEditor({
             <li>Поправете бройките, които са дошли различно (до всеки ред пише колко сме поръчали).</li>
             <li>Махнете с кошчето каквото не е дошло.</li>
             <li>Добавете дошлото извън поръчката: търсене, „Каталог“ или „Нов продукт“ отдолу.</li>
-            <li>Сложете цените и номера от фактурата, разпределете по магазини и запазете.</li>
+            <li>Сложете цените и номера от фактурата, разпределете по магазини и натиснете „Запиши и приеми“: стоката влиза в Офис.</li>
           </ol>
         </section>
       )}
@@ -590,7 +595,7 @@ export function DeliveryEditor({
       <div className="fixed bottom-[var(--bottom-nav-h)] left-0 right-0 lg:left-56 border-t bg-white/95 backdrop-blur px-4 py-3 z-20">
         <div className="max-w-7xl flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="text-sm tabular-nums">
-            <span className="font-medium">{totals.lines}</span> реда · <span className="font-medium">{totals.units}</span> бр. · <span className="font-medium">{formatMoney(totals.value)}</span>
+            <span className="font-medium">{totals.lines}</span> {totals.lines === 1 ? 'ред' : 'реда'} · <span className="font-medium">{totals.units}</span> бр. · <span className="font-medium">{formatMoney(totals.value)}</span>
           </div>
           {blocker && lines.length > 0 && <span className="text-xs text-amber-700">{blocker}</span>}
           {finishError && <span className="text-xs text-red-600">{finishError}</span>}
@@ -599,7 +604,7 @@ export function DeliveryEditor({
               <span className="sm:hidden">Изтрий</span><span className="hidden sm:inline">Изтрий черновата</span>
             </Button>
             <Button type="button" className="flex-1 sm:flex-none" onClick={() => setConfirmOpen(true)} disabled={!!blocker || finishing || fatal}>
-              {finishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Запиши доставката
+              {finishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Запиши и приеми
             </Button>
           </div>
         </div>
@@ -607,17 +612,19 @@ export function DeliveryEditor({
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Запис на доставката</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Запис и приемане</DialogTitle></DialogHeader>
           <div className="space-y-2 text-sm">
-            <p>{totals.lines} реда, {totals.units} бр., {formatMoney(totals.value)}.</p>
+            <p>{totals.lines} {totals.lines === 1 ? 'ред' : 'реда'}, {totals.units} бр., {formatMoney(totals.value)}.</p>
+            <p>С подписа си казвате: „Получих това от доставчика.“</p>
+            {userName && <Meta>{userName} · {sofiaDateTime(new Date())}</Meta>}
             <Note>
-              Доставката получава номер и чака получаване. Редовете вече не се променят; разпределението може да се сменя и след това.
-              Наличностите се променят чак при получаването.
+              Всички {totals.units} бр. влизат в {warehouseName} сега, без отделно получаване. Оттам продължават към етикетиране и магазините.
+              Редовете вече не се променят; разпределението може да се сменя и след това.
             </Note>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>Назад</Button>
-            <Button onClick={() => { setConfirmOpen(false); void finish() }}>Запиши</Button>
+            <Button onClick={() => { setConfirmOpen(false); void finish() }}>Подписвам</Button>
           </div>
         </DialogContent>
       </Dialog>

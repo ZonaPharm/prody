@@ -70,14 +70,10 @@ test.describe('Доставки, фаза 3', () => {
     await line.getByLabel('Доставна цена на ред 1').fill('1,20')
     await line.getByRole('button', { name: 'Равно по всички' }).click()
     await expect(page.getByText(/Запазено \d/)).toBeVisible({ timeout: 15_000 })
-    await page.getByRole('button', { name: 'Запиши доставката' }).click()
-    await page.getByRole('button', { name: 'Запиши', exact: true }).click()
+    // 2. "Запиши и приеми": all 40 go into Офис with the same signature.
+    await page.getByRole('button', { name: 'Запиши и приеми' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Подписвам' }).click()
     await expect(page.getByRole('heading', { name: /^Д-\d{6}$/ })).toBeVisible({ timeout: 15_000 })
-
-    // 2. Receive all 40 into Офис.
-    await page.getByRole('link', { name: 'Получаване' }).click()
-    await page.getByLabel(`Получено: ${name}`).check()
-    await sign(page)
     await expect(page.getByText('В работа').first()).toBeVisible({ timeout: 15_000 })
 
     // 3. Label: tick the line of this product (all 40 received units).

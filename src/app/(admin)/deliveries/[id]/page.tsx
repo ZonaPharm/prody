@@ -56,6 +56,7 @@ export default async function DeliveryPage({ params }: { params: Promise<{ id: s
         suppliers={suppliers}
         categories={(categories as any[]).map(c => ({ id: c.id, name: c.name }))}
         fromOrder={fromOrder}
+        userName={user.display_name}
       />
     )
   }

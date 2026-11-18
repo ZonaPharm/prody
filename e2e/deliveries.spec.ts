@@ -59,20 +59,13 @@ test.describe('Доставки', () => {
     await expect(page.getByText(/Запазено \d/)).toBeVisible({ timeout: 15_000 })
     await expect(page).toHaveURL(/\/deliveries\/[0-9a-f-]{36}$/)
 
-    await page.getByRole('button', { name: 'Запиши доставката' }).click()
-    await page.getByRole('button', { name: 'Запиши', exact: true }).click()
-
-    await expect(page.getByRole('heading', { name: /^Д-\d{6}$/ })).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('Очаква се').first()).toBeVisible()
-
-    // Receive: tick the row and sign.
-    await page.getByRole('link', { name: 'Получаване' }).click()
-    await page.getByLabel(`Получено: ${name}`).check()
-    await expect(page.getByText('1 ред, 10 бр.')).toBeVisible()
-    await page.getByRole('button', { name: 'Подписвам' }).click()
+    // Entering it is receiving it: one signature, no separate "Получаване".
+    await page.getByRole('button', { name: 'Запиши и приеми' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Подписвам' }).click()
 
+    await expect(page.getByRole('heading', { name: /^Д-\d{6}$/ })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('В работа').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('link', { name: 'Получаване' })).toHaveCount(0)
     await page.getByRole('button', { name: /^Дневник/ }).click()
     await expect(page.getByText(`Получени 10 бр. „${name}“`)).toBeVisible()
     await expect(page.getByText(/Записана като Д-\d{6}, 1 ред/)).toBeVisible()

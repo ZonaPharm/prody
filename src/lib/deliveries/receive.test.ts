@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReceiveBody, problemError, receiveSummary } from './receive'
+import { buildReceiveBody, problemError, receiveAllLines, receiveSummary } from './receive'
 
 const rows = [
   { item_id: 'i1', remaining: 120 },
@@ -56,5 +56,21 @@ describe('receiveSummary', () => {
   it('says what the signature confirms', () => {
     expect(receiveSummary({ lines: [{ item_id: 'a', qty: 300 }, { item_id: 'b', qty: 40 }], signals: [{ item_id: 'b', reason: 'short', qty_expected: 50, qty_actual: 40, note: null }] }))
       .toBe('2 реда, 340 бр., 1 проблем')
+  })
+})
+
+describe('receiveAllLines', () => {
+  it('every line of a just-entered delivery goes into Офис in full', () => {
+    expect(receiveAllLines([
+      { id: 'i1', quantity: 120, received_qty: 0 },
+      { id: 'i2', quantity: 24, received_qty: 0 },
+    ])).toEqual([{ item_id: 'i1', qty: 120 }, { item_id: 'i2', qty: 24 }])
+  })
+
+  it('only what is still open, and nothing for a line already in', () => {
+    expect(receiveAllLines([
+      { id: 'i1', quantity: 10, received_qty: 4 },
+      { id: 'i2', quantity: 5, received_qty: 5 },
+    ])).toEqual([{ item_id: 'i1', qty: 6 }])
   })
 })
