@@ -239,7 +239,7 @@ export function DeliveryEditor({
     touch()
   }
 
-  function addProducts(products: DeliveryProduct[]) {
+  function addProducts(products: DeliveryProduct[], quantity: number | null = null) {
     if (!products.length) return
     // A product already on the draft keeps the "Етикет" choice made there.
     const changed = new Map(lines.filter(l => l.label_changed).map(l => [l.product.id, l.label_kind]))
@@ -249,7 +249,7 @@ export function DeliveryEditor({
       product: { id: p.id, name: p.name, sku: p.sku, image: p.image, status: p.status, price: p.price },
       supplier_id: defaultSupplier ?? p.suggested.supplier_id,
       doc_number: defaultDoc,
-      quantity: '',
+      quantity: quantity != null ? String(quantity) : '',
       pack_size: p.suggested.pack_size > 1 ? String(p.suggested.pack_size) : '',
       unit_cost: p.suggested.unit_cost != null ? String(p.suggested.unit_cost).replace('.', ',') : '',
       label_kind: changed.get(p.id) ?? p.label_kind,
@@ -576,7 +576,7 @@ export function DeliveryEditor({
                 />
               </div>
               <CatalogDialog categories={categories} stores={shopStores.concat(warehouse ? [warehouse] : [])} inDelivery={inDelivery} onAdd={addProducts} disabled={fatal} />
-              <NewProductDialog categories={categories} supplierName={suppliers.find(s => s.id === defaultSupplier)?.name ?? null} onCreated={p => addProducts([p])} disabled={fatal} />
+              <NewProductDialog categories={categories} supplierName={suppliers.find(s => s.id === defaultSupplier)?.name ?? null} onCreated={(p, qty) => addProducts([p], qty)} disabled={fatal} />
             </div>
             <Hint small className="mt-1.5 ml-1">
               {lines.length === 0

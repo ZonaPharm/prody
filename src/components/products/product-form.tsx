@@ -71,7 +71,8 @@ interface ProductFormProps {
   inDelivery?: {
     /** "Източник" to start with: the delivery's supplier. */
     defaultSource?: string
-    onSaved: (productId: string) => void | Promise<void>
+    /** quantity: "Наличност (бр.)" as typed; it becomes the line's quantity, not stock. */
+    onSaved: (productId: string, quantity: number | null) => void | Promise<void>
     onCancel: () => void
   }
 }
@@ -91,7 +92,7 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
   )
   const [status, setStatus] = useState(initialData?.status || 'active')
   const [quantityOnHand, setQuantityOnHand] = useState(
-    initialData?.quantity_on_hand?.toString() || '0'
+    initialData?.quantity_on_hand?.toString() || (inDelivery ? '' : '0')
   )
   const [minQuantity, setMinQuantity] = useState(
     initialData?.min_quantity?.toString() || '5'
@@ -226,8 +227,9 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
       }
 
       // Only set quantity_on_hand for new products; edits go through inventory system
+      // From a delivery the stock arrives with the delivery itself, so the product starts at 0.
       if (!isEdit) {
-        payload.quantity_on_hand = quantityOnHand ? parseInt(quantityOnHand, 10) : 0
+        payload.quantity_on_hand = !inDelivery && quantityOnHand ? parseInt(quantityOnHand, 10) : 0
       }
 
       let productId: string
@@ -366,7 +368,8 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
       }
 
       if (inDelivery) {
-        await inDelivery.onSaved(productId)
+        const qty = parseInt(quantityOnHand, 10)
+        await inDelivery.onSaved(productId, qty > 0 ? qty : null)
         return
       }
 
@@ -461,9 +464,15 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
             </SelectContent>
           </Select>
         </div>
-        {!inDelivery && <div className="space-y-2">
+        <div className="space-y-2">
           <Label htmlFor="quantity">Наличност (бр.)</Label>
-          {isEdit ? (
+          {inDelivery ? (
+            <>
+              <Input id="quantity" type="number" min="0" inputMode="numeric" value={quantityOnHand}
+                onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
+              <p className="text-[10px] text-muted-foreground">Отиват в доставката като бройки на реда</p>
+            </>
+          ) : isEdit ? (
             <>
               <Input id="quantity" type="number" min="0" value={quantityOnHand} disabled
                 className="bg-slate-50 text-muted-foreground" />
@@ -476,7 +485,7 @@ export default function ProductForm({ initialData, categories, inDelivery }: Pro
             <Input id="quantity" type="number" min="0" value={quantityOnHand}
               onChange={(e) => setQuantityOnHand(e.target.value)} placeholder="0" />
           )}
-        </div>}
+        </div>
         <div className="space-y-2">
           <Label htmlFor="min_quantity">Мин. количество</Label>
           <Input id="min_quantity" type="number" min="0" value={minQuantity}

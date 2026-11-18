@@ -24,7 +24,8 @@ export function NewProductDialog({
   categories: Option[]
   /** The delivery's supplier, to fill in "Източник". */
   supplierName: string | null
-  onCreated: (p: DeliveryProduct) => void
+  /** quantity: the "Наличност (бр.)" typed in the form, for the line. */
+  onCreated: (p: DeliveryProduct, quantity: number | null) => void
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -32,13 +33,13 @@ export function NewProductDialog({
   const [formKey, setFormKey] = useState(0)
   const [error, setError] = useState('')
 
-  async function saved(productId: string) {
+  async function saved(productId: string, quantity: number | null) {
     setError('')
     try {
       const res = await fetch(`/api/deliveries/products/${productId}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Продуктът е създаден, но не се добави')
-      onCreated(data)
+      onCreated(data, quantity)
       setOpen(false)
     } catch (err: any) {
       // The product is saved: say so and how to add it, rather than lose it.
