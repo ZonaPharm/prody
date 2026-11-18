@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Meta, Note, Empty } from '@/components/ui/text'
 import { formatDateBg } from '@/lib/date-input'
 import { cn } from '@/lib/utils'
-import { changePct, type SalesSummary, type Totals, type PaymentTotals } from '@/lib/reports/sales-summary'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { changePct, type SalesSummary, type Totals, type PaymentTotals, type VoidedSummary } from '@/lib/reports/sales-summary'
 
 export type Previous = { from: string; to: string; totals: Totals; payment: PaymentTotals }
 
@@ -182,6 +183,101 @@ export function TopProfit({ summary }: { summary: SalesSummary }) {
               </li>
             ))}
           </ol>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Per seller: takings, receipts, average receipt; and the voided sales of the period. */
+export function SellersCard({ summary, voided }: { summary: SalesSummary; voided?: VoidedSummary }) {
+  const rows = summary.bySeller
+  const voidedBy = new Map((voided?.bySeller || []).map(v => [v.name, v]))
+  return (
+    <Card data-testid="sellers">
+      <CardHeader className="pb-3"><CardTitle className="text-base">По продавачи</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        {rows.length === 0 ? <Empty>Няма продажби за периода.</Empty> : (
+          <ul className="divide-y rounded-md border">
+            {rows.map(r => {
+              const v = voidedBy.get(r.name)
+              return (
+                <li key={r.sold_by} className="flex items-start justify-between gap-3 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900 break-words">{r.name}</p>
+                    <Meta>
+                      {num(r.receipts)} бележки · среден чек {eur(r.avgReceipt, 2)}
+                      {v && <span className="text-red-700"> · анулирани {v.rows} за {eur(v.value, 2)}</span>}
+                    </Meta>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums">{eur(r.revenue)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {voided && (
+          voided.rows === 0
+            ? <Meta>Няма анулирани продажби за периода.</Meta>
+            : (
+              <Note tone="warn" small>
+                Анулирани продажби: {num(voided.rows)} {voided.rows === 1 ? 'ред' : 'реда'} ({num(voided.units)} бр.) за {eur(voided.value, 2)}.
+                {' '}Те не са в оборота.
+              </Note>
+            )
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Which weekdays and hours sell most, Sofia time. */
+export function WhenCard({ summary }: { summary: SalesSummary }) {
+  const { weekdays, hours } = summary.when
+  const short = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
+  const dayData = weekdays.map(d => ({ ...d, short: short[d.day] }))
+  const best = [...weekdays].sort((a, b) => b.avgRevenue - a.avgRevenue)[0]
+  const busiest = [...hours].sort((a, b) => b.receipts - a.receipts)[0]
+  const empty = hours.length === 0 && weekdays.every(d => d.revenue === 0)
+  return (
+    <Card data-testid="when-sold">
+      <CardHeader className="pb-3"><CardTitle className="text-base">Кога се продава</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        {empty ? <Empty>Няма продажби за периода.</Empty> : (
+          <>
+            <div>
+              <Meta>Среден оборот за ден от седмицата{best && best.avgRevenue > 0 ? ` · най-силен: ${best.label.toLowerCase()}` : ''}</Meta>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={dayData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="short" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v) => `${v} €`} />
+                  <Tooltip
+                    labelFormatter={(_l, p: any) => p?.[0]?.payload?.label ?? ''}
+                    formatter={(v: any, _n: any, p: any) => [`${Number(v).toFixed(0)} € средно (${p?.payload?.occurrences ?? 0} дни)`, 'Оборот']}
+                  />
+                  <Bar dataKey="avgRevenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {hours.length > 0 && (
+              <div>
+                <Meta>Касови бележки по часове за целия период{busiest ? ` · най-много: ${busiest.hour}:00–${busiest.hour + 1}:00` : ''}</Meta>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={hours} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} width={48} allowDecimals={false} />
+                    <Tooltip
+                      labelFormatter={(h: any) => `${h}:00–${Number(h) + 1}:00`}
+                      formatter={(v: any, _n: any, p: any) => [`${v} бележки, ${Number(p?.payload?.revenue ?? 0).toFixed(0)} €`, '']}
+                    />
+                    <Bar dataKey="receipts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { summarizeSales, lineCost, previousPeriod, changePct, type SaleRow } from './sales-summary'
+import { summarizeSales, summarizeVoided, lineCost, previousPeriod, changePct, weekdayIndex, sofiaHour, weekdayOccurrences, type SaleRow } from './sales-summary'
 
 let n = 0
 const sale = (o: Partial<SaleRow>): SaleRow => ({
@@ -115,5 +115,67 @@ describe('changePct', () => {
     expect(changePct(120, 100)).toBe(20)
     expect(changePct(90, 120)).toBe(-25)
     expect(changePct(5, 0)).toBeNull()
+  })
+})
+
+describe('sellers', () => {
+  it('gives each seller their takings, receipts and average receipt', () => {
+    const r = summarizeSales([
+      sale({ sold_by: 'u1', seller_name: 'Мира', sale_group_id: 'g1', sale_price: 10 }),
+      sale({ sold_by: 'u1', seller_name: 'Мира', sale_group_id: 'g1', sale_price: 20 }),
+      sale({ sold_by: 'u2', seller_name: 'Деси', sale_group_id: 'g2', sale_price: 50 }),
+      sale({ sold_by: 'u2', seller_name: 'Деси', sale_group_id: 'g3', sale_price: 10 }),
+    ], [])
+    expect(r.bySeller).toEqual([
+      { sold_by: 'u2', name: 'Деси', revenue: 60, receipts: 2, avgReceipt: 30, units: 2 },
+      { sold_by: 'u1', name: 'Мира', revenue: 30, receipts: 1, avgReceipt: 30, units: 2 },
+    ])
+  })
+})
+
+describe('when it sells', () => {
+  it('knows the weekday of a date, Monday first', () => {
+    expect(weekdayIndex('2026-11-16')).toBe(0) // Monday
+    expect(weekdayIndex('2026-11-22')).toBe(6) // Sunday
+  })
+
+  it('reads the hour on a Sofia clock, summer and winter', () => {
+    expect(sofiaHour('2026-11-18T08:30:00Z')).toBe(10) // UTC+2
+    expect(sofiaHour('2026-07-01T08:30:00Z')).toBe(11) // UTC+3
+    expect(sofiaHour('2026-11-18T22:10:00Z')).toBe(0)
+  })
+
+  it('counts each weekday in a period', () => {
+    // 1–30 November 2026: starts on a Sunday, so Sunday and Monday come 5 times.
+    expect(weekdayOccurrences('2026-11-01', '2026-11-30')).toEqual([5, 4, 4, 4, 4, 4, 5])
+  })
+
+  it('averages takings per weekday over the times it occurred, and counts receipts per hour', () => {
+    const r = summarizeSales([
+      sale({ sale_date: '2026-11-16', sale_price: 100, created_at: '2026-11-16T08:05:00Z', sale_group_id: 'a' }),
+      sale({ sale_date: '2026-11-23', sale_price: 50, created_at: '2026-11-23T08:40:00Z', sale_group_id: 'b' }),
+      sale({ sale_date: '2026-11-18', sale_price: 30, created_at: '2026-11-18T15:00:00Z', sale_group_id: 'c' }),
+    ], [], { from: '2026-11-16', to: '2026-11-29' })
+    const monday = r.when.weekdays[0]
+    expect(monday).toMatchObject({ label: 'Понеделник', revenue: 150, receipts: 2, occurrences: 2, avgRevenue: 75 })
+    expect(r.when.weekdays[2]).toMatchObject({ revenue: 30, occurrences: 2, avgRevenue: 15 })
+    expect(r.when.hours).toEqual([
+      { hour: 10, revenue: 150, receipts: 2 },
+      { hour: 17, revenue: 30, receipts: 1 },
+    ])
+  })
+})
+
+describe('summarizeVoided', () => {
+  it('totals voided rows and splits them by who sold them', () => {
+    const v = summarizeVoided([
+      { quantity: 2, sale_price: '5', sold_by: 'u1', seller_name: 'Мира' },
+      { quantity: 1, sale_price: 30, sold_by: 'u2', seller_name: 'Деси' },
+      { quantity: 1, sale_price: 4, sold_by: 'u1', seller_name: 'Мира' },
+    ])
+    expect(v).toEqual({
+      rows: 3, units: 4, value: 44,
+      bySeller: [{ name: 'Деси', rows: 1, value: 30 }, { name: 'Мира', rows: 2, value: 14 }],
+    })
   })
 })

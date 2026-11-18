@@ -33,14 +33,14 @@ function buildHtml(data: any, sections: string[]): string {
     parts.push(`<h3>Общо</h3>`)
     parts.push(`<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">`)
     parts.push(`<tr><td><strong>Оборот</strong></td><td>${data.totalRevenue?.toFixed(0) || 0} €</td></tr>`)
-    parts.push(`<tr><td><strong>Брой продажби</strong></td><td>${data.totalCount || 0}</td></tr>`)
+    parts.push(`<tr><td><strong>Касови бележки</strong></td><td>${data.totalCount || 0}</td></tr>`)
     parts.push(`<tr><td><strong>Уникални продукти</strong></td><td>${data.uniqueProducts || 0}</td></tr>`)
     parts.push(`<tr><td><strong>Среден чек</strong></td><td>${data.totalCount > 0 ? (data.totalRevenue / data.totalCount).toFixed(0) : '0'} €</td></tr>`)
     parts.push(`</table>`)
   }
 
   if (sections.includes('stores') && data.storeBreakdown) {
-    parts.push(`<h3>По обекти</h3><table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse"><tr><th>Обект</th><th>Брой</th><th>Оборот</th></tr>`)
+    parts.push(`<h3>По обекти</h3><table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse"><tr><th>Обект</th><th>Бележки</th><th>Оборот</th></tr>`)
     data.storeBreakdown.forEach((s: any) => parts.push(`<tr><td>${s.store}</td><td>${s.count}</td><td>${s.revenue.toFixed(0)} €</td></tr>`))
     parts.push(`</table>`)
   }

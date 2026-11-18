@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWeeklyReport } from '@/lib/email'
 import { sofiaToday } from '@/lib/date-utils'
 import { fetchAll } from '@/lib/fetch-all'
+import { loadEmailReportData } from '@/lib/reports/load'
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient()
@@ -21,26 +22,8 @@ export async function POST(request: NextRequest) {
   const weekAgo = body.from || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const today = body.to || sofiaToday()
 
-  const sales = await fetchAll<any>(() => (admin.from('sales') as any)
-    .select('quantity, sale_price, product:products(name)')
-    .gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
-    .order('sale_date'))
-
-  const productQty = new Map<string, number>()
-  let totalRevenue = 0, totalCount = 0
-  const productSet = new Set<string>()
-  ;(sales || []).forEach((s: any) => {
-    const name = Array.isArray(s.product) ? s.product[0]?.name : s.product?.name || '—'
-    productQty.set(name, (productQty.get(name) || 0) + s.quantity)
-    totalRevenue += s.quantity * Number(s.sale_price)
-    totalCount++; productSet.add(name)
-  })
-
-  const reportData = {
-    totalRevenue: Math.round(totalRevenue * 100) / 100, totalCount, uniqueProducts: productSet.size,
-    topProducts: Array.from(productQty.entries()).map(([name, quantity]) => ({ name, quantity })).sort((a, b) => b.quantity - a.quantity).slice(0, 10),
-    lowStock: [] as any[], storeBreakdown: [] as any[],
-  }
+  // Same figures as the weekly e-mail and Отчети: receipts, stores, low stock.
+  const reportData = await loadEmailReportData(admin, weekAgo, today)
 
   const fetchSalesForExport = async (q: { from: string; to: string; store_id?: string | null }) => {
     const data = await fetchAll<any>(() => (admin.from('sales') as any)

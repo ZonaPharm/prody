@@ -10,7 +10,7 @@ import { PeriodDateInput } from '@/components/ui/period-date-input'
 import { formatDateBg } from '@/lib/date-input'
 import { sofiaToday, sofiaDaysAgo } from '@/lib/date-utils'
 import { StockMoneySection } from '@/components/reports/stock-money-section'
-import { SummaryCards, StoresTable, TopProfit } from '@/components/reports/sales-overview'
+import { SummaryCards, StoresTable, TopProfit, SellersCard, WhenCard } from '@/components/reports/sales-overview'
 
 function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
@@ -127,6 +127,10 @@ export default function ReportsPage() {
         <>
           <SummaryCards summary={data.summary} previous={data.previous} />
           <StoresTable summary={data.summary} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <SellersCard summary={data.summary} voided={data.voided} />
+            <WhenCard summary={data.summary} />
+          </div>
         </>
       ) : null}
 

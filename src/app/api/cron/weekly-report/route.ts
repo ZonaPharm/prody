@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWeeklyReport } from '@/lib/email'
 import { sofiaToday } from '@/lib/date-utils'
 import { fetchAll, fetchByIds } from '@/lib/fetch-all'
+import { loadEmailReportData } from '@/lib/reports/load'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -30,32 +31,7 @@ export async function GET(request: Request) {
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const today = sofiaToday()
 
-  const sales = await fetchAll<any>(() => (admin.from('sales') as any)
-    .select('quantity, sale_price, product:products(name)')
-    .gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false)
-    .order('id'))
-
-  const productQty = new Map<string, number>()
-  let totalRevenue = 0, totalCount = 0
-  const productSet = new Set<string>()
-  ;(sales || []).forEach((s: any) => {
-    const name = Array.isArray(s.product) ? s.product[0]?.name : s.product?.name || '—'
-    productQty.set(name, (productQty.get(name) || 0) + s.quantity)
-    totalRevenue += s.quantity * Number(s.sale_price)
-    totalCount++; productSet.add(name)
-  })
-
-  const topProducts = Array.from(productQty.entries()).map(([name, quantity]) => ({ name, quantity })).sort((a, b) => b.quantity - a.quantity).slice(0, 10)
-  const lowStock = await fetchAll<any>(() => (admin.from('products') as any).select('name, quantity_on_hand').eq('status', 'active').lte('quantity_on_hand', 5).order('quantity_on_hand').order('id'))
-
-  const storeSales = await fetchAll<any>(() => (admin.from('sales') as any).select('quantity, sale_price, store:stores(name)').gte('sale_date', weekAgo).lte('sale_date', today).eq('voided', false).order('id'))
-  const storeMap: Record<string, { count: number; revenue: number }> = {}
-  ;(storeSales || []).forEach((s: any) => {
-    const store = Array.isArray(s.store) ? s.store[0]?.name : s.store?.name || '—'
-    if (!storeMap[store]) storeMap[store] = { count: 0, revenue: 0 }
-    storeMap[store].count++; storeMap[store].revenue += s.quantity * Number(s.sale_price)
-  })
-  const storeBreakdown = Object.entries(storeMap).map(([store, v]) => ({ store, count: v.count, revenue: Math.round(v.revenue * 100) / 100 }))
+  const reportData = await loadEmailReportData(admin, weekAgo, today)
 
   const fetchSalesForExport = async (q: { from: string; to: string; store_id?: string | null }) => {
     const data = await fetchAll<any>(() => {
@@ -79,6 +55,6 @@ export async function GET(request: Request) {
   }
 
   const parsed = { ...settings, recipients: (settings.recipients || []) as string[] }
-  await sendWeeklyReport(parsed, { totalRevenue: Math.round(totalRevenue * 100) / 100, totalCount, uniqueProducts: productSet.size, topProducts, lowStock: lowStock || [], storeBreakdown }, fetchSalesForExport)
+  await sendWeeklyReport(parsed, reportData, fetchSalesForExport)
   return NextResponse.json({ sent: true, recipients: parsed.recipients.length })
 }
