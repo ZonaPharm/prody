@@ -11,9 +11,9 @@
 --      ЗЕЙН ФАРМА, Zein Pharma, Nature's Plus, РААБ -> Витамаг (brands of Витамаг)
 --      Cubo                                       -> Cudo
 --      Родосорб                                   -> Farer
+--      Sadoer, Тему Sadoer, Temu/ MERCILEN, FIRMOYO -> Temu (Владимир, 18.11 13:20)
 --    The Temu spellings (Тему, тему, ТЕМУ) were already joined by the migration.
---    Not touched until Владимир decides: Sadoer, Тему Sadoer, Temu/ MERCILEN,
---    FIRMOYO, Ербозета.
+--    Ербозета stays as it is.
 -- 3. Products with no supplier get the supplier of their category:
 --      Арома -> Арома, Витамаг -> Витамаг, Панацея -> Панацея 2001,
 --      Зонафарм -> Зонафарм, Корейска козметика -> Cudo, Чай -> Ана,
@@ -69,7 +69,8 @@ BEGIN
   FOR r IN SELECT * FROM (VALUES
       ('Ааксон', 'Аксон'), ('Аксом', 'Аксон'),
       ('ЗЕЙН ФАРМА', 'Витамаг'), ('Zein Pharma', 'Витамаг'), ('Nature''s Plus', 'Витамаг'), ('РААБ', 'Витамаг'),
-      ('Cubo', 'Cudo'), ('Родосорб', 'Farer')) AS m(dup, target) LOOP
+      ('Cubo', 'Cudo'), ('Родосорб', 'Farer'),
+      ('Sadoer', 'Temu'), ('Тему Sadoer', 'Temu'), ('Temu/ MERCILEN', 'Temu'), ('FIRMOYO', 'Temu')) AS m(dup, target) LOOP
     SELECT id INTO v_to FROM public.suppliers WHERE lower(btrim(name)) = lower(r.target);
     SELECT id INTO v_from FROM public.suppliers WHERE lower(btrim(name)) = lower(r.dup);
 

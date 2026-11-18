@@ -4,7 +4,7 @@
 with merged as (
   select id from public.suppliers
   where lower(btrim(name)) in ('ааксон', 'аксом', 'зейн фарма', 'zein pharma', 'nature''s plus', 'рааб',
-                               'cubo', 'родосорб')
+                               'cubo', 'родосорб', 'sadoer', 'тему sadoer', 'temu/ mercilen', 'firmoyo')
 )
 
 select 'C1 every product of the listed categories has a supplier' as test,
@@ -23,7 +23,7 @@ select 'C2 the merged names are hidden',
 from public.suppliers
 where is_active
   and lower(btrim(name)) in ('ааксон', 'аксом', 'зейн фарма', 'zein pharma', 'nature''s plus', 'рааб',
-                             'cubo', 'родосорб')
+                             'cubo', 'родосорб', 'sadoer', 'тему sadoer', 'temu/ mercilen', 'firmoyo')
 
 union all
 select 'C3 nothing points at a merged name any more',
