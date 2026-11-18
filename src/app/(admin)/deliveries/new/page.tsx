@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 /** A new delivery has no row until its first autosave. */
 export default async function NewDeliveryPage() {
-  await requireDeliveriesAdmin({ adminOnly: true })
+  const user = await requireDeliveriesAdmin({ adminOnly: true })
   const supabase = await createServerSupabaseClient()
   const [stores, suppliers, categories] = await Promise.all([
     getStoreOptions(supabase),
@@ -21,6 +21,7 @@ export default async function NewDeliveryPage() {
       stores={stores}
       suppliers={suppliers}
       categories={(categories as any[]).map(c => ({ id: c.id, name: c.name }))}
+      userName={user.display_name}
     />
   )
 }

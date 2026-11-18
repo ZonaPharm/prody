@@ -88,3 +88,15 @@ export function receiveSummary(body: ReceiveBody): string {
   const problemWord = problems === 1 ? 'проблем' : 'проблема'
   return `${rows} ${rowWord}, ${units} бр.${problems ? `, ${problems} ${problemWord}` : ''}`
 }
+
+/**
+ * "Запиши и приеми": what was typed in at entry is what arrived, so every line
+ * goes into Офис in full (what is still open on it, for a retry).
+ */
+export function receiveAllLines(
+  items: { id: string; quantity: number; received_qty: number }[],
+): { item_id: string; qty: number }[] {
+  return items
+    .map(i => ({ item_id: i.id, qty: i.quantity - i.received_qty }))
+    .filter(l => l.qty > 0)
+}

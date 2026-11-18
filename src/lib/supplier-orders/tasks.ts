@@ -33,7 +33,7 @@ export function orderTasks(rows: OrderTaskRow[], today: string, sofiaDay: (iso: 
       out.push({
         key: `order-check-${r.id}`, tone: 'do', icon: 'inbox', label: 'Стъпка 1: Доставка от поръчка',
         title: `Сверете доставката от ${no} (${r.supplier}) с фактурата`,
-        detail: 'Поправете бройките и цените, махнете недошлото, добавете дошлото извън поръчката и запазете.',
+        detail: 'Поправете бройките и цените, махнете недошлото, добавете дошлото извън поръчката и натиснете „Запиши и приеми“.',
         href: `/deliveries/${r.delivery_id}`, cta: 'Към доставката',
       })
     } else if (r.status === 'sent') {

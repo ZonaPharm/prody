@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   deliveryStatus: 'expected',
   adminRpc: vi.fn(),
   adminInsert: vi.fn(),
+  items: [] as { id: string; quantity: number; received_qty: number }[],
+  itemsError: null as unknown,
   adminUpdates: [] as { table: string; row: unknown; ids?: unknown }[],
   updateError: null as unknown,
   insertErrors: [] as unknown[],
@@ -47,6 +49,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     rpc: mocks.adminRpc,
     from: (table: string) => ({
+      select: () => ({ eq: () => Promise.resolve(table === 'delivery_items' ? { data: mocks.itemsError ? null : mocks.items, error: mocks.itemsError } : { data: null, error: null }) }),
       insert: (row: unknown) => {
         mocks.adminInsert(row)
         const error = mocks.insertErrors.shift() ?? null
@@ -88,6 +91,8 @@ describe('delivery API routes', () => {
     mocks.adminUpdates.length = 0
     mocks.updateError = null
     mocks.insertErrors = []
+    mocks.items = []
+    mocks.itemsError = null
     vi.stubEnv('DELIVERIES_ENABLED', 'all')
     mocks.user = { id: ADMIN.id }
     mocks.profile = { ...ADMIN }
@@ -206,14 +211,59 @@ describe('delivery API routes', () => {
     })
   })
 
-  describe('save', () => {
-    it('numbers the delivery and logs it', async () => {
-      mocks.adminRpc.mockResolvedValue({ data: 124, error: null })
+  describe('save = receive', () => {
+    it('numbers the delivery and puts every line into Офис in full, in the same request', async () => {
+      mocks.items = [
+        { id: ITEM, quantity: 10, received_qty: 0 },
+        { id: PRODUCT, quantity: 3, received_qty: 0 },
+      ]
+      mocks.adminRpc.mockImplementation(async (fn: string) =>
+        fn === 'save_delivery' ? { data: 124, error: null } : { data: { received: 13, auto_ready: 3, signals: 0 }, error: null })
       const res = await savePOST(req({}), params({ id: DELIVERY }))
       expect(res.status).toBe(200)
-      expect(await res.json()).toEqual({ success: true, number: 124 })
-      expect(mocks.adminRpc).toHaveBeenCalledWith('save_delivery', { p_delivery_id: DELIVERY, p_user: ADMIN.id })
+      expect(await res.json()).toEqual({ success: true, number: 124, received: 13, auto_ready: 3 })
+      expect(mocks.adminRpc).toHaveBeenNthCalledWith(1, 'save_delivery', { p_delivery_id: DELIVERY, p_user: ADMIN.id })
+      expect(mocks.adminRpc).toHaveBeenNthCalledWith(2, 'receive_delivery_checked', {
+        p_delivery_id: DELIVERY,
+        p_user: ADMIN.id,
+        p_lines: [{ item_id: ITEM, qty: 10 }, { item_id: PRODUCT, qty: 3 }],
+        p_signals: [],
+      })
       expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'delivery_saved', details: 'Д-000124' }), expect.anything())
+      expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'delivery_received', details: '13 бр. в Офис, при въвеждането' }), expect.anything())
+    })
+
+    it('a draft that cannot be saved is not received', async () => {
+      mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Доставката няма редове' } })
+      const res = await savePOST(req({}), params({ id: DELIVERY }))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('Доставката няма редове')
+      expect(mocks.adminRpc).toHaveBeenCalledTimes(1)
+    })
+
+    it('when receiving fails the delivery stays saved and the answer says so, so the screen opens „Получаване“', async () => {
+      mocks.items = [{ id: ITEM, quantity: 10, received_qty: 0 }]
+      mocks.adminRpc.mockImplementation(async (fn: string) =>
+        fn === 'save_delivery'
+          ? { data: 125, error: null }
+          : { data: null, error: { code: 'P0001', message: 'Трябва да има точно един активен склад (обект с is_warehouse), а има 0' } })
+      const res = await savePOST(req({}), params({ id: DELIVERY }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        success: true,
+        number: 125,
+        received: 0,
+        receive_error: 'Трябва да има точно един активен склад (обект с is_warehouse), а има 0',
+      })
+      expect(mocks.logAction).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'delivery_received' }), expect.anything())
+    })
+
+    it('when the lines cannot be read, nothing is received and the answer says so', async () => {
+      mocks.itemsError = { code: '08006', message: 'connection lost' }
+      mocks.adminRpc.mockResolvedValue({ data: 126, error: null })
+      const res = await savePOST(req({}), params({ id: DELIVERY }))
+      expect(await res.json()).toEqual({ success: true, number: 126, received: 0, receive_error: 'connection lost' })
+      expect(mocks.adminRpc).toHaveBeenCalledTimes(1)
     })
   })
 
