@@ -9,6 +9,7 @@ import { Download, Building2, FileSpreadsheet, Loader2, Package, Boxes } from 'l
 import { PeriodDateInput } from '@/components/ui/period-date-input'
 import { formatDateBg } from '@/lib/date-input'
 import { sofiaToday, sofiaDaysAgo } from '@/lib/date-utils'
+import { StockMoneySection } from '@/components/reports/stock-money-section'
 
 function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
@@ -260,6 +261,8 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <StockMoneySection from={from} to={to} />
 
       {/* Export section */}
       <Card>
