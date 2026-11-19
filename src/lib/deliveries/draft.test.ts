@@ -96,7 +96,7 @@ describe('the draft', () => {
   it('cannot be saved empty, with an incomplete line, or over-planned', () => {
     expect(saveBlocker([])).toBe('Добавете поне един ред')
     expect(saveBlocker([line({ unit_cost: '' })])).toMatch(/Ред 1 .*доставна цена/)
-    expect(saveBlocker([line({ quantity: '20' })])).toMatch(/Ред 1 .*разпределено е повече/)
+    expect(saveBlocker([line({ quantity: '20' })])).toMatch(/Ред 1 .*разпределено повече, отколкото е дошло. Намалете магазините/)
     expect(saveBlocker([line()])).toBeNull()
   })
 })

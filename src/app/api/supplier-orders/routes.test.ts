@@ -8,6 +8,7 @@ const ADMIN = { id: '11111111-1111-4111-8111-111111111111', email: 'admin@test.b
 const ORDER = '22222222-2222-4222-8222-222222222222'
 const SUPPLIER = '33333333-3333-4333-8333-333333333333'
 const PRODUCT = '44444444-4444-4444-8444-444444444444'
+const STORE = '55555555-5555-4555-8555-555555555555'
 
 function query(result: unknown) {
   const q: Record<string, unknown> = {}
@@ -43,6 +44,7 @@ vi.mock('@/lib/supabase/admin', () => ({
     rpc: mocks.adminRpc,
     from: (table: string) => {
       if (table === 'email_settings') return query({ data: mocks.mail })
+      if (table === 'supplier_order_plan') return query({ data: [], error: null })
       if (table === 'supplier_orders') {
         const q = query({ data: mocks.order }) as Record<string, unknown>
         q.delete = () => query({ data: mocks.deleted, error: null })
@@ -63,6 +65,7 @@ import { DELETE as orderDELETE } from './[id]/route'
 import { POST as sendPOST } from './[id]/send/route'
 import { POST as arrivedPOST } from './[id]/arrived/route'
 import { POST as cancelPOST } from './[id]/cancel/route'
+import { POST as planPOST } from './[id]/plan/route'
 
 const req = (body: unknown) => ({ json: async () => body }) as unknown as Request
 const params = <T,>(p: T) => ({ params: Promise.resolve(p) })
@@ -114,8 +117,61 @@ describe('supplier order API routes', () => {
       p_order_id: null,
       p_user: ADMIN.id,
       p_expected_updated_at: null,
-      p_order: { supplier_id: SUPPLIER, notes: 'до петък', items: [{ product_id: PRODUCT, quantity: 5, note: 'синя' }] },
+      p_order: { supplier_id: SUPPLIER, notes: 'до петък', share_plan: false, items: [{ product_id: PRODUCT, quantity: 5, note: 'синя', plan: [] }] },
     })
+  })
+
+  it('save passes each line\'s split per store', async () => {
+    const plan = [{ store_id: STORE, planned_qty: 3 }]
+    const res = await savePOST(req({ ...saveBody, items: [{ product_id: PRODUCT, quantity: 5, plan }] }))
+    expect(res.status).toBe(200)
+    expect(mocks.adminRpc.mock.calls[0][1].p_order.items).toEqual([{ product_id: PRODUCT, quantity: 5, note: null, plan }])
+  })
+
+  it('save refuses a fractional or negative store quantity before the database', async () => {
+    for (const planned_qty of [-1, 1.5]) {
+      const res = await savePOST(req({ ...saveBody, items: [{ product_id: PRODUCT, quantity: 5, plan: [{ store_id: STORE, planned_qty }] }] }))
+      expect(res.status).toBe(400)
+    }
+    expect(mocks.adminRpc).not.toHaveBeenCalled()
+  })
+
+  it('plan: only the split goes to save_supplier_order_plan, and it is logged', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: { updated_at: '2026-11-17T10:00:00+00:00' }, error: null })
+    const items = [{ product_id: PRODUCT, plan: [{ store_id: STORE, planned_qty: 2 }] }]
+    const res = await planPOST(req({ expected_updated_at: '2026-11-17T09:00:00+00:00', items }), params({ id: ORDER }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ updated_at: '2026-11-17T10:00:00+00:00' })
+    expect(mocks.adminRpc).toHaveBeenCalledWith('save_supplier_order_plan', {
+      p_order_id: ORDER, p_user: ADMIN.id, p_expected_updated_at: '2026-11-17T09:00:00+00:00', p_items: items, p_share_plan: null,
+    })
+    expect(mocks.logAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'supplier_order_plan_changed', entityId: ORDER }), expect.anything())
+  })
+
+  it('plan: "send the split to the supplier" alone, with no lines', async () => {
+    mocks.adminRpc.mockResolvedValue({ data: { updated_at: 't', share_plan: true }, error: null })
+    const res = await planPOST(req({ items: [], share_plan: true }), params({ id: ORDER }))
+    expect(res.status).toBe(200)
+    expect(mocks.adminRpc).toHaveBeenCalledWith('save_supplier_order_plan', {
+      p_order_id: ORDER, p_user: ADMIN.id, p_expected_updated_at: null, p_items: [], p_share_plan: true,
+    })
+    const save = await savePOST(req({ ...saveBody, share_plan: true }))
+    expect(save.status).toBe(200)
+    expect(mocks.adminRpc.mock.calls[1][1].p_order.share_plan).toBe(true)
+  })
+
+  it('plan: admins only, a bad id is 404, an empty list is 400, a refusal shows its message', async () => {
+    const items = [{ product_id: PRODUCT, plan: [] }]
+    mocks.profile = { ...ADMIN, role: 'seller', roles: ['office'] }
+    expect((await planPOST(req({ items }), params({ id: ORDER }))).status).toBe(403)
+    mocks.profile = { ...ADMIN }
+    expect((await planPOST(req({ items }), params({ id: 'nope' }))).status).toBe(404)
+    expect((await planPOST(req({ items: [] }), params({ id: ORDER }))).status).toBe(400)
+    expect(mocks.adminRpc).not.toHaveBeenCalled()
+    mocks.adminRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Стоката вече пристигна: сменете разпределението в доставката' } })
+    const res = await planPOST(req({ items }), params({ id: ORDER }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Стоката вече пристигна: сменете разпределението в доставката')
   })
 
   it('save refuses a fractional or zero quantity before the database', async () => {

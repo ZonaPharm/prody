@@ -5,7 +5,8 @@ import { orderSaveSchema } from '@/lib/supplier-orders/schemas'
 
 /**
  * Save a draft order to a supplier (new or existing), the whole draft in one
- * save_supplier_order call. Admins only, like entering deliveries.
+ * save_supplier_order call, with each line's split per store. Admins only, like
+ * entering deliveries.
  */
 export async function POST(request: Request) {
   const gate = await deliveriesGate({ adminOnly: true })
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
 
   const body = await parseBody(request, orderSaveSchema)
   if (!body.ok) return body.response
-  const { id, expected_updated_at, supplier_id, notes, items } = body.data
+  const { id, expected_updated_at, supplier_id, notes, share_plan, items } = body.data
 
   const admin = createAdminClient()
   const { data, error } = await (admin as any).rpc('save_supplier_order', {
@@ -23,7 +24,8 @@ export async function POST(request: Request) {
     p_order: {
       supplier_id,
       notes: notes ?? null,
-      items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity, note: i.note ?? null })),
+      share_plan: share_plan ?? false,
+      items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity, note: i.note ?? null, plan: i.plan ?? [] })),
     },
   })
   if (error) return rpcFailure('save_supplier_order', error, 'Поръчката не можа да се запази')

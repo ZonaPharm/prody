@@ -64,7 +64,12 @@ export type OrderDocLine = {
   barcode: string | null
   quantity: number
   note: string | null
+  /** Units per column of OrderDoc.split, when the split goes to the supplier. */
+  split?: number[]
 }
+
+/** The split per store shown to the supplier ("Прати разпределението"), to pack per store. */
+export type OrderDocSplit = { columns: string[] }
 
 export type OrderDoc = {
   number: number
@@ -75,6 +80,28 @@ export type OrderDoc = {
   /** Company, delivery address, phone: Настройки → Доставчици. */
   signature: string | null
   senderName: string
+  /** Null (the default): the supplier sees products and quantities only. */
+  split?: OrderDocSplit | null
+}
+
+/**
+ * The split as the supplier sees it: one column per store that gets anything (in
+ * the stores' order), then the warehouse for what is not split, when anything is
+ * left for it. Null when nothing is split.
+ */
+export function splitForSupplier(
+  lines: { quantity: number; plan: Record<string, number> }[],
+  stores: { id: string; name: string; is_warehouse: boolean }[],
+): { columns: string[]; rows: number[][] } | null {
+  const shops = stores.filter(s => !s.is_warehouse && lines.some(l => (l.plan[s.id] ?? 0) > 0))
+  if (shops.length === 0) return null
+  const rest = lines.map(l => Math.max(0, l.quantity - shops.reduce((n, s) => n + (l.plan[s.id] ?? 0), 0)))
+  const warehouse = stores.find(s => s.is_warehouse)?.name ?? 'Офис'
+  const withRest = rest.some(r => r > 0)
+  return {
+    columns: [...shops.map(s => s.name), ...(withRest ? [warehouse] : [])],
+    rows: lines.map((l, i) => [...shops.map(s => l.plan[s.id] ?? 0), ...(withRest ? [rest[i]] : [])]),
+  }
 }
 
 /** A barcode worth showing to a supplier: digits, and not one of our in-store 200–299 codes. */
@@ -122,6 +149,20 @@ export function orderText(doc: OrderDoc): string {
   })
   out.push('')
   out.push(`Общо: ${t.lines} ${productsWord(t.lines)}, ${t.units} бр.`)
+  if (doc.split) {
+    out.push('')
+    out.push('Моля, опаковайте отделно за всеки обект:')
+    doc.split.columns.forEach((col, c) => {
+      const items = doc.lines
+        .map(l => ({ name: l.name, qty: l.split?.[c] ?? 0 }))
+        .filter(x => x.qty > 0)
+      if (items.length === 0) return
+      const units = items.reduce((n, x) => n + x.qty, 0)
+      out.push('')
+      out.push(`${col} (${units} бр.):`)
+      for (const x of items) out.push(`- ${x.name} — ${x.qty} бр.`)
+    })
+  }
   if (doc.notes?.trim()) {
     out.push('')
     out.push(`Бележка: ${doc.notes.trim()}`)
@@ -155,22 +196,33 @@ export function orderHtml(doc: OrderDoc): string {
   const anyNote = doc.lines.some(l => l.note)
   const td = 'style="padding:6px 10px;border:1px solid #cbd5e1"'
   const th = 'style="padding:6px 10px;border:1px solid #cbd5e1;background:#f1f5f9;text-align:left"'
+  const cols = doc.split?.columns ?? []
   const rows = doc.lines
     .map((l, i) =>
       `<tr><td ${td}>${i + 1}</td><td ${td}>${escapeHtml(l.name)}</td>` +
       (anyCode ? `<td ${td}>${escapeHtml(l.barcode ?? '')}</td>` : '') +
+      cols.map((_, c) => `<td ${td} align="right">${l.split?.[c] ? l.split[c] : ''}</td>`).join('') +
       `<td ${td} align="right"><strong>${l.quantity}</strong></td>` +
       (anyNote ? `<td ${td}>${escapeHtml(l.note ?? '')}</td>` : '') +
       `</tr>`,
     )
     .join('')
+  const colTotals = cols.length
+    ? `<tr><td ${td}></td><td ${td}><strong>Общо</strong></td>${anyCode ? `<td ${td}></td>` : ''}` +
+      cols.map((_, c) => `<td ${td} align="right"><strong>${doc.lines.reduce((n, l) => n + (l.split?.[c] ?? 0), 0)}</strong></td>`).join('') +
+      `<td ${td} align="right"><strong>${t.units}</strong></td>${anyNote ? `<td ${td}></td>` : ''}</tr>`
+    : ''
   return [
     `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#0f172a">`,
     `<p>${escapeHtml(greeting(doc.contactName))}</p>`,
     `<p>Моля, подгответе и изпратете поръчка <strong>${formatOrderNumber(doc.number)}</strong>:</p>`,
+    cols.length ? `<p>Моля, опаковайте отделно за всеки обект: колко бройки за кой обект е в колоните.</p>` : '',
     `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse">`,
-    `<tr><th ${th}>№</th><th ${th}>Продукт</th>${anyCode ? `<th ${th}>Баркод</th>` : ''}<th ${th}>Брой</th>${anyNote ? `<th ${th}>Бележка</th>` : ''}</tr>`,
+    `<tr><th ${th}>№</th><th ${th}>Продукт</th>${anyCode ? `<th ${th}>Баркод</th>` : ''}` +
+      cols.map(c => `<th ${th}>${escapeHtml(c)}</th>`).join('') +
+      `<th ${th}>${cols.length ? 'Общо' : 'Брой'}</th>${anyNote ? `<th ${th}>Бележка</th>` : ''}</tr>`,
     rows,
+    colTotals,
     `</table>`,
     `<p>Общо: ${t.lines} ${productsWord(t.lines)}, ${t.units} бр.</p>`,
     doc.notes?.trim() ? `<p><strong>Бележка:</strong> ${nl2br(doc.notes.trim())}</p>` : '',

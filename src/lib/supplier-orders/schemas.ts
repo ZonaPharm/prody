@@ -5,10 +5,19 @@ import { isEmail } from './format'
 
 const id = z.guid('Невалиден идентификатор')
 
+/** Per-store split of a line; what is not listed stays in Офис. The supplier never sees it. */
+export const orderPlanSchema = z
+  .array(z.object({
+    store_id: id,
+    planned_qty: z.number().int('Бройките са цяло число').min(0).max(1_000_000),
+  }))
+  .max(100)
+
 export const orderLineSchema = z.object({
   product_id: id,
   quantity: z.number().int('Бройките са цяло число').min(1, 'Бройките са поне 1').max(1_000_000),
   note: z.string().trim().max(300).nullable().optional(),
+  plan: orderPlanSchema.optional(),
 })
 
 export const orderSaveSchema = z.object({
@@ -16,9 +25,19 @@ export const orderSaveSchema = z.object({
   expected_updated_at: z.iso.datetime({ offset: true }).nullable().optional(),
   supplier_id: id,
   notes: z.string().trim().max(2000).nullable().optional(),
+  share_plan: z.boolean().optional(),
   items: z.array(orderLineSchema).max(500, 'Най-много 500 реда в една поръчка'),
 })
 export type OrderSave = z.infer<typeof orderSaveSchema>
+
+/** Only the split, for a draft or a sent order (until the goods arrive). */
+export const orderPlanSaveSchema = z.object({
+  expected_updated_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  items: z.array(z.object({ product_id: id, plan: orderPlanSchema })).max(500).default([]),
+  /** Whether the supplier gets the split too; left out = unchanged. */
+  share_plan: z.boolean().optional(),
+}).refine(b => b.items.length > 0 || b.share_plan !== undefined, { message: 'Няма какво да се запише' })
+export type OrderPlanSave = z.infer<typeof orderPlanSaveSchema>
 
 export const orderSendSchema = z.object({
   via: z.enum(['email', 'manual']),

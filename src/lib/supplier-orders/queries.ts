@@ -1,6 +1,7 @@
 import { fetchAll, fetchByIds } from '@/lib/fetch-all'
 import { primaryImage } from '@/lib/deliveries/products'
 import { supplierForSource, type SupplierRef } from '@/lib/deliveries/suppliers'
+import { isMissingTableError } from '@/lib/missing-table'
 import type { OrderStatus } from './format'
 
 /**
@@ -96,7 +97,10 @@ export type OrderProduct = {
   image: string | null
 }
 
-export type OrderDetailLine = { product: OrderProduct; quantity: number; note: string | null }
+/** store_id → planned units; what is not here stays in Офис. */
+export type OrderPlan = Record<string, number>
+
+export type OrderDetailLine = { product: OrderProduct; quantity: number; note: string | null; plan: OrderPlan }
 
 export type OrderDetail = {
   id: string
@@ -117,6 +121,8 @@ export type OrderDetail = {
   delivery_status: string | null
   cancelled_at: string | null
   cancel_reason: string | null
+  /** The supplier gets the split per store too (e-mail, text, print). */
+  share_plan: boolean
   supplier: SupplierContact
   lines: OrderDetailLine[]
 }
@@ -150,6 +156,7 @@ export async function getOrderDetail(supabase: any, id: string): Promise<OrderDe
   if (error) throw error
   if (!o) return null
   const items = [...(o.items ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order)
+  const plans = await getOrderPlans(supabase, o.id)
   return {
     id: o.id,
     number: o.number,
@@ -169,9 +176,38 @@ export async function getOrderDetail(supabase: any, id: string): Promise<OrderDe
     delivery_status: o.delivery?.status ?? null,
     cancelled_at: o.cancelled_at,
     cancel_reason: o.cancel_reason,
+    share_plan: o.share_plan === true,
     supplier: toContact(o.supplier ?? { id: o.supplier_id, name: '—' }),
-    lines: items.map((i: any) => ({ product: toOrderProduct(i.product), quantity: i.quantity, note: i.note })),
+    lines: items.map((i: any) => ({
+      product: toOrderProduct(i.product),
+      quantity: i.quantity,
+      note: i.note,
+      plan: plans.get(i.product?.id) ?? {},
+    })),
   }
+}
+
+/**
+ * The split per store of each line of an order, by product. Empty while the
+ * migration 20261117_supplier_order_plan is not applied where this runs.
+ */
+export async function getOrderPlans(supabase: any, orderId: string): Promise<Map<string, OrderPlan>> {
+  const { data, error } = await supabase
+    .from('supplier_order_plan')
+    .select('product_id, store_id, planned_qty')
+    .eq('order_id', orderId)
+    .limit(5000)
+  const out = new Map<string, OrderPlan>()
+  if (error) {
+    if (!isMissingTableError(error)) throw error
+    return out
+  }
+  for (const r of data ?? []) {
+    const plan = out.get(r.product_id) ?? {}
+    plan[r.store_id] = r.planned_qty
+    out.set(r.product_id, plan)
+  }
+  return out
 }
 
 export type SupplierProduct = OrderProduct & {
