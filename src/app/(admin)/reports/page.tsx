@@ -9,6 +9,8 @@ import { Download, Building2, FileSpreadsheet, Loader2, Package, Boxes } from 'l
 import { PeriodDateInput } from '@/components/ui/period-date-input'
 import { formatDateBg } from '@/lib/date-input'
 import { sofiaToday, sofiaDaysAgo } from '@/lib/date-utils'
+import { StockMoneySection } from '@/components/reports/stock-money-section'
+import { SummaryCards, StoresTable, TopProfit, SellersCard, WhenCard } from '@/components/reports/sales-overview'
 
 function truncateName(name: string, max: number = 22): string {
   return name.length > max ? name.slice(0, max) + '...' : name
@@ -121,40 +123,21 @@ export default function ReportsPage() {
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Общо продажби</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.totalRevenue?.toFixed(0) || 0} €</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Брой продажби</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.totalCount || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Уникални продукти</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.uniqueProducts || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Среден чек</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.totalCount > 0 ? (data.totalRevenue / data.totalCount).toFixed(0) : '0'} €
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {data.summary ? (
+        <>
+          <SummaryCards summary={data.summary} previous={data.previous} />
+          <StoresTable summary={data.summary} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <SellersCard summary={data.summary} voided={data.voided} />
+            <WhenCard summary={data.summary} />
+          </div>
+        </>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue by Day */}
         <Card>
-          <CardHeader><CardTitle className="text-base">Приходи по дни</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Оборот и печалба по дни</CardTitle></CardHeader>
           <CardContent>
             {data.byDay?.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
@@ -162,8 +145,9 @@ export default function ReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sale_date" tick={{ fontSize: 12 }} tickFormatter={(d: string) => formatDateBg(d).slice(0, 5)} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v} €`} />
-                  <Tooltip labelFormatter={(d) => formatDateBg(String(d))} formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
-                  <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name="Приходи" strokeWidth={2} />
+                  <Tooltip labelFormatter={(d) => formatDateBg(String(d))} formatter={(v: any, name: any) => [`${Number(v).toFixed(0)} €`, name]} />
+                  <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name="Оборот" strokeWidth={2} />
+                  <Line type="monotone" dataKey="profit" stroke="#10b981" name="Печалба" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -171,6 +155,8 @@ export default function ReportsPage() {
             )}
           </CardContent>
         </Card>
+
+        {data.summary && <TopProfit summary={data.summary} />}
 
         {/* Top Products by Quantity */}
         <Card>
@@ -217,7 +203,7 @@ export default function ReportsPage() {
                     tick={{ fontSize: 11 }}
                     tickFormatter={(v) => truncateName(v, 24)}
                   />
-                  <Tooltip labelFormatter={(d) => formatDateBg(String(d))} formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
+                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Приходи']} />
                   <Bar dataKey="revenue" fill="#8b5cf6" name="Приходи" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -260,6 +246,8 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <StockMoneySection from={from} to={to} />
 
       {/* Export section */}
       <Card>
