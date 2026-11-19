@@ -10,7 +10,7 @@ import { Save, Send, Plus, X, Loader2 } from 'lucide-react'
 
 const DAYS = ['Неделя', 'Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота']
 const SECTIONS = [
-  { key: 'summary', label: 'Общо — оборот, брой продажби, среден чек' },
+  { key: 'summary', label: 'Общо — оборот и брой различни продукти' },
   { key: 'stores', label: 'По обекти — оборот по магазини' },
   { key: 'top-products', label: 'Топ продукти — най-продавани (брой)' },
   { key: 'top-revenue', label: 'Топ приходи — най-продавани (оборот)' },

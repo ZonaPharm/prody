@@ -51,22 +51,21 @@ export function SummaryCards({ summary, previous }: { summary: SalesSummary; pre
         <Figure title="Оборот" value={eur(t.revenue)}>
           <Change now={t.revenue} before={p.revenue} />
         </Figure>
-        <Figure title="Касови бележки" value={num(t.receipts)}>
-          <Meta>{num(t.units)} бр. продадени</Meta>
-          <Change now={t.receipts} before={p.receipts} />
-        </Figure>
-        <Figure title="Среден чек" value={eur(t.avgReceipt, 2)}>
-          <Change now={t.avgReceipt} before={p.avgReceipt} />
-        </Figure>
         <Figure title="Печалба" value={eur(t.profit)}>
           <Meta>марж {pctText(t.marginPct)}</Meta>
           <Change now={t.profit} before={p.profit} />
         </Figure>
+        <Figure title="Продадени бройки" value={num(t.units)}>
+          <Meta>{num(summary.uniqueProducts)} различни продукта</Meta>
+          <Change now={t.units} before={p.units} />
+        </Figure>
+        <Figure title="В брой" value={eur(summary.payment.cash)}>
+          <Meta>
+            с карта {eur(summary.payment.card)}
+            {summary.payment.other > 0 && <> · друго {eur(summary.payment.other)}</>}
+          </Meta>
+        </Figure>
       </div>
-      <Meta>
-        В брой {eur(summary.payment.cash)} · с карта {eur(summary.payment.card)}
-        {summary.payment.other > 0 && <> · друго {eur(summary.payment.other)}</>}
-      </Meta>
       <Meta>Сравнението е с {formatDateBg(previous.from)} – {formatDateBg(previous.to)}, същия брой дни преди периода.</Meta>
       {t.costCoverage != null && t.costCoverage < 100 && (
         <Note tone="info" small>
@@ -78,7 +77,7 @@ export function SummaryCards({ summary, previous }: { summary: SalesSummary; pre
   )
 }
 
-/** Per store: money, receipts, average, profit and cash/card. A table on a computer, cards on a phone. */
+/** Per store: money, profit and cash/card. A table on a computer, cards on a phone. */
 export function StoresTable({ summary }: { summary: SalesSummary }) {
   const rows = summary.byStore
   const t = summary.totals
@@ -99,8 +98,6 @@ export function StoresTable({ summary }: { summary: SalesSummary }) {
                     <span className="font-semibold tabular-nums">{eur(s.revenue)}</span>
                   </div>
                   <div className="mt-1 grid grid-cols-2 gap-x-3 text-xs text-slate-600">
-                    <span>{num(s.receipts)} бележки</span>
-                    <span className="text-right">среден чек {eur(s.avgReceipt, 2)}</span>
                     <span>печалба {eur(s.profit)}</span>
                     <span className="text-right">марж {pctText(s.marginPct)}</span>
                     <span>в брой {eur(s.payment.cash)}</span>
@@ -117,8 +114,6 @@ export function StoresTable({ summary }: { summary: SalesSummary }) {
                   <tr className="border-b text-left text-xs text-slate-500">
                     <th className="py-2 pr-3 font-medium">Обект</th>
                     <th className="py-2 px-3 text-right font-medium">Оборот</th>
-                    <th className="py-2 px-3 text-right font-medium">Бележки</th>
-                    <th className="py-2 px-3 text-right font-medium">Среден чек</th>
                     <th className="py-2 px-3 text-right font-medium">Печалба</th>
                     <th className="py-2 px-3 text-right font-medium">Марж</th>
                     <th className="py-2 px-3 text-right font-medium">В брой</th>
@@ -130,8 +125,6 @@ export function StoresTable({ summary }: { summary: SalesSummary }) {
                     <tr key={s.store_id} className="border-b last:border-0">
                       <td className="py-2 pr-3 font-medium text-slate-900">{s.store_name}</td>
                       <td className="py-2 px-3 text-right font-semibold">{eur(s.revenue)}</td>
-                      <td className="py-2 px-3 text-right">{num(s.receipts)}</td>
-                      <td className="py-2 px-3 text-right">{eur(s.avgReceipt, 2)}</td>
                       <td className="py-2 px-3 text-right">{eur(s.profit)}</td>
                       <td className="py-2 px-3 text-right">{pctText(s.marginPct)}</td>
                       <td className="py-2 px-3 text-right">{eur(s.payment.cash)}</td>
@@ -144,8 +137,6 @@ export function StoresTable({ summary }: { summary: SalesSummary }) {
                     <tr className="border-t-2 font-semibold">
                       <td className="py-2 pr-3">Общо</td>
                       <td className="py-2 px-3 text-right">{eur(t.revenue)}</td>
-                      <td className="py-2 px-3 text-right">{num(t.receipts)}</td>
-                      <td className="py-2 px-3 text-right">{eur(t.avgReceipt, 2)}</td>
                       <td className="py-2 px-3 text-right">{eur(t.profit)}</td>
                       <td className="py-2 px-3 text-right">{pctText(t.marginPct)}</td>
                       <td className="py-2 px-3 text-right">{eur(summary.payment.cash)}</td>
@@ -189,7 +180,7 @@ export function TopProfit({ summary }: { summary: SalesSummary }) {
   )
 }
 
-/** Per seller: takings, receipts, average receipt; and the voided sales of the period. */
+/** Per seller: takings and units sold; and the voided sales of the period. */
 export function SellersCard({ summary, voided }: { summary: SalesSummary; voided?: VoidedSummary }) {
   const rows = summary.bySeller
   const voidedBy = new Map((voided?.bySeller || []).map(v => [v.name, v]))
@@ -206,7 +197,7 @@ export function SellersCard({ summary, voided }: { summary: SalesSummary; voided
                   <div className="min-w-0">
                     <p className="font-medium text-slate-900 break-words">{r.name}</p>
                     <Meta>
-                      {num(r.receipts)} бележки · среден чек {eur(r.avgReceipt, 2)}
+                      {num(r.units)} бр. продадени
                       {v && <span className="text-red-700"> · анулирани {v.rows} за {eur(v.value, 2)}</span>}
                     </Meta>
                   </div>
@@ -237,7 +228,7 @@ export function WhenCard({ summary }: { summary: SalesSummary }) {
   const short = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
   const dayData = weekdays.map(d => ({ ...d, short: short[d.day] }))
   const best = [...weekdays].sort((a, b) => b.avgRevenue - a.avgRevenue)[0]
-  const busiest = [...hours].sort((a, b) => b.receipts - a.receipts)[0]
+  const busiest = [...hours].sort((a, b) => b.revenue - a.revenue)[0]
   const empty = hours.length === 0 && weekdays.every(d => d.revenue === 0)
   return (
     <Card data-testid="when-sold">
@@ -262,17 +253,17 @@ export function WhenCard({ summary }: { summary: SalesSummary }) {
             </div>
             {hours.length > 0 && (
               <div>
-                <Meta>Касови бележки по часове за целия период{busiest ? ` · най-много: ${busiest.hour}:00–${busiest.hour + 1}:00` : ''}</Meta>
+                <Meta>Оборот по часове за целия период{busiest ? ` · най-много: ${busiest.hour}:00–${busiest.hour + 1}:00` : ''}</Meta>
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={hours} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 11 }} width={48} allowDecimals={false} />
+                    <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v) => `${v} €`} />
                     <Tooltip
                       labelFormatter={(h: any) => `${h}:00–${Number(h) + 1}:00`}
-                      formatter={(v: any, _n: any, p: any) => [`${v} бележки, ${Number(p?.payload?.revenue ?? 0).toFixed(0)} €`, '']}
+                      formatter={(v: any) => [`${Number(v).toFixed(0)} €`, 'Оборот']}
                     />
-                    <Bar dataKey="receipts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
