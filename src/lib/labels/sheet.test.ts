@@ -13,8 +13,8 @@ describe('sheet', () => {
     expect(perSheet(DEFAULT_LAYOUT)).toBe(24)
   })
 
-  it('every preset from the maker numbers is centred on A4 (65 a sheet is measured, see below)', () => {
-    for (const { id, layout: l } of SHEET_PRESETS.filter(p => p.id !== '5x13')) {
+  it('every preset is centred on A4, so the outer columns sit the same way on both sides', () => {
+    for (const { id, layout: l } of SHEET_PRESETS) {
       const right = 210 - (l.left + l.cols * l.width + (l.cols - 1) * l.gapX)
       expect(Math.abs(right - l.left), id).toBeLessThan(0.11)
       const bottom = 297 - (l.top + l.rows * l.height + (l.rows - 1) * l.gapY)
@@ -36,11 +36,11 @@ describe('sheet', () => {
     }
   })
 
-  it('65 a sheet is the Office1 paper as measured: 38 mm step, no gap, first label 9 mm from the left', () => {
+  it('65 a sheet is the Office1 paper as measured: 38 mm step, no gap, first label 10 mm from the left', () => {
     const l = SHEET_PRESETS.find(p => p.id === '5x13')!.layout
-    expect(l).toMatchObject({ cols: 5, rows: 13, width: 38, height: 21.2, top: 10.7, left: 9, gapX: 0, gapY: 0 })
+    expect(l).toMatchObject({ cols: 5, rows: 13, width: 38, height: 21.2, top: 10.7, left: 10, gapX: 0, gapY: 0 })
     const lefts = Array.from({ length: l.cols }, (_, c) => l.left + c * (l.width + l.gapX))
-    expect(lefts).toEqual([9, 47, 85, 123, 161])
+    expect(lefts).toEqual([10, 48, 86, 124, 162])
   })
 
   describe('correctSpread', () => {
