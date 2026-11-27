@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { FileDown, Printer, Save, Trash2 } from 'lucide-react'
+import { CircleHelp, FileDown, Printer, Save, Trash2 } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { CALIBRATION_STEPS, SHEET_HELP, type HelpKey } from '@/lib/labels/sheet-help'
 import { formatMoney } from '@/lib/deliveries/format'
 import { Barcode } from '@/components/labels/barcode'
 import type { SheetProfile } from '@/lib/labels/profiles'
@@ -51,7 +53,7 @@ function remember(r: Remembered) {
   }
 }
 
-type Field = { key: keyof SheetLayout; label: string; step: number; min: number }
+type Field = { key: keyof SheetLayout & HelpKey; label: string; step: number; min: number }
 
 const FIELDS: Field[] = [
   { key: 'cols', label: 'Колони', step: 1, min: 1 },
@@ -218,9 +220,10 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
   }
 
   const input = (f: Field) => (
-    <label key={f.key} className="text-xs text-muted-foreground">
-      {f.label}
+    <div key={f.key} className="text-xs text-muted-foreground">
+      <FieldLabel htmlFor={`sheet-${f.key}`} help={f.key}>{f.label}</FieldLabel>
       <Input
+        id={`sheet-${f.key}`}
         type="number"
         step={f.step}
         min={f.min}
@@ -228,7 +231,7 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
         value={draft[f.key] ?? String(layout[f.key] ?? 0)}
         onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))}
       />
-    </label>
+    </div>
   )
 
   return (
@@ -286,7 +289,14 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
           </div>
 
           <div className="space-y-2">
-            <label className="block font-medium" htmlFor="sheet-profile">Лист (профил на хартията)</label>
+            <details className="rounded-md border bg-slate-50 p-2 text-xs">
+              <summary className="cursor-pointer font-medium">Как да нагласиш печата, ако бяга</summary>
+              <ol className="mt-1 list-decimal space-y-1 pl-4 text-muted-foreground">
+                {CALIBRATION_STEPS.map(s => <li key={s}>{s}</li>)}
+              </ol>
+              <p className="mt-1 text-muted-foreground">Натисни <CircleHelp className="inline h-3.5 w-3.5" aria-hidden /> до всяка настройка за обяснение и пример.</p>
+            </details>
+            <FieldLabel htmlFor="sheet-profile" help="profile" className="font-medium text-foreground">Лист (профил на хартията)</FieldLabel>
             <select id="sheet-profile" className="h-9 w-full rounded-md border border-input bg-white px-2" value={source ? selected : ''} onChange={e => choose(e.target.value)}>
               {!source && <option value="">Мой размер</option>}
               <optgroup label="Office1">
@@ -313,14 +323,14 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
               Средата остава, а разстоянието между етикетите се сменя.
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-muted-foreground">
-                Крайни колони навън, мм
-                <Input type="number" step={0.1} className="mt-0.5 h-8" placeholder="0" value={spread.x} disabled={sheet.cols < 2} onChange={e => setSpread(s => ({ ...s, x: e.target.value }))} />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                Горен и долен ред навън, мм
-                <Input type="number" step={0.1} className="mt-0.5 h-8" placeholder="0" value={spread.y} disabled={sheet.rows < 2} onChange={e => setSpread(s => ({ ...s, y: e.target.value }))} />
-              </label>
+              <div className="text-xs text-muted-foreground">
+                <FieldLabel htmlFor="sheet-spreadX" help="spreadX">Крайни колони навън, мм</FieldLabel>
+                <Input id="sheet-spreadX" type="number" step={0.1} className="mt-0.5 h-8" placeholder="0" value={spread.x} disabled={sheet.cols < 2} onChange={e => setSpread(s => ({ ...s, x: e.target.value }))} />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <FieldLabel htmlFor="sheet-spreadY" help="spreadY">Горен и долен ред навън, мм</FieldLabel>
+                <Input id="sheet-spreadY" type="number" step={0.1} className="mt-0.5 h-8" placeholder="0" value={spread.y} disabled={sheet.rows < 2} onChange={e => setSpread(s => ({ ...s, y: e.target.value }))} />
+              </div>
             </div>
             <Button size="sm" variant="outline" disabled={spreadNone || !!spreadError || !!error} onClick={applySpread}>Поправи</Button>
             {spreadError && <p className="text-xs text-red-600">{spreadError}</p>}
@@ -359,21 +369,23 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
             )}
           </div>
 
-          <label className="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
-            <input type="checkbox" className="mt-0.5" checked={testSheet} onChange={e => setTestSheet(e.target.checked)} />
-            <span>
+          <div className="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
+            <input id="sheet-test" type="checkbox" className="mt-0.5" checked={testSheet} onChange={e => setTestSheet(e.target.checked)} />
+            <label htmlFor="sheet-test" className="flex-1">
               <span className="font-medium">Пробен лист</span>: само рамки, номера и кръстче в средата на всеки етикет, без продукти.
               Печата се на обикновен лист и се слага върху листа с етикети срещу светлото, за да се види накъде бяга.
-            </span>
-          </label>
-          <label className="block text-xs text-muted-foreground">
-            Започни от етикет № (1 до {n}), ако листът е започнат
-            <Input type="number" min={1} max={n} className="mt-0.5 h-8 w-24" value={start} onChange={e => setStart(Math.max(1, Math.min(n, Number(e.target.value) || 1)))} />
-          </label>
-          <label className="flex items-center gap-2 text-xs">
-            <input type="checkbox" checked={outline} onChange={e => setOutline(e.target.checked)} />
-            Контур на етикетите и при печат (за проба на обикновен лист)
-          </label>
+            </label>
+            <HelpButton help="testSheet" />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <FieldLabel htmlFor="sheet-start" help="start">Започни от етикет № (1 до {n}), ако листът е започнат</FieldLabel>
+            <Input id="sheet-start" type="number" min={1} max={n} className="mt-0.5 h-8 w-24" value={start} onChange={e => setStart(Math.max(1, Math.min(n, Number(e.target.value) || 1)))} />
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <input id="sheet-outline" type="checkbox" checked={outline} onChange={e => setOutline(e.target.checked)} />
+            <label htmlFor="sheet-outline" className="flex-1">Контур на етикетите и при печат (за проба на обикновен лист)</label>
+            <HelpButton help="outline" />
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1 overflow-x-auto print:overflow-visible">
@@ -407,6 +419,35 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** A "?" that opens what a setting does and an example. Opens on tap, so it works on a phone too. */
+function HelpButton({ help }: { help: HelpKey }) {
+  const h = SHEET_HELP[help]
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label={`Какво е „${h.title}“`}>
+          <CircleHelp className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" collisionPadding={12} className="w-80 max-w-[calc(100vw-2rem)] space-y-2 text-sm">
+        <div className="font-semibold">{h.title}</div>
+        <p>{h.text}</p>
+        <p className="rounded-md bg-slate-50 p-2 text-slate-700"><span className="font-medium">Пример: </span>{h.example}</p>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** A field's label with its "?" beside it (the "?" sits outside the <label>, so a tap on it does not focus the field). */
+function FieldLabel({ htmlFor, help, className, children }: { htmlFor: string; help: HelpKey; className?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-1">
+      <label htmlFor={htmlFor} className={className}>{children}</label>
+      <HelpButton help={help} />
     </div>
   )
 }
