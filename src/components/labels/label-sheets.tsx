@@ -38,8 +38,15 @@ function loadRemembered(): Remembered | null {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const r = JSON.parse(raw) as Remembered
-    const layout = { ...DEFAULT_LAYOUT, ...r.layout }
-    return layoutError(layout) ? null : { selected: String(r.selected ?? ''), layout }
+    const selected = String(r.selected ?? '')
+    // A built-in sheet comes back with its numbers as they are in the code now (they can
+    // be corrected, like 65 a sheet on 27.11.2026); only this computer's offsets are kept.
+    // Other numbers of one's own belong in a saved profile.
+    const preset = SHEET_PRESETS.find(p => presetKey(p.id) === selected)
+    const layout = preset
+      ? { ...preset.layout, offsetX: Number(r.layout?.offsetX) || 0, offsetY: Number(r.layout?.offsetY) || 0 }
+      : { ...DEFAULT_LAYOUT, ...r.layout }
+    return layoutError(layout) ? null : { selected, layout }
   } catch {
     return null
   }
