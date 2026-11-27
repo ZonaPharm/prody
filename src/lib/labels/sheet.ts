@@ -23,15 +23,22 @@ export type SheetLayout = {
 
 export const A4 = { width: 210, height: 297 }
 
-/** The Office1 sheets used in the stores (24, 40, 44 and 65 a sheet), labels centred on A4. */
+/**
+ * The sheets sold by Office1 and used in the stores (21, 24, 40, 44 and 65 a sheet),
+ * labels centred on A4. 21 a sheet is Top Stick (HERMA) 63.5 × 38.1 mm: 3 × 7 labels,
+ * 2.5 mm between the columns, none between the rows, 15.15 mm at the top and bottom.
+ */
 export const SHEET_PRESETS: { id: string; name: string; layout: SheetLayout }[] = [
+  { id: '3x7', name: '21 на лист (63,5 × 38,1 мм)', layout: { cols: 3, rows: 7, width: 63.5, height: 38.1, top: 15.15, left: 7.25, gapX: 2.5, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '3x8', name: '24 на лист (70 × 37 мм)', layout: { cols: 3, rows: 8, width: 70, height: 37, top: 0.5, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '4x10', name: '40 на лист (52,5 × 29,7 мм)', layout: { cols: 4, rows: 10, width: 52.5, height: 29.7, top: 0, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '4x11', name: '44 на лист (48,5 × 25,4 мм)', layout: { cols: 4, rows: 11, width: 48.5, height: 25.4, top: 8.8, left: 8, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '5x13', name: '65 на лист (38,1 × 21,2 мм)', layout: { cols: 5, rows: 13, width: 38.1, height: 21.2, top: 10.7, left: 4.75, gapX: 2.5, gapY: 0, offsetX: 0, offsetY: 0 } },
 ]
 
-export const DEFAULT_LAYOUT: SheetLayout = SHEET_PRESETS[0].layout
+/** 24 a sheet, the one the stores use most. */
+export const DEFAULT_PRESET = SHEET_PRESETS.find(p => p.id === '3x8')!
+export const DEFAULT_LAYOUT: SheetLayout = DEFAULT_PRESET.layout
 
 export function perSheet(l: SheetLayout): number {
   return Math.max(1, Math.floor(l.cols) * Math.floor(l.rows))
@@ -50,6 +57,37 @@ export function layoutError(l: SheetLayout): string | null {
   if (w > A4.width + 0.01) return `Етикетите излизат извън листа: ${round(w)} мм на ширина, а A4 е ${A4.width} мм`
   if (h > A4.height + 0.01) return `Етикетите излизат извън листа: ${round(h)} мм на височина, а A4 е ${A4.height} мм`
   return null
+}
+
+const r2 = (n: number) => Math.round(n * 100) / 100
+
+/** One axis of correctSpread: n labels of `size` from `start`, `gap` between them. */
+function spreadAxis(n: number, size: number, gap: number, start: number, out: number) {
+  if (n < 2 || !Number.isFinite(out) || out === 0) return { size, gap, start }
+  // The outer labels are (n - 1) / 2 steps from the middle, so each step is off by this.
+  let newGap = gap - (2 * out) / (n - 1)
+  let newSize = size
+  if (newGap < 0) {
+    newSize = size + newGap
+    newGap = 0
+  }
+  const middle = start + (n * size + (n - 1) * gap) / 2
+  const newStart = middle - (n * newSize + (n - 1) * newGap) / 2
+  return { size: r2(newSize), gap: r2(newGap), start: r2(newStart) }
+}
+
+/**
+ * The fix for a print where the middle of the sheet lands on the labels but the
+ * outer ones drift: `outX` mm outward on the leftmost and rightmost columns
+ * (negative: inward), `outY` the same on the top and bottom rows. The step between
+ * the labels changes and the middle stays where it is: the gap changes first, and
+ * the label gets narrower only when there is no gap left. Check the result with
+ * layoutError: a big fix can push the labels off the sheet.
+ */
+export function correctSpread(l: SheetLayout, outX: number, outY: number): SheetLayout {
+  const x = spreadAxis(l.cols, l.width, l.gapX, l.left, outX)
+  const y = spreadAxis(l.rows, l.height, l.gapY, l.top, outY)
+  return { ...l, width: x.size, gapX: x.gap, left: x.start, height: y.size, gapY: y.gap, top: y.start }
 }
 
 function round(n: number): string {

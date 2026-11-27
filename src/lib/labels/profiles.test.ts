@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { layoutToRow, profileCreateSchema, profileFromRow, profileUpdateSchema } from './profiles'
 import { SHEET_PRESETS } from './sheet'
 
-const L = SHEET_PRESETS[0].layout
+const L = SHEET_PRESETS.find(p => p.id === '3x8')!.layout
 
 describe('label sheet profiles', () => {
   it('accepts a name and a layout that fits', () => {
@@ -33,7 +33,7 @@ describe('label sheet profiles', () => {
   })
 
   it('goes to a row and back unchanged', () => {
-    const l = { ...SHEET_PRESETS[3].layout, offsetX: 1.25, offsetY: -0.5 }
+    const l = { ...SHEET_PRESETS.find(p => p.id === '5x13')!.layout, offsetX: 1.25, offsetY: -0.5 }
     const row = layoutToRow(l)
     expect(row.left_mm).toBe(4.75)
     // numerics come back from PostgREST as text

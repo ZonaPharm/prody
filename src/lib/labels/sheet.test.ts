@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, plainText, type SheetLayout } from './sheet'
+import { DEFAULT_LAYOUT, SHEET_PRESETS, correctSpread, labelMetrics, layoutError, paginate, perSheet, plainText, type SheetLayout } from './sheet'
 
 const L: SheetLayout = { cols: 3, rows: 8, width: 70, height: 37, top: 0, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 }
 
@@ -8,8 +8,79 @@ describe('sheet', () => {
     for (const p of SHEET_PRESETS) expect(layoutError(p.layout), p.id).toBeNull()
   })
 
-  it('has the Office1 sheets: 24, 40, 44 and 65 a sheet', () => {
-    expect(SHEET_PRESETS.map(p => perSheet(p.layout))).toEqual([24, 40, 44, 65])
+  it('has the Office1 sheets: 21, 24, 40, 44 and 65 a sheet; 24 stays the default', () => {
+    expect(SHEET_PRESETS.map(p => perSheet(p.layout))).toEqual([21, 24, 40, 44, 65])
+    expect(perSheet(DEFAULT_LAYOUT)).toBe(24)
+  })
+
+  it('every preset is centred on A4, so the outer columns sit the same way on both sides', () => {
+    for (const { id, layout: l } of SHEET_PRESETS) {
+      const right = 210 - (l.left + l.cols * l.width + (l.cols - 1) * l.gapX)
+      expect(Math.abs(right - l.left), id).toBeLessThan(0.11)
+      const bottom = 297 - (l.top + l.rows * l.height + (l.rows - 1) * l.gapY)
+      expect(Math.abs(bottom - l.top), id).toBeLessThan(0.11)
+    }
+  })
+
+  it('21 a sheet is Top Stick 63.5 × 38.1 mm: 3 × 7, step 66 mm across and 38.1 mm down', () => {
+    const l = SHEET_PRESETS.find(p => p.id === '3x7')!.layout
+    expect(l).toMatchObject({ cols: 3, rows: 7, width: 63.5, height: 38.1, gapY: 0 })
+    expect(l.width + l.gapX).toBeCloseTo(66, 5)
+    expect(l.top).toBeCloseTo(15.15, 5)
+    expect(l.left).toBeCloseTo(7.25, 5)
+  })
+
+  describe('correctSpread', () => {
+    const p65 = SHEET_PRESETS.find(p => p.id === '5x13')!.layout
+    const xOf = (l: SheetLayout, c: number) => l.left + c * (l.width + l.gapX) + l.width / 2
+    const yOf = (l: SheetLayout, r: number) => l.top + r * (l.height + l.gapY) + l.height / 2
+
+    it('65 a sheet, outer columns 1 mm outward: smaller gap, middle column stays put', () => {
+      const f = correctSpread(p65, 1, 0)
+      expect(f.gapX).toBeCloseTo(2, 5)
+      expect(f.left).toBeCloseTo(5.75, 5)
+      expect(f.width).toBe(p65.width)
+      expect(xOf(f, 2)).toBeCloseTo(xOf(p65, 2), 5)
+      expect(xOf(f, 0)).toBeCloseTo(xOf(p65, 0) + 1, 5)
+      expect(xOf(f, 4)).toBeCloseTo(xOf(p65, 4) - 1, 5)
+      expect(f.top).toBe(p65.top)
+      expect(f.rows).toBe(p65.rows)
+      expect(layoutError(f)).toBeNull()
+    })
+
+    it('inward drift widens the gap', () => {
+      const f = correctSpread(p65, -0.5, 0)
+      expect(f.gapX).toBeCloseTo(2.75, 5)
+      expect(xOf(f, 0)).toBeCloseTo(xOf(p65, 0) - 0.5, 5)
+      expect(layoutError(f)).toBeNull()
+    })
+
+    it('without a gap the label gets narrower, keeping its middle in place', () => {
+      const f = correctSpread(DEFAULT_LAYOUT, 0.5, 0) // 24 a sheet: 3 × 70 mm, no gap
+      expect(f.gapX).toBe(0)
+      expect(f.width).toBeCloseTo(69.5, 5)
+      expect(xOf(f, 1)).toBeCloseTo(xOf(DEFAULT_LAYOUT, 1), 5)
+      expect(xOf(f, 2)).toBeCloseTo(xOf(DEFAULT_LAYOUT, 2) - 0.5, 5)
+    })
+
+    it('rows: 21 a sheet, top and bottom rows 1.5 mm outward', () => {
+      const p21 = SHEET_PRESETS.find(p => p.id === '3x7')!.layout
+      const f = correctSpread(p21, 0, 1.5)
+      expect(yOf(f, 3)).toBeCloseTo(yOf(p21, 3), 5)
+      expect(yOf(f, 0)).toBeCloseTo(yOf(p21, 0) + 1.5, 5)
+      expect(yOf(f, 6)).toBeCloseTo(yOf(p21, 6) - 1.5, 5)
+      expect(f.left).toBe(p21.left)
+    })
+
+    it('does nothing for 0, a single column, or no number', () => {
+      expect(correctSpread(p65, 0, 0)).toEqual(p65)
+      expect(correctSpread({ ...p65, cols: 1 }, 2, 0)).toEqual({ ...p65, cols: 1 })
+      expect(correctSpread(p65, NaN, 0)).toEqual(p65)
+    })
+
+    it('a fix too big shows up in layoutError', () => {
+      expect(layoutError(correctSpread(p65, -20, 0))).not.toBeNull()
+    })
   })
 
   it('sizes the label text: smaller on small labels, never below the floor', () => {
