@@ -36,11 +36,11 @@ describe('sheet', () => {
     }
   })
 
-  it('65 a sheet is the Office1 paper as measured: 38 mm step, no gap, first label 9 mm from the left', () => {
+  it('65 a sheet is the Office1 paper as measured: 38 mm step, no gap, first label 8 mm from the left', () => {
     const l = SHEET_PRESETS.find(p => p.id === '5x13')!.layout
-    expect(l).toMatchObject({ cols: 5, rows: 13, width: 38, height: 21.2, top: 10.7, left: 9, gapX: 0, gapY: 0 })
+    expect(l).toMatchObject({ cols: 5, rows: 13, width: 38, height: 21.2, top: 10.7, left: 8, gapX: 0, gapY: 0 })
     const lefts = Array.from({ length: l.cols }, (_, c) => l.left + c * (l.width + l.gapX))
-    expect(lefts).toEqual([9, 47, 85, 123, 161])
+    expect(lefts).toEqual([8, 46, 84, 122, 160])
   })
 
   describe('correctSpread', () => {
