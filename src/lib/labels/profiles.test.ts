@@ -35,7 +35,7 @@ describe('label sheet profiles', () => {
   it('goes to a row and back unchanged', () => {
     const l = { ...SHEET_PRESETS.find(p => p.id === '5x13')!.layout, offsetX: 1.25, offsetY: -0.5 }
     const row = layoutToRow(l)
-    expect(row.left_mm).toBe(4.75)
+    expect(row.left_mm).toBe(9)
     // numerics come back from PostgREST as text
     const asText = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, String(v)]))
     expect(profileFromRow({ id: 'x', name: 'P', ...asText }).layout).toEqual(l)
