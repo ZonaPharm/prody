@@ -7,7 +7,7 @@ import { FileDown, Printer, Save, Trash2 } from 'lucide-react'
 import { formatMoney } from '@/lib/deliveries/format'
 import { Barcode } from '@/components/labels/barcode'
 import type { SheetProfile } from '@/lib/labels/profiles'
-import { A4, DEFAULT_LAYOUT, LINE_HEIGHT, SHEET_PRESETS, labelMetrics, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
+import { A4, DEFAULT_LAYOUT, DEFAULT_PRESET, LINE_HEIGHT, SHEET_PRESETS, correctSpread, labelMetrics, layoutError, paginate, perSheet, type SheetLayout } from '@/lib/labels/sheet'
 
 export type PrintLabel = {
   key: string
@@ -29,7 +29,7 @@ type Remembered = { selected: string; layout: SheetLayout }
 
 const presetKey = (id: string) => `preset:${id}`
 const profileKey = (id: string) => `profile:${id}`
-const DEFAULT_SELECTED = presetKey(SHEET_PRESETS[0].id)
+const DEFAULT_SELECTED = presetKey(DEFAULT_PRESET.id)
 
 function loadRemembered(): Remembered | null {
   try {
@@ -99,6 +99,10 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
   const [counts, setCounts] = useState<Record<string, number>>(() => Object.fromEntries(labels.map(l => [l.key, l.count])))
   const [start, setStart] = useState(1)
   const [outline, setOutline] = useState(false)
+  /** A test sheet: every cell numbered and marked, no products. */
+  const [testSheet, setTestSheet] = useState(false)
+  /** How far the outer columns / rows print off, mm (outward +, inward −). */
+  const [spread, setSpread] = useState({ x: '', y: '' })
   const [pdfHint, setPdfHint] = useState(false)
   const [newName, setNewName] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -196,7 +200,22 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
     return out
   }, [labels, counts])
   const n = perSheet(sheet)
-  const pages = paginate(list, sheet, Math.min(start, n))
+  const pages: (PrintLabel | null)[][] = testSheet ? [Array<null>(n).fill(null)] : paginate(list, sheet, Math.min(start, n))
+  const canPrint = testSheet || list.length > 0
+
+  const num = (v: string) => {
+    const t = v.trim().replace(',', '.')
+    return t === '' || t === '-' ? 0 : Number(t)
+  }
+  const spreadFix = correctSpread(sheet, num(spread.x), num(spread.y))
+  const spreadNone = num(spread.x) === 0 && num(spread.y) === 0
+  const spreadError = spreadNone ? null : layoutError(spreadFix)
+  function applySpread() {
+    if (spreadNone || spreadError) return
+    setDraft(draftOf(spreadFix))
+    setSpread({ x: '', y: '' })
+    setMessage({ ok: true, text: 'Разстоянията са поправени. Пусни пробен лист и, ако е добре, запази като профил.' })
+  }
 
   const input = (f: Field) => (
     <label key={f.key} className="text-xs text-muted-foreground">
@@ -227,16 +246,18 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
         <aside className="w-full shrink-0 space-y-4 rounded-lg border bg-white p-4 text-sm lg:sticky lg:top-4 lg:w-80 print:hidden">
           <h1 className="text-base font-semibold">Печат на етикети</h1>
           <p className="text-muted-foreground">
-            {list.length} {list.length === 1 ? 'етикет' : 'етикета'} на {pages.length} {pages.length === 1 ? 'лист' : 'листа'}.
+            {testSheet
+              ? `Пробен лист: ${n} номерирани рамки с кръстче в средата.`
+              : `${list.length} ${list.length === 1 ? 'етикет' : 'етикета'} на ${pages.length} ${pages.length === 1 ? 'лист' : 'листа'}.`}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Button onClick={() => { setPdfHint(false); window.print() }} disabled={list.length === 0}><Printer className="mr-2 h-4 w-4" />Печат</Button>
-            <Button variant="outline" onClick={() => { setPdfHint(true); window.print() }} disabled={list.length === 0}><FileDown className="mr-2 h-4 w-4" />PDF</Button>
+            <Button onClick={() => { setPdfHint(false); window.print() }} disabled={!canPrint}><Printer className="mr-2 h-4 w-4" />Печат</Button>
+            <Button variant="outline" onClick={() => { setPdfHint(true); window.print() }} disabled={!canPrint}><FileDown className="mr-2 h-4 w-4" />PDF</Button>
           </div>
           <p className={pdfHint ? 'rounded-md bg-amber-50 p-2 text-amber-900' : 'text-muted-foreground'}>
             {pdfHint
-              ? 'В прозореца за печат избери принтер „Запази като PDF“ (Save as PDF), полета „Няма“ и мащаб 100 %.'
-              : 'В прозореца за печат избери полета „Няма“ и мащаб 100 %. За PDF файл избери „Запази като PDF“.'}
+              ? 'В прозореца за печат избери принтер „Запази като PDF“ (Save as PDF), полета „Няма“ и мащаб 100 %. PDF-а печатай с „Действителен размер“, не „Побери“.'
+              : 'В прозореца за печат избери полета „Няма“ и мащаб 100 % (не „Побери в страницата“). За PDF файл избери „Запази като PDF“.'}
           </p>
 
           <div className="space-y-2">
@@ -285,6 +306,24 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
               Ако принтерът печата разместено: плюс мести всичко надясно или надолу, минус наляво или нагоре.
             </p>
             <div className="grid grid-cols-2 gap-2">{OFFSET_FIELDS.map(input)}</div>
+
+            <div className="pt-1 font-medium">Средата е на място, краищата бягат</div>
+            <p className="text-xs text-muted-foreground">
+              Ако средната колона е в етикета, а левите бягат наляво и десните надясно, напиши с колко мм бягат крайните (навътре: с минус) и натисни „Поправи“.
+              Средата остава, а разстоянието между етикетите се сменя.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-muted-foreground">
+                Крайни колони навън, мм
+                <Input type="number" step={0.1} className="mt-0.5 h-8" placeholder="0" value={spread.x} disabled={sheet.cols < 2} onChange={e => setSpread(s => ({ ...s, x: e.target.value }))} />
+              </label>
+              <label className="text-xs text-muted-foreground">
+                Горен и долен ред навън, мм
+                <Input type="number" step={0.1} className="mt-0.5 h-8" placeholder="0" value={spread.y} disabled={sheet.rows < 2} onChange={e => setSpread(s => ({ ...s, y: e.target.value }))} />
+              </label>
+            </div>
+            <Button size="sm" variant="outline" disabled={spreadNone || !!spreadError || !!error} onClick={applySpread}>Поправи</Button>
+            {spreadError && <p className="text-xs text-red-600">{spreadError}</p>}
             {error && <p className="text-xs text-red-600">{error}</p>}
 
             {profilesReady ? (
@@ -320,6 +359,13 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
             )}
           </div>
 
+          <label className="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
+            <input type="checkbox" className="mt-0.5" checked={testSheet} onChange={e => setTestSheet(e.target.checked)} />
+            <span>
+              <span className="font-medium">Пробен лист</span>: само рамки, номера и кръстче в средата на всеки етикет, без продукти.
+              Печата се на обикновен лист и се слага върху листа с етикети срещу светлото, за да се види накъде бяга.
+            </span>
+          </label>
           <label className="block text-xs text-muted-foreground">
             Започни от етикет № (1 до {n}), ако листът е започнат
             <Input type="number" min={1} max={n} className="mt-0.5 h-8 w-24" value={start} onChange={e => setStart(Math.max(1, Math.min(n, Number(e.target.value) || 1)))} />
@@ -331,7 +377,7 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
         </aside>
 
         <div className="min-w-0 flex-1 overflow-x-auto print:overflow-visible">
-          {pages.length === 0 && <p className="rounded-lg border bg-white p-6 text-sm text-muted-foreground print:hidden">Няма етикети за печат: сложи брой поне на един ред.</p>}
+          {pages.length === 0 && !testSheet && <p className="rounded-lg border bg-white p-6 text-sm text-muted-foreground print:hidden">Няма етикети за печат: сложи брой поне на един ред.</p>}
           {pages.map((cells, pi) => (
             <div
               key={pi}
@@ -344,7 +390,7 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
                 return (
                   <div
                     key={ci}
-                    className={outline ? 'outline outline-1 outline-slate-300' : 'outline outline-1 outline-dashed outline-slate-200 print:outline-none'}
+                    className={testSheet ? 'outline outline-1 outline-black' : outline ? 'outline outline-1 outline-slate-300' : 'outline outline-1 outline-dashed outline-slate-200 print:outline-none'}
                     style={{
                       position: 'absolute',
                       left: `${sheet.left + (sheet.offsetX ?? 0) + c * (sheet.width + sheet.gapX)}mm`,
@@ -353,7 +399,7 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
                       height: `${sheet.height}mm`,
                     }}
                   >
-                    {l && <LabelFace label={l} width={sheet.width} height={sheet.height} />}
+                    {testSheet ? <TestFace n={ci + 1} /> : l && <LabelFace label={l} width={sheet.width} height={sheet.height} />}
                   </div>
                 )
               })}
@@ -361,6 +407,17 @@ export function LabelSheets({ labels, initialProfiles, profilesReady }: {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** A cell of the test sheet: its number and a cross on its middle. */
+function TestFace({ n }: { n: number }) {
+  return (
+    <div className="relative h-full w-full text-black" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+      <div className="absolute left-1/2 top-1/2 bg-black" style={{ width: '6mm', height: '0.2mm', transform: 'translate(-50%, -50%)' }} />
+      <div className="absolute left-1/2 top-1/2 bg-black" style={{ width: '0.2mm', height: '6mm', transform: 'translate(-50%, -50%)' }} />
+      <div className="absolute" style={{ left: '1mm', top: '0.8mm', fontSize: '7pt', lineHeight: 1 }}>{n}</div>
     </div>
   )
 }
