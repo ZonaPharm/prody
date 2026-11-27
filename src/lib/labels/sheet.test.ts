@@ -13,20 +13,19 @@ describe('sheet', () => {
     expect(perSheet(DEFAULT_LAYOUT)).toBe(24)
   })
 
-  it('every preset from the maker numbers is centred on A4 (65 a sheet is measured, see below)', () => {
-    for (const { id, layout: l } of SHEET_PRESETS.filter(p => p.id !== '5x13')) {
-      const right = 210 - (l.left + l.cols * l.width + (l.cols - 1) * l.gapX)
-      expect(Math.abs(right - l.left), id).toBeLessThan(0.11)
-      const bottom = 297 - (l.top + l.rows * l.height + (l.rows - 1) * l.gapY)
-      expect(Math.abs(bottom - l.top), id).toBeLessThan(0.11)
+  it('the first column starts 8 mm from the left, except on the sheets as wide as A4 (24 and 40)', () => {
+    for (const { id, layout: l } of SHEET_PRESETS) {
+      const full = l.cols * l.width + (l.cols - 1) * l.gapX
+      expect(l.left, id).toBe(full >= 210 - 0.01 ? 0 : 8)
     }
+    expect(SHEET_PRESETS.filter(p => p.layout.left === 0).map(p => p.id)).toEqual(['3x8', '4x10'])
   })
 
-  it('21 a sheet is Top Stick 63.5 × 38.1 mm: 3 × 7, side by side, centred', () => {
+  it('21 a sheet is Top Stick 63.5 × 38.1 mm: 3 × 7, side by side, 8 mm from the left', () => {
     const l = SHEET_PRESETS.find(p => p.id === '3x7')!.layout
     expect(l).toMatchObject({ cols: 3, rows: 7, width: 63.5, height: 38.1, gapX: 0, gapY: 0 })
     expect(l.top).toBeCloseTo(15.15, 5)
-    expect(l.left).toBeCloseTo(9.75, 5)
+    expect(l.left).toBe(8)
   })
 
   it('no built-in sheet has a gap between the labels (none of the papers in the stores has one)', () => {
