@@ -24,15 +24,17 @@ export type SheetLayout = {
 export const A4 = { width: 210, height: 297 }
 
 /**
- * The sheets sold by Office1 and used in the stores (21, 24, 40, 44 and 65 a sheet),
- * labels centred on A4. 21 a sheet is Top Stick (HERMA) 63.5 × 38.1 mm: 3 × 7 labels,
- * side by side with no gap (like every sheet the stores use), 15.15 mm at the top and bottom.
+ * The sheets sold by Office1 and used in the stores (21, 24, 40, 44 and 65 a sheet).
+ * None has a gap between the labels, and the first column starts 8 mm from the left edge,
+ * as on the 65 sheet after a test print on 27.11.2026, except 24 and 40 a sheet, whose
+ * labels take the whole width of A4 (210 mm), so they start at 0.
+ * 21 a sheet is Top Stick (HERMA) 63.5 × 38.1 mm: 3 × 7 labels, 15.15 mm at the top.
  * 65 a sheet is the Office1 paper as measured on 27.11.2026: labels side by side every
  * 38 mm with no gap, the first 8 mm from the left edge (measured 9, then 1 mm left after a test
  * print), not the 2.5 mm gap of Avery L7651.
  */
 export const SHEET_PRESETS: { id: string; name: string; layout: SheetLayout }[] = [
-  { id: '3x7', name: '21 на лист (63,5 × 38,1 мм)', layout: { cols: 3, rows: 7, width: 63.5, height: 38.1, top: 15.15, left: 9.75, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
+  { id: '3x7', name: '21 на лист (63,5 × 38,1 мм)', layout: { cols: 3, rows: 7, width: 63.5, height: 38.1, top: 15.15, left: 8, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '3x8', name: '24 на лист (70 × 37 мм)', layout: { cols: 3, rows: 8, width: 70, height: 37, top: 0.5, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '4x10', name: '40 на лист (52,5 × 29,7 мм)', layout: { cols: 4, rows: 10, width: 52.5, height: 29.7, top: 0, left: 0, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
   { id: '4x11', name: '44 на лист (48,5 × 25,4 мм)', layout: { cols: 4, rows: 11, width: 48.5, height: 25.4, top: 8.8, left: 8, gapX: 0, gapY: 0, offsetX: 0, offsetY: 0 } },
