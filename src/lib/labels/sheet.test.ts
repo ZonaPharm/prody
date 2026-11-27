@@ -22,12 +22,18 @@ describe('sheet', () => {
     }
   })
 
-  it('21 a sheet is Top Stick 63.5 × 38.1 mm: 3 × 7, step 66 mm across and 38.1 mm down', () => {
+  it('21 a sheet is Top Stick 63.5 × 38.1 mm: 3 × 7, side by side, centred', () => {
     const l = SHEET_PRESETS.find(p => p.id === '3x7')!.layout
-    expect(l).toMatchObject({ cols: 3, rows: 7, width: 63.5, height: 38.1, gapY: 0 })
-    expect(l.width + l.gapX).toBeCloseTo(66, 5)
+    expect(l).toMatchObject({ cols: 3, rows: 7, width: 63.5, height: 38.1, gapX: 0, gapY: 0 })
     expect(l.top).toBeCloseTo(15.15, 5)
-    expect(l.left).toBeCloseTo(7.25, 5)
+    expect(l.left).toBeCloseTo(9.75, 5)
+  })
+
+  it('no built-in sheet has a gap between the labels (none of the papers in the stores has one)', () => {
+    for (const p of SHEET_PRESETS) {
+      expect(p.layout.gapX, p.id).toBe(0)
+      expect(p.layout.gapY, p.id).toBe(0)
+    }
   })
 
   it('65 a sheet is the Office1 paper as measured: 38 mm step, no gap, first label 9 mm from the left', () => {
